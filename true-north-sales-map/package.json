@@ -1,0 +1,7 @@
+{
+  "name":"true-north-sales-map-command-center",
+  "private":true,
+  "type":"module",
+  "version":"2.0.0",
+  "scripts":{"start":"python -m http.server 4173"}
+}

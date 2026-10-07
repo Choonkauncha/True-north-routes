@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const leads=JSON.parse(fs.readFileSync(new URL('../data/leads.json',import.meta.url)));
+const manifest=JSON.parse(fs.readFileSync(new URL('../data/manifest.json',import.meta.url)));
+assert.equal(leads.length,12410);
+assert.equal(manifest.totalRecords,12410);
+assert.equal(manifest.csvRecords,1100);
+assert.equal(manifest.knoxRecords,11310);
+const knox=leads.filter(x=>x.source==='Knox Owner-Occupied');
+assert.equal(knox.length,11310);
+const cities=new Map();for(const l of knox)cities.set(l.city,(cities.get(l.city)||0)+1);
+const expected={Bellville:62,Bladensburg:21,Brinkhaven:25,Butler:96,Centerburg:1027,Danville:342,Frazeysburg:34,Fredericktown:1368,Gambier:299,Glenmont:16,Howard:1794,Loudonville:3,Martinsburg:31,'Mount Liberty':9,'Mount Vernon':5942,Utica:196,Walhonding:43,Warsaw:2};
+assert.deepEqual(Object.fromEntries(cities),expected);
+console.log('OK: 12,410 records + Knox territory counts validated');

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>True North — Roofing Canvasser Command Center</title>
+<link rel="preconnect" href="https://unpkg.com"><link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="appShell">
+<header class="topbar">
+  <div class="brand"><div class="logoMark" aria-label="True North compass mark"><span class="compassNorth">N</span><span class="compassNeedle"></span><span class="compassCenter"></span></div><div><div class="brandName">TRUE NORTH <span>RESTORATIONS</span></div><div class="brandSub">FIELD COMMAND CENTER · KNOX COUNTY, OHIO</div></div></div>
+  <div class="topRight"><span id="connection" class="chip">STARTING…</span><button id="locateBtn" class="ghostBtn">My location</button><span id="datasetCount" class="datasetCount"></span><button id="focusBtn" class="ghostBtn">Focus map</button><button id="nextBtn" class="ghostBtn">Next house <kbd>N</kbd></button><button id="routeBtn" class="primaryBtn">Route <span id="selectedCount">0</span> <kbd>R</kbd></button><button id="adminBtn" class="adminBtn hidden">Admin</button><div id="userMenu" class="userMenu hidden"><span id="userIdentity"></span><button id="logoutBtn">Sign out</button></div></div>
+</header>
+<div id="cloudNotice" class="cloudNotice hidden"></div>
+<section class="mapShell">
+  <div class="mapCanvas"><div id="map"></div>
+    <div class="mapTopOverlay"><div class="mapSearch"><span>⌕</span><input id="search" aria-label="Search leads" placeholder="Search house, owner, street, ZIP, record…"><div class="searchHint"><kbd>/</kbd></div></div><button id="fitBtn" class="mapControl">Fit leads</button><button id="layerBtn" class="mapControl">Layers ▾</button><div id="layerMenu" class="layerMenu">
+      <label><input type="checkbox" data-layer="pins" checked> House pins</label>
+      <label><input type="checkbox" data-layer="territories" checked> Territory ownership</label>
+      <label><input type="checkbox" data-layer="opportunity" checked> Opportunity heat</label>
+      <label><input type="checkbox" data-layer="density"> Lead density</label>
+      <label><input type="checkbox" data-layer="roofAge"> Roof-age proxy</label>
+      <label><input type="checkbox" data-layer="storms"> Active storm alerts</label>
+    </div></div>
+    <div class="mapHud"><div class="hudTitle">FIELD BOARD <span>INSPECT HONESTLY · DOCUMENT CLEARLY · EARN THE JOB</span></div><div id="stats" class="stats"></div><div class="hudProgress"><div><b id="todayWorked">0</b><span>worked today</span></div><div><b id="todayAppts">0</b><span>appointments</span></div><div><b id="highPriorityCount">0</b><span>high priority</span></div></div></div>
+    <div class="mapLegend"><span><i class="legendPin pinNew"></i>Opportunity</span><span><i class="legendPin pinAppt"></i>Appointment</span><span><i class="legendPin pinInterested"></i>Interested</span><span><i class="legendPin pinSelected"></i>Selected</span></div>
+  </div>
+  <aside class="sidePanel">
+    <div class="filterBar">
+      <select id="territoryFilter"><option value="">All territories</option></select><select id="repFilter"><option value="">All reps</option></select>
+      <select id="statusFilter"><option value="">All statuses</option><option>New</option><option>Knocked</option><option>No Answer</option><option>Interested</option><option>Appointment</option><option>Not Interested</option><option>Do Not Knock</option></select>
+      <select id="sourceFilter"><option value="">All sources</option></select>
+      <label class="mine"><input id="mineToggle" type="checkbox"> My territory</label><button id="clearBtn" class="iconBtn">Reset</button>
+    </div>
+    <div class="tabs"><button id="tabWork" class="tab active">Work <span id="workCount">0</span></button><button id="tabHandoffs" class="tab">Handoffs <span id="handoffCount">0</span></button><button id="tabTeam" class="tab">Team <span id="teamCount">0</span></button></div>
+    <section id="workPanel" class="tabPanel"><div class="nextCard"><div><div class="eyebrow">AUTO-PRIORITIZED</div><strong>Next best house</strong><p>Uses lead status, source priority, property age, verified roof age, territory ownership, and distance.</p></div><button id="nextCardBtn">Go →</button></div><div id="workList" class="scrollList"></div></section>
+    <section id="handoffPanel" class="tabPanel hidden"><div class="panelIntro"><b>Sales handoff queue</b><span>Booked appointments stay visible to the whole team.</span></div><div id="handoffList" class="scrollList"></div></section>
+    <section id="teamPanel" class="tabPanel hidden"><div class="panelIntro"><b>7-day leaderboard</b><span>Based on recorded field activity.</span></div><div id="teamList" class="scrollList"></div></section>
+</aside>
+<div id="routeTray" class="routeTray hidden"><div><strong><span id="routeTrayCount">0</span> houses queued</strong><span>Select homes, then build an optimized route.</span></div><button id="routeTrayBtn">Build route →</button></div>
+</section>
+</div>
+
+<div id="drawer" class="drawer hidden"><div class="drawerCard"><button class="closeBtn" id="closeDrawer" aria-label="Close lead">×</button><div id="drawerContent"></div></div></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="mobileBar" class="mobileBar"><button id="mobileNext">Next</button><button id="mobileRoute">Route <span id="mobileRouteCount">0</span></button><button id="mobileLocate">Locate</button></div>
+
+<div id="routePanel" class="modalOverlay hidden"><div class="modalCard routeCard"><button class="closeBtn" id="closeRoute">×</button><div class="eyebrow">ROUTE BUILDER</div><h2>Turn selected houses into a route.</h2><p class="muted">The optimizer orders all mapped selections. Google Maps opens in navigation-sized blocks after the route is built.</p><div class="routeControls"><label>Travel mode<select id="routeMode"><option value="driving">Drive</option><option value="walking">Walk</option></select></label><label>Max stops<input id="routeCount" type="range" min="5" max="80" value="25"><span id="routeCountValue">25</span></label></div><div class="routeSummary"><span><b id="selectedCountRoute">0</b> selected</span><span id="routeDistance"></span><span id="routeWarning"></span></div><div id="routeStops" class="routeStops"></div><div class="modalActions"><button id="optimizeRouteBtn" class="darkBtn">Optimize route</button><button id="openGoogleRouteBtn" class="outlineBtn">Open in Google Maps</button></div></div></div>
+
+<div id="appointmentModal" class="modalOverlay hidden"><div class="modalCard appointmentCard"><button class="closeBtn" id="closeAppointment">×</button><div class="eyebrow">APPOINTMENT HANDOFF</div><h2 id="appointmentTitle">Book appointment</h2><form id="appointmentForm"><input type="hidden" id="appId"><input type="hidden" id="appLeadId"><label>Date & time<input id="appScheduled" type="datetime-local" required></label><label>Salesperson<select id="appSalesperson"></select></label><label>Stage<select id="appStage"> <option>Scheduled</option><option>Confirmed</option><option>Completed</option><option>No-show</option><option>Cancelled</option></select></label><label>Handoff notes<textarea id="appNotes" placeholder="What the salesperson needs to know before arrival…"></textarea></label><div class="modalActions"><button type="button" id="copyHandoffBtn" class="outlineBtn">Copy handoff</button><button type="submit" class="darkBtn">Save handoff</button></div></form></div></div>
+
+<div id="adminModal" class="modalOverlay hidden"><div class="modalCard adminCard"><button class="closeBtn" id="closeAdmin">×</button><div class="eyebrow">ADMIN / MANAGER</div><h2>Command center setup</h2><p id="adminCloudStatus" class="muted"></p><div class="adminMetrics"><div><b id="adminLeadCount">0</b><span>leads</span></div><div><b id="adminMappedCount">0</b><span>mapped</span></div><div><b id="adminTerritoryCount">0</b><span>territories</span></div></div><div class="adminActions"><button id="adminImportBtn">Initialize cloud data</button><button id="adminTerritoryBtn">Initialize territories</button><button id="adminGeocodeBtn">Geocode missing house pins</button><button id="adminStormBtn">Load active storm alerts</button><button id="adminExportBtn">Export lead state</button></div><div class="progressWrap"><div id="adminProgress" class="progressBar"></div></div><small id="adminProgressLabel">Ready</small><div class="adminSection"><div class="sectionTitle">Territory ownership</div><div id="territoryAdmin" class="territoryAdmin"></div></div></div></div>
+
+<div id="loginModal" class="modalOverlay hidden"><div class="modalCard loginCard"><div class="logoMark big"><span class="compassNorth">N</span><span class="compassNeedle"></span><span class="compassCenter"></span></div><div class="eyebrow">TRUE NORTH RESTORATIONS</div><h2>Field command center</h2><p class="muted">Sign in for shared live lead status, rep ownership, appointments, and team metrics.</p><form id="loginForm"><label>Email<input id="loginEmail" type="email" autocomplete="email" required></label><label>Password<input id="loginPassword" type="password" autocomplete="current-password" required></label><button type="submit" class="darkBtn">Sign in</button></form><div id="loginError" class="error"></div><button id="localModeBtn" class="textBtn">Use local test mode</button></div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin=""></script>
+<script type="module" src="/app.js"></script>
+</body></html>
