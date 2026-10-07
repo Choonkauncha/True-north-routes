@@ -61,7 +61,7 @@ function bindStaticEvents(){
   $('tabWork').onclick=()=>switchTab('work');
   $('tabHandoffs').onclick=()=>switchTab('handoffs');
   $('tabTeam').onclick=()=>switchTab('team');
-  $('adminBtn').onclick=openAdmin;
+  $('adminBtn').onclick=(e)=>{ if(state.currentRep?.role==='admin'||state.currentRep?.role==='manager') return; e.preventDefault(); };
   $('locateBtn').onclick=locate;
   $('clearBtn').onclick=()=>{['search','statusFilter','repFilter','territoryFilter','sourceFilter'].forEach(id=>$(id).value='');$('mineToggle').checked=false;syncFilters();renderAll()};
   $('search').addEventListener('input',debounce(()=>{syncFilters();renderAll()},120));
@@ -111,7 +111,7 @@ async function enterCloud(session){
   $('cloudNotice').classList.add('hidden');
   try{
     await loadCloudData();
-    $('adminBtn').classList.toggle('hidden',state.currentRep?.role!=='admin' && state.currentRep?.role!=='manager');
+    const adminAllowed=!state.config?.adminEmails?.length || state.config.adminEmails.includes(String(session.user.email||'').toLowerCase()); $('adminBtn').classList.toggle('hidden',!(adminAllowed && (state.currentRep?.role==='admin'||state.currentRep?.role==='manager')));
     initMapOnce(); buildFilters(); renderAll(); startRealtime();
   }catch(e){console.error(e);enterLocal(`Cloud connection failed: ${e.message}`)}
 }
@@ -375,7 +375,7 @@ function openLead(id){
     <button id="saveLeadBtn" class="saveBtn">Save field result</button>
     <div class="drawerSection"><div class="sectionTitle">Appointment handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">Edit handoff</button></div>`:`<button id="bookApptBtn" class="outlineBtn">Book / hand off this lead</button>`}</div>`;
   $('drawer').classList.remove('hidden');
-  $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l);
+  $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l); $('drawerSetter').onclick=()=>{location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`};
   $('drawer').querySelectorAll('[data-qstatus]').forEach(btn=>btn.onclick=()=>quickStatus(l.id,btn.dataset.qstatus,true));
   $('saveLeadBtn').onclick=()=>saveLead(l);
   $('bookApptBtn')?.addEventListener('click',()=>openAppointmentForm(l));

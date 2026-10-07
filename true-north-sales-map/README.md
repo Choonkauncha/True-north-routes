@@ -57,3 +57,28 @@ npm start
 Open http://localhost:4173
 
 Cloud mode requires the Vercel environment variables. Without them, the app loads the supplied source data in local-device mode.
+
+
+## v2.2 management / homeowner workflows
+
+### New surfaces
+- `/` — field map / canvasser command center.
+- `/setter.html` or `/setter` — authenticated Appointment Setter intake and clean inspection handoff.
+- `/homeowner.html` or `/homeowner` — public homeowner inspection request form.
+- `/admin.html` or `/admin` — gated management dashboard for approved admin/manager users.
+
+### Admin access
+Admin access is enforced by Supabase Auth plus an allow-list returned by `/api/config`, and then checked against an active `public.reps` profile with role `admin` or `manager`. The two approved email addresses requested for the project are included as the default allow-list values in `ADMIN_EMAILS`. **Do not put the password in source control.** Create the two Supabase Auth users with the password provided by management, then attach their user IDs to `public.reps` with role `admin`.
+
+### Homeowner form
+The public form submits through `POST /api/homeowner-signup`. The Vercel function writes a lead + homeowner intake + activity record using the server-only `SUPABASE_SECRET_KEY`, so the public browser never receives the secret key and does not need direct write access to the shared CRM tables.
+
+### Setter workflow
+Appointment setters sign in, record the homeowner and property information, capture what the homeowner actually said, schedule a specific inspection, select the salesperson, and save the handoff. The fields are based on the existing True North appointment-setter training: homeowner/contact details, property, reason/concern, other-contractor status, timing, exact homeowner context, appointment date/time, and useful handoff notes.
+
+### Suggested Supabase Auth setup
+1. In Supabase Authentication, create the two approved management users using the exact admin emails in `ADMIN_EMAILS` and the management password.
+2. Copy each Auth user's UUID.
+3. In SQL Editor, run: `insert into public.reps(user_id,name,email,role,active) values ('UUID','Name','email','admin',true);`
+4. Run the expanded `supabase/schema.sql`.
+

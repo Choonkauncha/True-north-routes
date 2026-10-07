@@ -1,7 +1,12 @@
 {
-  "cleanUrls":true,
-  "headers":[
+  "cleanUrls": true,
+  "rewrites": [
+    {"source":"/homeowner","destination":"/homeowner.html"},
+    {"source":"/setter","destination":"/setter.html"},
+    {"source":"/admin","destination":"/admin.html"}
+  ],
+  "headers": [
     {"source":"/data/(.*)","headers":[{"key":"Cache-Control","value":"public, max-age=86400, stale-while-revalidate=604800"}]},
-    {"source":"/(.*)","headers":[{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"}]}
+    {"source":"/(.*)","headers":[{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"},{"key":"X-Frame-Options","value":"SAMEORIGIN"}] }
   ]
 }
