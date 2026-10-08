@@ -1,5 +1,9 @@
 /* Photo bank + forms. Scoped so the field map and door sheet keep their own styles. */
 .tnHide{display:none!important}
+.tnSkeleton{display:grid;gap:8px}
+.tnSkeleton span{display:block;height:56px;border-radius:12px;background:#e6ecee;animation:skeletonPulse 1.4s ease-in-out infinite}
+@keyframes skeletonPulse{50%{opacity:.45}}
+@media(prefers-reduced-motion:reduce){.tnSkeleton span{animation:none}}
 .tnTap{
   position:relative;display:flex;align-items:center;justify-content:center;gap:8px;
   min-height:48px;min-width:44px;padding:12px 14px;border-radius:12px;

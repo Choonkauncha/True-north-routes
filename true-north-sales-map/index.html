@@ -5,12 +5,15 @@
 <title>True North — Roofing Canvasser Command Center</title>
 <link rel="preconnect" href="https://unpkg.com"><link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="">
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/tn-files.css">
 </head>
 <body>
+<div id="bootLoader" class="bootLoader" role="status" aria-live="polite">
+  <img class="bootEmblem" src="/brand/logo-emblem.webp" alt="" width="84" height="84">
+  <div class="bootTrack" aria-hidden="true"><span id="bootBar"></span></div>
+  <p id="bootText">Loading homes…</p>
+</div>
 <div id="appShell">
 <header class="topbar">
   <div class="brand"><img class="logoFull" src="/brand/logo-full.webp" alt="True North Restorations" width="168" height="128"><img class="logoMark" src="/brand/logo-emblem.webp" alt="" width="36" height="36"><div class="brandWords"><div class="brandName">TRUE NORTH <span>RESTORATIONS</span></div><div class="brandSub">FIELD COMMAND CENTER · KNOX COUNTY, OHIO</div></div></div>
@@ -60,7 +63,7 @@
       <label class="mine"><input id="mineToggle" type="checkbox"> My territory</label><button id="clearBtn" class="iconBtn">Reset</button>
     </div>
     <div class="tabs"><button id="tabWork" class="tab active">Work <span id="workCount">0</span></button><button id="tabHandoffs" class="tab">Handoffs <span id="handoffCount">0</span></button><button id="tabTeam" class="tab">Team <span id="teamCount">0</span></button></div>
-    <section id="workPanel" class="tabPanel"><div class="nextCard"><div><div class="eyebrow">AUTO-PRIORITIZED</div><strong>Next best house</strong><p>Uses lead status, source priority, property age, verified roof age, territory ownership, and distance.</p></div><button id="nextCardBtn">Go →</button></div><div id="workList" class="scrollList"></div></section>
+    <section id="workPanel" class="tabPanel"><div class="nextCard"><div><div class="eyebrow">AUTO-PRIORITIZED</div><strong>Next best house</strong><p>Uses lead status, source priority, property age, verified roof age, territory ownership, and distance.</p></div><button id="nextCardBtn">Go →</button></div><div id="workList" class="scrollList"><div class="skeletonRow"></div><div class="skeletonRow"></div><div class="skeletonRow"></div><div class="skeletonRow"></div></div></section>
     <section id="handoffPanel" class="tabPanel hidden"><div class="panelIntro"><b>Sales handoff queue</b><span>Booked appointments stay visible to the whole team.</span></div><div id="handoffList" class="scrollList"></div></section>
     <section id="teamPanel" class="tabPanel hidden"><div class="panelIntro"><b>7-day leaderboard</b><span>Based on recorded field activity.</span></div><div id="teamList" class="scrollList"></div></section>
     </div>
@@ -109,7 +112,6 @@
 
 <div id="loginModal" class="modalOverlay hidden"><div class="modalCard loginCard"><img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242"><div class="eyebrow">TRUE NORTH RESTORATIONS</div><h2>Field command center</h2><p class="muted">Sign in for shared live lead status, rep ownership, appointments, and team metrics.</p><form id="loginForm"><label>Email<input id="loginEmail" type="email" autocomplete="email" required></label><label>Password<input id="loginPassword" type="password" autocomplete="current-password" required></label><button type="submit" class="darkBtn">Sign in</button></form><div id="loginError" class="error"></div><p id="loginNote" class="tnResetNote"></p><button type="button" class="tnForgot" data-forgot>Forgot password?</button><form id="forgotForm" data-forgot-form class="tnForgotForm hidden"><label>Email<input id="forgotEmail" data-forgot-email type="email" autocomplete="email" required></label><button type="submit" class="darkBtn">Send reset link</button><p data-forgot-msg class="tnResetMsg"></p></form><button id="localModeBtn" class="textBtn">Use local test mode</button></div></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin=""></script>
 <script type="module" src="/app.js"></script>
 <script type="module" src="/tn-files/sheet-actions.js"></script>

@@ -212,6 +212,23 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
   #listSheet .filterBar .mine{min-height:48px;font-size:14px}
 }
 @media(prefers-reduced-motion:reduce){#listSheet.sidePanel{transition:none}}
+.bootLoader{position:fixed;inset:0;z-index:4000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#0c1424;color:#fff;transition:opacity .28s ease}
+.bootLoader.isDone{opacity:0;pointer-events:none}
+.bootLoader.isGone{display:none}
+.bootEmblem{width:84px;height:84px;object-fit:contain;animation:bootSpin 8s linear infinite}
+.bootTrack{width:min(240px,70vw);height:4px;border-radius:999px;background:rgba(255,255,255,.22);overflow:hidden}
+#bootBar{display:block;height:100%;width:0;background:#1e6bff}
+#bootText{margin:0;font-size:15px;font-weight:750}
+.skeletonRow,.tnSkeleton span{display:block;height:64px;margin:8px 12px;border-radius:10px;background:#e6ecee;animation:skeletonPulse 1.4s ease-in-out infinite}
+@keyframes skeletonPulse{50%{opacity:.45}}
+.pinCluster{background:transparent;border:0}
+.pinCluster span{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:#0c1424;color:#fff;border:2px solid #fff;font-size:12px;font-weight:800;box-shadow:0 4px 12px rgba(12,20,36,.28)}
+@keyframes bootSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){
+  .bootEmblem{animation:none}
+  .bootLoader{transition:none}
+  .skeletonRow,.tnSkeleton span{animation:none}
+}
 
 .weatherStack{position:absolute;z-index:660;top:82px;right:14px;width:min(280px,calc(100% - 28px));display:grid;gap:8px;pointer-events:none}
 .weatherStack.hidden{display:none!important}
