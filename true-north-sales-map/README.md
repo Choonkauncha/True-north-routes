@@ -138,9 +138,10 @@ Sales reps and admin/managers can attach photos to a house. Appointment setters 
 ### Setup
 
 1. In the Supabase SQL Editor, run `supabase/schema.sql` if you have not already.
-2. Run `supabase/forms_photos.sql`. That file creates `lead_photos`, `form_templates`, and `form_submissions`, turns on row-level security, and creates two private Storage buckets: `lead-photos` and `form-assets`.
-3. No new Vercel environment variables are required. The browser uses the existing publishable key. Signed URLs stay private.
-4. Sign in on the field map, open a house, and use **Add Photo** or **Fill Form**. Add Photo opens the phone camera. Sales reps can also open `/rep`. Admins manage everything under **Files & Forms** on `/admin` (also at `/files`).
+2. Run Cam’s clock-in migration, `supabase/migrations/20261008_access_clockin.sql`, if it is not already applied.
+3. After that migration, run `supabase/forms_photos.sql`. That file creates `lead_photos`, `form_templates`, and `form_submissions`, turns on row-level security, and creates two private Storage buckets: `lead-photos` and `form-assets`.
+4. No new Vercel environment variables are required. The browser uses the existing publishable key. Signed URLs stay private.
+5. Sign in on the field map, open a house, and use **Add Photo** or **Fill Form**. Add Photo opens the phone camera. Sales reps can also open `/rep`. Admins manage everything under **Files & Forms** on `/admin` (also at `/files`).
 
 ### Who can see photos
 
