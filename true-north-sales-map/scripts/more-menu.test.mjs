@@ -78,6 +78,7 @@ try {
   assert.match(app, /ingestLeadChunk[\s\S]*markFirstPins/);
   assert.match(app, /function openLead\(id, options=\{\}\)\{[\s\S]*useDoorSheet\(\) && !options\.full/);
   assert.match(app, /openLead\(id,\{full:true\}\)/);
+  assert.match(app, /if\(state\.doorUndo\) return;/);
   console.log('More menu stays on screen at phone and tablet widths');
   await page.close();
 } finally {
