@@ -19,7 +19,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=n=>Number(n||0).toLocaleString();
 const nowISO=()=>new Date().toISOString();
-const isCoords=l=>Number.isFinite(Number(l?.lat))&&Number.isFinite(Number(l?.lng));
+const isCoords=l=>{const lat=Number(l?.lat),lng=Number(l?.lng);return l?.lat!=null&&l?.lng!=null&&Number.isFinite(lat)&&Number.isFinite(lng);};
 const leadStatus=l=>l.status||localSaved(l).status||'New';
 const leadOwnerName=l=>l.assignedRepName||(state.reps.find(r=>r.id===l.assignedRepId)?.name)||localSaved(l).owner||'';
 const localSaved=l=>JSON.parse(localStorage.getItem(`tnrc2:lead:${l.id}`)||'{}');
@@ -364,7 +364,7 @@ function openLead(id){
   const appt=state.appointments.find(a=>a.lead_id===id&&a.stage!=='Cancelled');
   const notes=l.notes||localSaved(l).notes||'';
   const reps=state.reps.slice().sort((a,b)=>a.name.localeCompare(b.name));
-  $('drawerContent').innerHTML=`<div class="drawerTop"><div><div class="eyebrow">FIELD RECORD</div><h2>${esc(l.name||'Property lead')}</h2><div class="drawerAddr">${esc(l.address)}<br>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</div></div><span class="bigScore">${scoreLead(l)}</span></div>
+  $('drawerContent').innerHTML=`<div class="drawerTop" data-lead-id="${esc(l.id)}"><div><div class="eyebrow">FIELD RECORD</div><h2>${esc(l.name||'Property lead')}</h2><div class="drawerAddr">${esc(l.address)}<br>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</div></div><span class="bigScore">${scoreLead(l)}</span></div>
     <div class="detailGrid"><div><small>Source</small><b>${esc(l.source)}</b></div><div><small>Priority</small><b>${esc(l.priority||'Standard')}</b></div><div><small>Built</small><b>${esc(l.year_built??l.yearBuilt??'Unknown')}</b></div><div><small>Mapped</small><b>${isCoords(l)?'Exact geocode':'Needs geocode'}</b></div></div>
     <div class="drawerActions"><button id="drawerMaps" class="darkBtn">Open Google Maps</button><button id="drawerDir" class="outlineBtn">Directions</button></div>
     <div class="fieldActions"><button data-qstatus="Knocked">Knocked</button><button data-qstatus="No Answer">No answer</button><button data-qstatus="Interested">Interested</button><button data-qstatus="Not Interested">Not interested</button></div>
@@ -375,7 +375,8 @@ function openLead(id){
     <button id="saveLeadBtn" class="saveBtn">Save field result</button>
     <div class="drawerSection"><div class="sectionTitle">Appointment handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">Edit handoff</button></div>`:`<button id="bookApptBtn" class="outlineBtn">Book / hand off this lead</button>`}</div>`;
   $('drawer').classList.remove('hidden');
-  $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l); $('drawerSetter').onclick=()=>{location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`};
+  $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l);
+  if($('drawerSetter')) $('drawerSetter').onclick=()=>{location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`};
   $('drawer').querySelectorAll('[data-qstatus]').forEach(btn=>btn.onclick=()=>quickStatus(l.id,btn.dataset.qstatus,true));
   $('saveLeadBtn').onclick=()=>saveLead(l);
   $('bookApptBtn')?.addEventListener('click',()=>openAppointmentForm(l));

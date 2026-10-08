@@ -82,3 +82,26 @@ Appointment setters sign in, record the homeowner and property information, capt
 3. In SQL Editor, run: `insert into public.reps(user_id,name,email,role,active) values ('UUID','Name','email','admin',true);`
 4. Run the expanded `supabase/schema.sql`.
 
+## Photos and forms
+
+Sales reps and admin/managers can attach photos to a house. Appointment setters and canvassers do not get the photo bank. Reps and setters fill forms that an admin assigns to their portal. Two starter agreements ship as drafts: **Closing / Deal Agreement** and **Contingency Agreement**. They are placeholders. Replace the wording with True North’s own agreements before a homeowner signs anything.
+
+### Setup
+
+1. In the Supabase SQL Editor, run `supabase/schema.sql` if you have not already.
+2. Run `supabase/forms_photos.sql`. That file creates `lead_photos`, `form_templates`, and `form_submissions`, turns on row-level security, and creates two private Storage buckets: `lead-photos` and `form-assets`.
+3. No new Vercel environment variables are required. The browser uses the existing publishable key. Signed URLs stay private.
+4. Sign in on the field map, open a house, and use **Add Photo** or **Fill Form**. Add Photo opens the phone camera. Sales reps can also open `/rep`. Admins manage everything under **Files & Forms** on `/admin` (also at `/files`).
+
+### Who can see photos
+
+- `salesperson`: photos on leads assigned to them, created by them (`leads.created_by`), or where they are the salesperson on the appointment or homeowner intake.
+- `admin` and `manager`: every photo and every form submission.
+- `canvasser` and `appointment_setter`: no photo bank. They can fill forms assigned to setters or to both portals.
+
+### Using it
+
+- From a house sheet: **Add Photo** (camera), **View photos**, **Fill Form**.
+- Forms walk one section per screen, prefill the homeowner name and address, and end on a saved screen with a printable copy.
+- Form builder (admin): add a field, pick the type, move it with Up/Down, then **Preview as the rep sees it**. Field types: text, long text, number, date, checkbox, select, signature, photo.
+

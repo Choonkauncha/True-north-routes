@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="">
 <link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tn-files.css">
 </head>
 <body>
 <div id="appShell">
@@ -16,7 +17,7 @@
   <div class="topRight"><span id="connection" class="chip">STARTING…</span><button id="locateBtn" class="ghostBtn">My location</button><span id="datasetCount" class="datasetCount"></span><button id="focusBtn" class="ghostBtn">Focus map</button><a href="/setter.html" class="quickLinkBtn">Setter intake</a><a href="/homeowner.html" class="quickLinkBtn">Homeowner form</a><button id="nextBtn" class="ghostBtn">Next house <kbd>N</kbd></button><button id="routeBtn" class="primaryBtn">Route <span id="selectedCount">0</span> <kbd>R</kbd></button><a id="adminBtn" href="/admin.html" class="adminBtn hidden">Management</a><div id="userMenu" class="userMenu hidden"><span id="userIdentity"></span><button id="logoutBtn">Sign out</button></div></div>
 </header>
 <div id="cloudNotice" class="cloudNotice hidden"></div>
-<div class="brandRibbon"><div><b>TRUE NORTH FIELD OS</b><span>Trust first · Work the system · No lead sleeps.</span></div><div class="ribbonActions"><a href="/setter.html">Appointment Setter Intake</a><a href="/homeowner.html">Homeowner Inspection Sign-Up</a></div></div>
+<div class="brandRibbon"><div><b>TRUE NORTH FIELD OS</b><span>Trust first · Work the system · No lead sleeps.</span></div><div class="ribbonActions"><a href="/setter.html">Appointment Setter Intake</a><a href="/rep.html">Sales photos & forms</a><a href="/homeowner.html">Homeowner Inspection Sign-Up</a></div></div>
 <section class="mapShell">
   <div class="mapCanvas"><div id="map"></div>
     <div class="mapTopOverlay"><div class="mapSearch"><span>⌕</span><input id="search" aria-label="Search leads" placeholder="Search house, owner, street, ZIP, record…"><div class="searchHint"><kbd>/</kbd></div></div><button id="fitBtn" class="mapControl">Fit leads</button><button id="layerBtn" class="mapControl">Layers ▾</button><div id="layerMenu" class="layerMenu">
@@ -61,4 +62,5 @@
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin=""></script>
 <script type="module" src="/app.js"></script>
+<script type="module" src="/tn-files/sheet-actions.js"></script>
 </body></html>
