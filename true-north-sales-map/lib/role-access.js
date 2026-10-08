@@ -51,8 +51,9 @@ export function fieldHomeLinks(role) {
  * is on the assignment list. Management sees every form.
  */
 export function canSeeForm(role, template, { repId = '', assignments = [], mode = 'cloud' } = {}) {
-  if (mode === 'local' && !role) return true;
   if (!template) return false;
+  if (template.kind === 'file' && !isAdminRole(role)) return false;
+  if (mode === 'local' && !role) return true;
   if (isAdminRole(role)) return true;
   if (template.active === false) return false;
   const assigned = (assignments || []).some((row) => row.template_id === template.id && row.rep_id === repId);
