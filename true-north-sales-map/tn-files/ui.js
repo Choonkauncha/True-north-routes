@@ -1,5 +1,8 @@
 import { putPending, leadQuery } from './store.js';
 import { forgotPasswordMarkup } from './password-reset.js';
+import { coverForSignOut, mountSignInScreen, revealApp } from '../brand/loader.js';
+
+export { revealApp };
 
 export function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -113,7 +116,17 @@ export function actionRow(lead, { photos = true, variant = 'house' } = {}) {
 export function bindSignOut(ctx, button) {
   if (!button) return;
   if (ctx.mode === 'local') button.classList.add('tnHide');
-  button.onclick = async () => { const { signOut } = await import('./store.js'); await signOut(ctx); location.reload(); };
+  button.onclick = async () => {
+    coverForSignOut(document);
+    const { signOut } = await import('./store.js');
+    await signOut(ctx);
+    location.reload();
+  };
+}
+
+export function mountSignIn(container) {
+  mountSignInScreen(container);
+  if (container) container.innerHTML = signInCard();
 }
 
 export function signInCard() {

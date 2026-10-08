@@ -1,5 +1,5 @@
 import { bootFiles, signIn } from './store.js';
-import { bindSignOut, signInCard } from './ui.js';
+import { bindSignOut, mountSignIn, revealApp } from './ui.js';
 import { roleLabel } from '../lib/role-access.js';
 import {
   SAVE_EVERY_MS,
@@ -55,29 +55,34 @@ async function start() {
   ctx = await bootFiles();
   bindSignOut(ctx, document.getElementById('signOut'));
   if (ctx.mode === 'local') {
+    revealApp();
     app.innerHTML = '<h1 class="tnTitle">Training &amp; Practice</h1><p class="tnSub">Training needs the live Supabase project. Apply supabase/migrations/20261008_training_practice.sql, then reload.</p><a class="tnTap" href="/">Back to map</a>';
     return;
   }
   if (!ctx.session) return renderSignIn();
   if (!ctx.rep || !isFieldTrainingRole(ctx.rep.role)) {
+    revealApp();
     app.innerHTML = '<h1 class="tnTitle">Training</h1><p class="tnSub">This page is for appointment setters and sales reps.</p><a class="tnTap" href="/">Back to map</a>';
     return;
   }
+  revealApp();
   await showList();
   document.addEventListener('visibilitychange', () => { if (document.hidden) flush(true); });
   window.addEventListener('pagehide', () => flush(true));
 }
 
 function renderSignIn() {
-  app.innerHTML = signInCard();
+  mountSignIn(app);
   document.getElementById('tnLogin').onsubmit = async (event) => {
     event.preventDefault();
     try {
       await signIn(ctx, document.getElementById('tnEmail').value, document.getElementById('tnPassword').value);
       if (!isFieldTrainingRole(ctx.rep?.role)) {
+        revealApp();
         app.innerHTML = '<h1 class="tnTitle">Training</h1><p class="tnSub">This page is for appointment setters and sales reps.</p>';
         return;
       }
+      revealApp();
       await showList();
     } catch (error) {
       document.getElementById('tnLoginError').textContent = error.message;

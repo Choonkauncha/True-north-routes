@@ -2,6 +2,7 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 import './tn-files/password-reset.js';
 import { formatHours, formatMiles, incomingAlert, pointLabel, roleLabel } from './lib/field-rules.js';
 import { canUsePhotoBank, fieldHomeLinks } from './lib/role-access.js';
+import { mountSignInScreen, revealApp } from './brand/loader.js';
 
 const state = {
   sb: null,
@@ -750,7 +751,7 @@ function renderPanelShell() {
   overlay.className = 'tnMsgOverlay';
   overlay.id = 'tnMsgOverlay';
   overlay.innerHTML = `
-    <section class="tnMsgPanel" role="dialog" aria-modal="true" aria-labelledby="tnMsgTitle">
+    <section class="tnMsgPanel" data-tn-panel="messages" data-tn-rank="primary" role="dialog" aria-modal="true" aria-labelledby="tnMsgTitle">
       <header class="tnMsgHead">
         <button type="button" class="tnBack" id="tnMsgBack">Back</button>
         <h2 id="tnMsgTitle">Messages</h2>
@@ -782,11 +783,11 @@ function renderPanel() {
   if (title) title.textContent = listing ? 'Messages' : (admin ? (active?.rep.name || 'Messages') : 'Message management');
   if (back) back.hidden = !admin || listing;
   body.className = `tnMsgLayout ${listing ? 'listOnly' : 'chatOnly'}`;
-  const list = admin ? `<div class="tnThreadList">${state.threads.map(thread => `
+  const list = admin ? `<section class="tnThreadList" data-tn-panel="message-threads" data-tn-rank="primary"><h3>People</h3>${state.threads.map(thread => `
       <button type="button" class="tnThreadBtn" data-rep="${esc(thread.rep.id)}">
         <b>${thread.unread ? '<span class="tnDot"></span>' : ''}${esc(thread.rep.name)}</b>
         <small>${esc(roleLabel(thread.rep.role))}${thread.lastBody ? ` · ${esc(thread.lastBody)}` : ' · No messages yet'}</small>
-      </button>`).join('') || '<div class="tnEmpty">No one is on the roster yet.</div>'}</div>` : '';
+      </button>`).join('') || '<div class="tnEmpty">No one is on the roster yet.</div>'}</section>` : '';
   const mineId = state.status?.rep?.id;
   const bubbles = state.messages.length ? state.messages.map(message => {
     const mine = message.sender_rep_id === mineId;
@@ -991,6 +992,14 @@ function renderShiftsMessage(html) {
 }
 
 function renderShiftsLogin(message = '') {
+  destroyShiftMap();
+  state.token = null;
+  state.status = null;
+  state.shifts = null;
+  state.threads = [];
+  state.messages = [];
+  const root = document.getElementById('shiftsApp');
+  mountSignInScreen(root);
   renderShiftsMessage(`
     <div class="authCard card"><div class="pad">
       <img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242">
@@ -1023,15 +1032,32 @@ function renderShiftsLogin(message = '') {
 
 async function bootShifts() {
   const signOut = document.getElementById('shiftsSignOut');
-  if (signOut) signOut.onclick = () => state.sb?.auth.signOut().then(() => location.reload());
+  if (signOut) signOut.onclick = () => {
+    document.documentElement.classList.add('tn-signed-out', 'tn-hold-login');
+    const boot = document.getElementById('tnBootHold');
+    if (boot) boot.classList.remove('isGone', 'isDone');
+    destroyShiftMap();
+    state.token = null;
+    state.status = null;
+    state.shifts = null;
+    state.threads = [];
+    state.messages = [];
+    const root = document.getElementById('shiftsApp');
+    if (root) root.replaceChildren();
+    (state.sb ? state.sb.auth.signOut() : Promise.resolve()).then(() => location.reload());
+  };
   const cfg = await loadConfig();
   if (!cfg) {
+    revealApp();
     renderShiftsMessage('<div class="card pad"><h1>Shifts need cloud setup.</h1><p>Add the Supabase environment variables and apply the clock-in migration, then reload.</p></div>');
     return;
   }
   state.cfg = cfg;
   state.sb = createClient(cfg.url, cfg.publishableKey);
-  state.sb.auth.onAuthStateChange((_event, session) => { enterShifts(session).catch(error => console.warn(error)); });
+  state.sb.auth.onAuthStateChange((event, session) => {
+    if (session) enterShifts(session).catch(error => console.warn(error));
+    else if (event === 'SIGNED_OUT') enterShifts(null).catch(error => console.warn(error));
+  });
   const existing = await state.sb.auth.getSession();
   await enterShifts(existing.data.session);
 }
@@ -1049,6 +1075,7 @@ async function enterShifts(session) {
     renderShiftsLogin();
     return;
   }
+  revealApp();
   state.token = session.access_token;
   mountWidget();
   try {
@@ -1134,19 +1161,21 @@ function renderShiftBoard() {
     </div>
     <div class="tnShiftLayout">
       <div class="${phoneFocus ? 'tnPhoneHide' : ''}">
-        <section class="tnNow">
+        <section class="tnNow" data-tn-panel="shift-now" data-tn-rank="primary">
           <h2>Clocked in now</h2>
           ${clockedIn.length ? clockedIn.map(buttonFor).join('') : '<p class="tnShiftNote">Nobody is clocked in right now.</p>'}
         </section>
-        <section class="tnDayList">
+        <section class="tnDayList" data-tn-panel="shift-day" data-tn-rank="secondary">
           <h2>This day</h2>
           ${data.people.length ? data.people.map(buttonFor).join('') : '<p class="tnShiftNote">No shifts or location points on this day.</p>'}
         </section>
       </div>
-      <div class="${phoneFocus ? '' : 'tnPhoneHide'}">
-        <button type="button" class="tnBack" id="tnShiftBack">Back</button>
-        ${selected ? `<h2 style="margin:8px 0 0;color:#0c1424">${esc(selected.rep.name)}</h2>
-          <p class="tnMilesBig">${esc(formatMiles(selected.miles))} today</p>
+      <div class="${phoneFocus ? '' : 'tnPhoneHide'}" data-tn-panel="shift-trail" data-tn-rank="primary">
+        <header>
+          <button type="button" class="tnBack" id="tnShiftBack">Back</button>
+          <h2 style="margin:8px 0 0;color:#0c1424">${selected ? esc(selected.rep.name) : 'Trail'}</h2>
+        </header>
+        ${selected ? `<p class="tnMilesBig">${esc(formatMiles(selected.miles))} today</p>
           <p class="tnShiftNote">${esc(formatHours(selected.totalHours))} on this day. ${selected.points.length} location point${selected.points.length === 1 ? '' : 's'}. ${selected.consent ? `Location agreed ${esc(easternStamp(selected.consent.consented_at))}.` : 'Has not agreed to location yet.'}</p>` : '<p class="tnShiftNote">Tap a person to see where they went today.</p>'}
         <div id="shiftMap" class="tnShiftMap"></div>
         <p class="tnPointMeta" id="shiftMapCaption"></p>
@@ -1252,6 +1281,11 @@ async function boot() {
 
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && state.msgOpen) closeMessages();
+});
+document.addEventListener('tn-panel-toggle', event => {
+  if (event.detail?.id === 'shift-trail' && event.detail.collapsed === false) {
+    setTimeout(() => state.map?.invalidateSize(), 240);
+  }
 });
 
 boot();

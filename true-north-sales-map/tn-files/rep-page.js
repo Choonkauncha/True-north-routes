@@ -1,5 +1,5 @@
 import { bootFiles, signIn, searchLeads, listPhotos, groupPhotosByAddress } from './store.js';
-import { esc, bindSignOut, signInCard, actionRow } from './ui.js';
+import { esc, bindSignOut, mountSignIn, revealApp, actionRow } from './ui.js';
 import { canUsePhotoBank } from './logic.js';
 import { fieldHomeLinks, roleLabel } from '../lib/role-access.js';
 
@@ -10,14 +10,15 @@ async function start() {
   ctx = await bootFiles();
   bindSignOut(ctx, document.getElementById('signOut'));
   if (ctx.mode === 'cloud' && !ctx.session) return renderSignIn();
+  revealApp();
   render();
 }
 
 function renderSignIn() {
-  app.innerHTML = signInCard();
+  mountSignIn(app);
   document.getElementById('tnLogin').onsubmit = async (event) => {
     event.preventDefault();
-    try { await signIn(ctx, document.getElementById('tnEmail').value, document.getElementById('tnPassword').value); render(); }
+    try { await signIn(ctx, document.getElementById('tnEmail').value, document.getElementById('tnPassword').value); revealApp(); render(); }
     catch (error) { document.getElementById('tnLoginError').textContent = error.message; }
   };
 }
@@ -38,7 +39,7 @@ function render() {
     app.innerHTML = `<p class="tnProgress">${esc(who)}</p><h1 class="tnTitle">Appointment setter</h1><p class="tnSub">Photos are for sales reps. You can still send inspections, fill forms assigned to you, and message management.</p><div class="tnStack">${homeLinks(role)}</div>`;
     return;
   }
-  app.innerHTML = `${ctx.mode === 'local' ? '<div class="tnBanner">Saved on this phone until Supabase storage is connected.</div>' : ''}<p class="tnProgress">${esc(who)}</p><h1 class="tnTitle">Sales</h1><p class="tnSub">Search the house, then add a roof photo or fill a form.</p><label class="tnLabel" for="q">House</label><input class="tnInput" id="q" placeholder="Address or homeowner"><div id="hits" class="tnStack" style="margin-top:10px"></div><h2 style="margin:22px 0 8px">Photos by house</h2><div id="groups" class="tnStack"></div><div class="tnStack" style="margin-top:16px">${homeLinks(role)}${ctx.rep && (ctx.rep.role === 'admin' || ctx.rep.role === 'manager') ? '<a class="tnTap" href="/files.html">Files & Forms</a>' : ''}</div>`;
+  app.innerHTML = `${ctx.mode === 'local' ? '<div class="tnBanner">Saved on this phone until Supabase storage is connected.</div>' : ''}<p class="tnProgress">${esc(who)}</p><section data-tn-panel="rep-search" data-tn-rank="primary"><h1 class="tnTitle">Sales</h1><p class="tnSub">Search the house, then add a roof photo or fill a form.</p><label class="tnLabel" for="q">House</label><input class="tnInput" id="q" placeholder="Address or homeowner"><div id="hits" class="tnStack" style="margin-top:10px"></div></section><section data-tn-panel="rep-photos" data-tn-rank="secondary"><h2>Photos by house</h2><div id="groups" class="tnStack"></div></section><div class="tnStack" style="margin-top:16px">${homeLinks(role)}${ctx.rep && (ctx.rep.role === 'admin' || ctx.rep.role === 'manager') ? '<a class="tnTap" href="/files.html">Files & Forms</a>' : ''}</div>`;
   const input = document.getElementById('q');
   let timer;
   input.oninput = () => { clearTimeout(timer); timer = setTimeout(() => runSearch(input.value), 200); };

@@ -1,5 +1,5 @@
 import { bootFiles, attachSession, signIn, listTemplates, saveTemplate, listPhotos, listSubmissions, listReps, listAssignments, listIntakes, replaceAssignments, uploadLibraryFile, setDocumentReviewed, plainError } from './store.js';
-import { esc, bindSignOut, signInCard } from './ui.js';
+import { esc, bindSignOut, mountSignIn, revealApp } from './ui.js';
 import { FIELD_TYPES, PREFILLS, blankField, isManagement, DRAFT_NOTICE, audienceLabel } from './logic.js';
 import { roleLabel } from '../lib/role-access.js';
 import { DOC_TYPES, collectDocuments, formatWhen, propertyGroups, sectionDocuments, sectionGroups, typeLabel, visibleDocuments } from '../lib/documents.js';
@@ -35,7 +35,7 @@ async function boot() {
 }
 
 function renderSignIn() {
-  root.innerHTML = signInCard();
+  mountSignIn(root);
   document.getElementById('tnLogin').onsubmit = async (event) => {
     event.preventDefault();
     try {
@@ -47,6 +47,7 @@ function renderSignIn() {
 }
 
 function renderDenied() {
+  revealApp();
   root.innerHTML = '<h1 class="tnTitle">Files & Forms</h1><p class="tnSub">This section is for admin and managers.</p><a class="tnTap" href="/rep.html">Sales tools</a>';
 }
 
@@ -57,6 +58,7 @@ async function loadAndRender() {
       listTemplates(ctx), listPhotos(ctx), listSubmissions(ctx), listReps(ctx), listAssignments(ctx), listIntakes(ctx)
     ]);
   } catch (error) {
+    revealApp();
     root.innerHTML = `<p class="tnError">${esc(error.message)}</p>`;
     return;
   }
@@ -82,6 +84,7 @@ function allDocuments() {
 }
 
 function render() {
+  revealApp();
   const local = ctx.mode === 'local' ? '<div class="tnBanner">This browser only, until Supabase is connected.</div>' : '';
   const body = view === 'builder' ? builderHtml() : view === 'library' ? '<div id="tnMyForms"></div>' : view === 'property' ? propertyHtml() : documentsHtml();
   const title = view === 'library' ? 'Document library' : 'Paperwork by property';
@@ -109,7 +112,7 @@ function documentsHtml() {
   const people = reps.filter((rep) => ['appointment_setter', 'canvasser', 'salesperson'].includes(rep.role));
   const chips = DOC_TYPES.map(([value, label]) => `<button type="button" class="tnChip ${docFilters.type === value ? 'on' : ''}" data-type="${value}">${esc(label)}</button>`).join('');
   const personOptions = people.map((rep) => `<option value="${esc(rep.id)}" ${docFilters.personId === rep.id ? 'selected' : ''}>${esc(rep.name)} · ${esc(roleLabel(rep.role))}</option>`).join('');
-  const sectionsHtml = sections.length ? sections.map((section) => `<section class="tnDocSection"><h2>${esc(section.label)}</h2><div class="tnPropertyGrid">${section.groups.map(propertyCard).join('')}</div></section>`).join('') : '<div class="tnCard"><b>Nothing matches</b><span>Intakes, forms, and roof photos show up here as soon as someone sends them in.</span></div>';
+  const sectionsHtml = sections.length ? sections.map((section, index) => `<section class="tnDocSection" data-tn-panel="docs-${index}-${String(section.label || 'section').toLowerCase().replace(/[^a-z0-9]+/g, '-')}" data-tn-rank="${index === 0 ? 'primary' : 'secondary'}"><h2>${esc(section.label)}</h2><div class="tnPropertyGrid">${section.groups.map(propertyCard).join('')}</div></section>`).join('') : '<div class="tnCard" data-tn-panel="docs-empty" data-tn-rank="primary"><h2>Documents</h2><b>Nothing matches</b><span>Intakes, forms, and roof photos show up here as soon as someone sends them in.</span></div>';
   return `<label class="tnLabel" for="docSearch">Search</label><input class="tnInput" id="docSearch" value="${esc(docFilters.query)}" placeholder="Homeowner, address, person, or form" autocomplete="off">
     <div class="tnChips" id="docTypes">${chips}</div>
     <div class="tnDocFilters">
@@ -130,7 +133,7 @@ function propertyHtml() {
   if (!group) return '<p class="tnSub">That property is not in the current paperwork.</p><button type="button" class="tnTap" id="docBack">All properties</button>';
   const sections = sectionDocuments(group.docs);
   return `<button type="button" class="tnTap" id="docBack">All properties</button><h2 class="tnTitle" style="margin-top:12px">${esc(group.address)}</h2><p class="tnSub">${esc(group.homeowner || 'Homeowner not named yet')} · ${group.docs.length} document${group.docs.length === 1 ? '' : 's'}</p>
-    ${sections.map((section) => `<section class="tnDocSection"><h2>${esc(section.label)}</h2><div class="tnTimeline">${section.docs.map(timelineItem).join('')}</div></section>`).join('')}`;
+    ${sections.map((section, index) => `<section class="tnDocSection" data-tn-panel="property-docs-${index}" data-tn-rank="${index === 0 ? 'primary' : 'secondary'}"><h2>${esc(section.label)}</h2><div class="tnTimeline">${section.docs.map(timelineItem).join('')}</div></section>`).join('')}`;
 }
 
 function timelineItem(doc) {
@@ -138,7 +141,7 @@ function timelineItem(doc) {
   const note = doc.note ? `<p class="tnPhotoNote">${esc(doc.note)}</p>` : '';
   const open = doc.href && doc.source !== 'photo' ? `<a class="tnTap" href="${esc(doc.href)}">Open</a>` : '';
   const review = `<button type="button" class="tnTap" data-review="${esc(doc.id)}">${doc.reviewed ? 'Mark new' : 'Mark reviewed'}</button>`;
-  return `<article class="tnCard tnDocItem"><b>${esc(doc.title)}</b><span>${esc(typeLabel(doc.type))} · ${doc.reviewed ? 'Reviewed' : 'New'}</span><span>${esc(doc.personName || 'Unassigned')}${doc.personRole ? ` · ${esc(roleLabel(doc.personRole))}` : ''} · ${esc(formatWhen(doc.at))}</span>${note}${image}<div class="tnDocActions">${open}${review}</div><p class="tnError" data-review-error="${esc(doc.id)}"></p></article>`;
+  return `<article class="tnCard tnDocItem" data-tn-panel="doc-${esc(doc.id)}" data-tn-rank="secondary"><b>${esc(doc.title)}</b><span>${esc(typeLabel(doc.type))} · ${doc.reviewed ? 'Reviewed' : 'New'}</span><span>${esc(doc.personName || 'Unassigned')}${doc.personRole ? ` · ${esc(roleLabel(doc.personRole))}` : ''} · ${esc(formatWhen(doc.at))}</span>${note}${image}<div class="tnDocActions">${open}${review}</div><p class="tnError" data-review-error="${esc(doc.id)}"></p></article>`;
 }
 
 function bindDocuments() {
@@ -209,7 +212,7 @@ function builderHtml() {
   const fileBlock = editor.kind === 'file'
     ? `<p class="tnSub">${esc(pendingFile?.name || editor.file_name || 'No file chosen yet')}</p><label class="tnTap">Replace file<input id="replaceFile" type="file" accept="${LIBRARY_ACCEPT}"></label>`
     : '';
-  const fields = (editor.fields || []).map((field, index) => `<div class="tnFieldCard" data-index="${index}">
+  const fields = (editor.fields || []).map((field, index) => `<div class="tnFieldCard" data-index="${index}" data-tn-panel="builder-field-${index}" data-tn-rank="secondary">
       <header><b>Field ${index + 1}</b><div class="tnIconBtns"><button type="button" data-up="${index}" aria-label="Move up">Up</button><button type="button" data-down="${index}" aria-label="Move down">Down</button><button type="button" data-remove="${index}" aria-label="Remove field">Remove</button></div></header>
       <label class="tnLabel">Label<input class="tnInput" data-label="${index}" value="${esc(field.label)}"></label>
       <label class="tnLabel">Type<select class="tnSelect" data-type="${index}">${FIELD_TYPES.map(([value, label]) => `<option value="${value}" ${field.type === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>

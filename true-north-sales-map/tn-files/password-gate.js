@@ -6,6 +6,7 @@ import {
   passwordUpdateError
 } from '../lib/must-change-password.js';
 import { readStoredUser } from '../lib/management-gate.js';
+import { loaderHoldHtml } from '../brand/loader.js';
 
 const HOLD_ID = 'tnPasswordHold';
 
@@ -186,6 +187,8 @@ function skipPath() {
 }
 
 async function boot() {
+  const waiting = document.getElementById(HOLD_ID);
+  if (waiting && !waiting.querySelector('.bootOutlineTravel')) waiting.innerHTML = loaderHoldHtml();
   if (skipPath()) {
     document.getElementById(HOLD_ID)?.remove();
     return;

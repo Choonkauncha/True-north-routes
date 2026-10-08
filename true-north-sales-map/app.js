@@ -13,7 +13,7 @@ import { readSavedLayers, resolveLayers, writeSavedLayers } from './lib/map-laye
 import { bindAreaDraw } from './area-draw.js';
 import { roleLabel } from './lib/field-rules.js';
 import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/account-rules.js';
-import { forgetRole, rememberRole } from './lib/management-gate.js';
+import { forgetRole, readStoredUser, rememberRole } from './lib/management-gate.js';
 import { assertHandoffPhoto, handoffPermissions, isHandoffSetter, validateHandoffPatch, visibleHandoffs } from './lib/handoff-access.js';
 import { canSeeReceipt, canUploadReceipt } from './lib/receipt-access.js';
 
@@ -42,7 +42,8 @@ const state={
   heatTimer:null, heatKey:'', territoryKey:'', bootDone:false, stormBusy:false, fieldWarmed:false, listSortToken:0,
   navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[],
   pendingPostSignIn:false, paintTicket:0, toolsDeferred:false, pinsMarked:false, cloudReady:false, staticPromise:null,
-  tileLayer:null, mapLoaderGen:0, mapSettled:false, pinsPainted:false, awaitingFirstFit:false, factTimer:null, mapLoaderGiveUp:null
+  tileLayer:null, mapLoaderGen:0, mapSettled:false, pinsPainted:false, awaitingFirstFit:false, factTimer:null, mapLoaderGiveUp:null,
+  sessionReady:false
 };
 
 const $=id=>document.getElementById(id);
@@ -59,6 +60,7 @@ function debounce(fn,ms=150){let t;return(...a)=>{clearTimeout(t);t=setTimeout((
 
 let cloudToken='';
 let cloudFlight=null;
+let authEpoch=0;
 let weatherApiPromise;
 function weatherApi(){ weatherApiPromise ||= import('./weather-widget.js'); return weatherApiPromise; }
 function closeWeather(options){ weatherApi().then(mod=>mod.setWeatherOpen(false, options)).catch(()=>{}); }
@@ -79,15 +81,20 @@ function markFirstPins(){
 
 async function boot(){
   bindStaticEvents();
-  initMapOnce();
-  setTimeout(deferFieldTools, 4000);
+  const authed=!!readStoredUser(localStorage);
+  if(authed){
+    initMapOnce();
+    setTimeout(deferFieldTools, 4000);
+  }else showLogin();
   const centersP=fetchJSON('/data/city-centers.json').catch(()=>({}));
   const cfgP=fetchJSON('/api/config').catch(()=>null);
-  const cached=await readLeadCache().catch(()=>null);
-  if(cached?.leads?.length){
-    streamLeads(cached.leads, cached.leads.length, null);
-    await new Promise(resolve=>requestAnimationFrame(resolve));
-  }else startStaticLeads().catch(error=>console.error(error));
+  if(authed){
+    const cached=await readLeadCache().catch(()=>null);
+    if(cached?.leads?.length){
+      streamLeads(cached.leads, cached.leads.length, null);
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+    }else startStaticLeads().catch(error=>console.error(error));
+  }
   const [centers, cfg]=await Promise.all([centersP, cfgP]);
   state.centers=centers||{};
   if(cfg?.configured){
@@ -98,9 +105,9 @@ async function boot(){
       const {data}=await state.supabase.auth.getSession();
       if(data.session) await enterCloud(data.session);
       else showLogin();
-      state.supabase.auth.onAuthStateChange(async(_event,session)=>{
+      state.supabase.auth.onAuthStateChange(async(event,session)=>{
         if(session) await enterCloud(session);
-        else { cloudToken=''; state.cloudReady=false; showLogin(); }
+        else if(event==='SIGNED_OUT'){ cloudToken=''; state.cloudReady=false; showLogin(); }
       });
     }catch(e){console.error(e);enterLocal(`Cloud client error: ${e.message}`)}
   }else{
@@ -112,7 +119,7 @@ async function fetchJSON(url){const r=await fetch(url);if(!r.ok)throw new Error(
 
 function bindStaticEvents(){
   $('loginForm').addEventListener('submit',login);
-  $('logoutBtn').onclick=()=>{ forgetRole(localStorage, state.user?.id); state.supabase?.auth.signOut(); };
+  $('logoutBtn').onclick=()=>{ const userId=state.user?.id; showLogin(); forgetRole(localStorage, userId); state.supabase?.auth.signOut(); };
   $('localModeBtn').onclick=()=>{hideLogin();enterLocal('Local device mode enabled. Connect Supabase for shared live team data.')};
   $('nextBtn').onclick=nextBest; $('nextCardBtn').onclick=nextBest;
   $('mobileNext').onclick=nextBest; $('mobileRoute').onclick=openRouteFromChrome; $('mobileLocate').onclick=locate;
@@ -269,7 +276,8 @@ function bindStaticEvents(){
 
 function enterLocal(message){
   state.mode='local'; state.session=null; state.currentRep=null; state.cloudReady=false;
-  hideLogin(); $('userMenu').classList.add('hidden'); $('adminBtn').classList.add('hidden'); $('adminBtn').hidden = true;
+  hideLogin(); state.sessionReady=true; if(!state.map) initMapOnce();
+  $('userMenu').classList.add('hidden'); $('adminBtn').classList.add('hidden'); $('adminBtn').hidden = true;
   $('connection').textContent='LOCAL DEVICE'; $('connection').className='chip local';
   $('cloudNotice').textContent=message||'Local mode'; $('cloudNotice').classList.remove('hidden');
   if(!state.bootDone) setBootProgress(0,0);
@@ -391,7 +399,13 @@ async function enterCloud(session){
   return cloudFlight;
 }
 async function runEnterCloud(session){
+  const epoch=authEpoch;
   state.mode='cloud'; state.session=session; state.user=session.user; hideLogin();
+  if(epoch!==authEpoch) return;
+  state.sessionReady=true;
+  if(!state.map) initMapOnce();
+  deferFieldTools();
+  settleMapLoader(state.mapLoaderGen);
   $('connection').textContent='CLOUD SYNC'; $('connection').className='chip live';
   $('userMenu').classList.remove('hidden');
   $('userIdentity').textContent=session.user.email||session.user.id;
@@ -399,6 +413,7 @@ async function runEnterCloud(session){
   const sideP=loadSideData();
   try{
     await loadLeadBundle();
+    if(epoch!==authEpoch) return;
     const open=canOpenManagement({email:session.user.email, rep:state.currentRep, adminEmails:state.config?.adminEmails});
     $('adminBtn').hidden = !open;
     $('adminBtn').classList.toggle('hidden', !open);
@@ -408,6 +423,7 @@ async function runEnterCloud(session){
     startRealtime();
     state.cloudReady=true;
     await sideP;
+    if(epoch!==authEpoch) return;
     publishSideData();
   }catch(e){
     console.error(e);
@@ -647,16 +663,73 @@ async function fetchAllParallel(makeBuilder, count){
 
 function normalizeLead(l){return {...l,status:l.status||'New',assignedRepId:l.assigned_rep_id||l.assignedRepId||null,roofAgeYears:l.roof_age_years??l.roofAgeYears??null,roofAgeVerified:l.roof_age_verified??l.roofAgeVerified??false,lat:l.lat??null,lng:l.lng??null};}
 
+function scrubPrivateMap(){
+  state.paintTicket++;
+  state.stopLeadRead?.();
+  state.leads=[];
+  state.filtered=[];
+  state.leadsById=new Map();
+  state.appointments=[];
+  state.activities=[];
+  state.reps=[];
+  state.territories=[];
+  state.selected.clear();
+  state.routeStops=[];
+  state.bootDone=false;
+  state.pinsPainted=false;
+  state.cloudReady=false;
+  state.didFit=false;
+  state.session=null;
+  state.user=null;
+  state.currentRep=null;
+  cloudToken='';
+  if(state.navWatch!=null){ navigator.geolocation.clearWatch(state.navWatch); state.navWatch=null; }
+  state.navigating=false;
+  document.documentElement.classList.remove('isNavigating');
+  try{ state.pinMarkers.forEach(marker=>marker.remove()); }catch{ /* map already gone */ }
+  state.pinMarkers.clear();
+  state.pinShown.clear();
+  state.markerLayer?.clearLayers?.();
+  state.pinClusters?.clearLayers?.();
+  state.heatLayers.forEach(layer=>state.map?.removeLayer(layer));
+  state.heatLayers=[];
+  if(state.map){ state.map.remove(); state.map=null; }
+  state.tileLayer=null;
+  state.routeLine=null;
+  state.userMarker=null;
+  ['workList','handoffList','teamList','routeStops','stats','drawerContent','doorSheetActions'].forEach(id=>{ const el=$(id); if(el) el.innerHTML=''; });
+  ['doorSheetAddress','doorSheetName','doorSheetPlace','doorSheetStatus','toastText','userIdentity','datasetCount','mapInfoCount','mapInfoNext','search'].forEach(id=>{
+    const el=$(id);
+    if(!el) return;
+    if(el.tagName==='INPUT' || el.tagName==='TEXTAREA') el.value='';
+    else el.textContent='';
+  });
+  ['drawer','doorSheet','navBar','routePanel','appointmentModal','adminModal','postSignIn','navChoice'].forEach(id=>$(id)?.classList.add('hidden'));
+  const book=$('doorSheetBook'); if(book) book.setAttribute('href','/setter.html');
+  document.getElementById('tnFieldOps')?.remove();
+  document.getElementById('tnMsgOverlay')?.remove();
+  $('userMenu')?.classList.add('hidden');
+  $('appShell')?.classList.remove('blurred');
+}
 function showLogin(){
-  deferFieldTools();
+  authEpoch++;
+  state.sessionReady=false;
+  document.documentElement.classList.add('tn-signed-out');
   const logo=document.querySelector('#loginModal .signInLogo');
-  if(logo?.dataset.src && !logo.getAttribute('src')) logo.src=logo.dataset.src;
-  $('loginModal').classList.remove('hidden'); $('appShell').classList.add('blurred');
-  $('loginError').textContent='';
+  if(logo && !logo.getAttribute('src')) logo.src=logo.dataset.src||'/brand/logo-full.webp';
+  $('loginModal')?.classList.remove('hidden');
+  if($('loginError')) $('loginError').textContent='';
   const note=$('loginNote');
   if(note) note.textContent=new URLSearchParams(location.search).get('reset')==='1'?PASSWORD_UPDATED:'';
+  scrubPrivateMap();
+  import('./tn-files/password-reset.js').catch(()=>{});
 }
-function hideLogin(){ $('loginModal').classList.add('hidden'); $('appShell').classList.remove('blurred'); }
+function hideLogin(){
+  document.documentElement.classList.remove('tn-signed-out');
+  $('loginModal')?.classList.add('hidden');
+  $('appShell')?.classList.remove('blurred');
+  revealMapLoader();
+}
 async function login(e){e.preventDefault();if(!state.supabase){return}
   state.pendingPostSignIn=true;
   $('loginError').textContent='Signing in…';
@@ -716,6 +789,7 @@ function revealMapLoader(){
   }
 }
 function hideMapLoader(gen){
+  if(!state.sessionReady) return;
   if(gen!=null&&gen!==state.mapLoaderGen)return;
   clearTimeout(state.mapLoaderGiveUp);
   const el=$('mapLoader'); if(!el||el.classList.contains('isGone')||el.dataset.hiding==='1'){state.mapSettled=true;return;}
@@ -1500,14 +1574,14 @@ function openLead(id){
   const notes=l.notes||localSaved(l).notes||'';
   const reps=state.reps.slice().sort((a,b)=>a.name.localeCompare(b.name));
   $('drawerContent').innerHTML=`<div class="drawerTop" data-lead-id="${esc(l.id)}"><div><div class="eyebrow">FIELD RECORD</div><h2>${esc(l.name||'Property lead')}</h2><div class="drawerAddr">${esc(l.address)}<br>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</div></div><span class="bigScore">${scoreLead(l)}</span></div>
-    <div class="detailGrid"><div><small>Source</small><b>${esc(l.source)}</b></div><div><small>Priority</small><b>${esc(l.priority||'Standard')}</b></div><div><small>Built</small><b>${esc(l.year_built??l.yearBuilt??'Unknown')}</b></div><div><small>Mapped</small><b>${isCoords(l)?'Exact geocode':'Needs geocode'}</b></div></div>
+    <section class="drawerSection" data-tn-panel="lead-details" data-tn-rank="primary"><h3>House details</h3><div class="detailGrid"><div><small>Source</small><b>${esc(l.source)}</b></div><div><small>Priority</small><b>${esc(l.priority||'Standard')}</b></div><div><small>Built</small><b>${esc(l.year_built??l.yearBuilt??'Unknown')}</b></div><div><small>Mapped</small><b>${isCoords(l)?'Exact geocode':'Needs geocode'}</b></div></div>
     <div class="drawerActions"><button id="drawerMaps" class="darkBtn">Open Google Maps</button><button id="drawerDir" class="outlineBtn">Directions</button></div>
     <div class="fieldActions"><button data-qstatus="Knocked">Knocked</button><button data-qstatus="No Answer">No answer</button><button data-qstatus="Interested">Interested</button><button data-qstatus="Not Interested">Not interested</button></div>
     <label>Sales status</label><select id="dStatus">${STATUS_OPTIONS.map(x=>`<option value="${esc(x)}" ${leadStatus(l)===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
     <label>Assigned rep</label><select id="dOwner"><option value="">Unassigned</option>${reps.map(r=>`<option value="${esc(r.id)}" ${l.assignedRepId===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('')}</select>
     <div class="verifiedGrid"><label>Roof age (verified)</label><input id="dRoofAge" type="number" min="0" max="100" value="${esc(l.roof_age_years??l.roofAgeYears??'')}" placeholder="e.g. 16"><label><input id="dRoofVerified" type="checkbox" ${l.roof_age_verified||l.roofAgeVerified?'checked':''}> verified</label></div>
     <label>Notes</label><textarea id="dNotes" placeholder="Homeowner response, roof condition, next action…">${esc(notes)}</textarea>
-    <button id="saveLeadBtn" class="saveBtn">Save field result</button>
+    <button id="saveLeadBtn" class="saveBtn">Save field result</button></section>
     <div class="drawerSection"><div class="sectionTitle">Appointment handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||state.reps.find(r=>r.id===appt.salesperson_id)?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">${handoffPermissions({role:handoffActor().role, repId:handoffActor().repId, appointment:appt}).notes||handoffPermissions({role:handoffActor().role, repId:handoffActor().repId, appointment:appt}).assign?'Open handoff':'View handoff'}</button></div>`:`<a class="outlineBtn" href="/setter.html?lead=${encodeURIComponent(l.id)}">Inspection form</a>`}</div>`;
   $('drawer').classList.remove('hidden');
   $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l);

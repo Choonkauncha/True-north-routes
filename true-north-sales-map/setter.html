@@ -1,6 +1,31 @@
 <!doctype html>
 <html lang="en">
-<head><style>html{background:#0c1424!important}</style><link rel="stylesheet" href="/brand/transitions.css"><script src="/brand/prefetch.js" defer></script>
+<head><style>html{background:#0c1424!important}
+.tnLoader,.mapLoader{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:#0c1424;color:#fff}
+.mapLoader{z-index:4000;flex-direction:column;gap:16px;padding:28px 22px;text-align:center}
+.tnLoader.isGone,.mapLoader.isGone{display:none!important}
+.bootMark{position:relative;width:84px;height:84px;flex:none}
+.bootMark .bootEmblem{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;animation:none}
+.bootOutline{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.bootOutlineTrack,.bootOutlineTravel{fill:none;stroke-linejoin:round;stroke-linecap:round}
+.bootOutlineTrack{stroke:rgba(30,107,255,.5);stroke-width:12}
+.bootOutlineTravel{stroke:#1e6bff;stroke-width:14;stroke-dasharray:18 82;filter:drop-shadow(0 0 2px #d6e6ff) drop-shadow(0 0 6px #1e6bff);animation:bootOutlineTravel 2.8s linear infinite}
+@keyframes bootOutlineTravel{to{stroke-dashoffset:-100}}
+.tnLoaderSr,.mapLoaderSr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.tnSignInScreen{position:fixed;inset:0;z-index:100001;display:grid;place-items:center;padding:16px;background:#0c1424;overflow:auto;box-sizing:border-box}
+html.tn-map.tn-signed-out body>*:not(#loginModal){display:none!important}
+html.tn-map.tn-signed-out #loginModal{display:flex!important;background:#0c1424!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;z-index:100000}
+html.tn-signed-out,html.tn-signed-out body{background:#0c1424!important}
+html.tn-signed-out .tnHeader,html.tn-signed-out .tn-skip,html.tn-signed-out #setterApp{display:none!important}
+html.tn-signed-out:not(.tn-hold-login) #tnBootHold{display:none!important}
+html.tn-signed-out.tn-hold-login #tnBootHold{display:flex!important}
+html.tn-signed-out body.tn-standalone #main{min-height:100vh;display:grid;place-items:center;background:#0c1424;margin:0;padding:16px;box-sizing:border-box}
+.tn-vt-loader{view-transition-name:tn-loader}
+@media(prefers-reduced-motion:reduce){
+  .bootOutlineTravel{animation:none;stroke-dasharray:none;stroke-dashoffset:0;filter:none}
+  .bootOutlineTrack{stroke:transparent}
+  .tnLoader,.mapLoader{transition:none}
+}</style><script>try{var tnAuthed=false;for(var i=0;i<localStorage.length;i++){var key=localStorage.key(i);if(!key||!/^sb-.+-auth-token$/.test(key))continue;var raw=localStorage.getItem(key)||"";if(!raw){var chunks=[];for(var n=0;;n++){var chunk=localStorage.getItem(key+"."+n);if(!chunk)break;chunks.push(chunk);}raw=chunks.join("");}if(!raw)continue;var parsed=JSON.parse(raw);var session=parsed&&parsed.access_token?parsed:parsed&&parsed.currentSession;if(session&&session.access_token){tnAuthed=true;break;}}}catch(e){}if(!tnAuthed)document.documentElement.classList.add("tn-signed-out");</script><link rel="stylesheet" href="/brand/transitions.css"><script type="module" src="/brand/prefetch.js"></script>
   <link rel="icon" href="/brand/favicon.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
   <meta charset="UTF-8">
@@ -11,8 +36,8 @@
   <link rel="stylesheet" href="/tn-files.css">
   <link rel="stylesheet" href="/brand/tokens.css">
   <link rel="stylesheet" href="/brand/pages.css">
-</head>
-<body class="tn-standalone tn-setter">
+<link rel="stylesheet" href="/brand/collapse.css"></head>
+<body class="tn-standalone tn-setter"><div id="tnBootHold" class="tnLoader tn-vt-loader" role="status" aria-live="polite" aria-busy="true"><p class="tnLoaderSr">Loading</p><div class="bootMark"><img class="bootEmblem" src="/brand/logo-emblem.webp" alt="" width="256" height="259"><svg class="bootOutline" viewBox="0 0 256 259" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><path class="bootOutlineTrack" pathLength="100" d="M99.7 0.7 C98.3 2 99 11.7 100.5 13 C101.6 13.9 102 16.4 102 22.5 C102 28.6 101.6 31.1 100.5 32 C99.5 32.8 99 35.1 99 39.1 L99 45 L106.1 45 C112.3 45 113.1 45.2 112.6 46.7 C112.3 47.7 111.6 50.6 110.9 53.2 C109.9 57.5 109.4 58.1 106.1 59 C101.2 60.4 101 60.3 98.9 57.6 C96.6 54.6 91 52.6 86.7 53.3 C84.7 53.5 82.5 53 80.5 51.9 C78.9 50.8 76.9 50 76.1 50 C75.4 50 73.5 48.9 71.8 47.5 C70.2 46.1 68.2 45 67.4 45 C66.6 45 63.5 43.6 60.4 41.9 C55.7 39.2 54.2 38.8 50.2 39.3 C47.6 39.6 37.9 40.8 28.5 41.9 C19.2 43 8.9 44.2 5.8 44.6 L0 45.3 L0 152.1 L0 259 L128 259 L256 259 L256 145.9 L256 32.9 L253.3 34.3 C251.7 35.1 245.8 38.1 240 41 C231.6 45.2 227.9 47.8 221.5 54 C212.5 62.8 208.4 64.4 203.9 60.9 C202.6 59.9 201 59 200.4 59 C199.8 59 197.2 57.9 194.6 56.5 C189 53.5 187.5 53.4 183.5 55.9 C181.8 56.9 178.7 58.3 176.5 59 C174.3 59.7 169.3 62.2 165.4 64.6 C156.7 70 156 70 150.2 64.9 C147.6 62.6 143.5 60 141.1 59.1 C137 57.6 136.5 57.1 135.3 52.5 C133.4 45.1 133.4 45.1 139.8 44.8 L145.5 44.5 L145.8 29.5 C146 17.8 146.4 14.2 147.6 12.9 C148.7 11.7 149 9.6 148.8 5.9 L148.5 0.5 L135.8 0.2 C126.2 0 123 0.2 123 1.2 C123 2.1 122.7 2.1 121.8 1.2 C120.5 -0.1 100.9 -0.6 99.7 0.7 Z"/><path class="bootOutlineTravel" pathLength="100" d="M99.7 0.7 C98.3 2 99 11.7 100.5 13 C101.6 13.9 102 16.4 102 22.5 C102 28.6 101.6 31.1 100.5 32 C99.5 32.8 99 35.1 99 39.1 L99 45 L106.1 45 C112.3 45 113.1 45.2 112.6 46.7 C112.3 47.7 111.6 50.6 110.9 53.2 C109.9 57.5 109.4 58.1 106.1 59 C101.2 60.4 101 60.3 98.9 57.6 C96.6 54.6 91 52.6 86.7 53.3 C84.7 53.5 82.5 53 80.5 51.9 C78.9 50.8 76.9 50 76.1 50 C75.4 50 73.5 48.9 71.8 47.5 C70.2 46.1 68.2 45 67.4 45 C66.6 45 63.5 43.6 60.4 41.9 C55.7 39.2 54.2 38.8 50.2 39.3 C47.6 39.6 37.9 40.8 28.5 41.9 C19.2 43 8.9 44.2 5.8 44.6 L0 45.3 L0 152.1 L0 259 L128 259 L256 259 L256 145.9 L256 32.9 L253.3 34.3 C251.7 35.1 245.8 38.1 240 41 C231.6 45.2 227.9 47.8 221.5 54 C212.5 62.8 208.4 64.4 203.9 60.9 C202.6 59.9 201 59 200.4 59 C199.8 59 197.2 57.9 194.6 56.5 C189 53.5 187.5 53.4 183.5 55.9 C181.8 56.9 178.7 58.3 176.5 59 C174.3 59.7 169.3 62.2 165.4 64.6 C156.7 70 156 70 150.2 64.9 C147.6 62.6 143.5 60 141.1 59.1 C137 57.6 136.5 57.1 135.3 52.5 C133.4 45.1 133.4 45.1 139.8 44.8 L145.5 44.5 L145.8 29.5 C146 17.8 146.4 14.2 147.6 12.9 C148.7 11.7 149 9.6 148.8 5.9 L148.5 0.5 L135.8 0.2 C126.2 0 123 0.2 123 1.2 C123 2.1 122.7 2.1 121.8 1.2 C120.5 -0.1 100.9 -0.6 99.7 0.7 Z"/></svg></div></div>
 <a class="tn-skip" href="#main">Skip to content</a>
 <header class="tnHeader">
   <div class="brand">
@@ -70,7 +95,7 @@
         <form id="setterForm">
           <input type="hidden" id="lead_id" name="lead_id" value="">
           <div class="notice">The source training standard is simple: find the homeowner, make contact, schedule the inspection, log it correctly, and let the inspection happen. Do not diagnose damage you have not inspected or guarantee an insurance outcome. Saving this form creates the homeowner profile for management.</div>
-          <div class="formSection">
+          <div class="formSection" data-tn-panel="setter-homeowner" data-tn-rank="primary">
             <h3>1. Homeowner information</h3>
             <div class="grid grid2">
               <div class="field">
@@ -91,7 +116,7 @@
               </div>
             </div>
           </div>
-          <div class="formSection">
+          <div class="formSection" data-tn-panel="setter-property" data-tn-rank="secondary">
             <h3>2. Property</h3>
             <div class="grid grid2">
               <div class="field span2">
@@ -116,7 +141,7 @@
               <span>Homeowner / authorized decision-maker confirmed.</span>
             </label>
           </div>
-          <div class="formSection">
+          <div class="formSection" data-tn-panel="setter-concern" data-tn-rank="secondary">
             <h3>3. What they noticed</h3>
             <div class="grid grid2">
               <div class="field">
@@ -157,7 +182,7 @@
               <textarea id="what_they_noticed" name="what_they_noticed" placeholder="Example: a water spot in the upstairs bedroom after a storm."></textarea>
             </div>
           </div>
-          <div class="formSection">
+          <div class="formSection" data-tn-panel="setter-book" data-tn-rank="secondary">
             <h3>4. Book the inspection</h3>
             <div class="grid grid2">
               <div class="field">
@@ -199,12 +224,12 @@
           <div id="saveError" class="error" role="alert"></div>
         </form>
       </div>
-      <div class="card pad">
+      <div class="card pad" data-tn-panel="setter-checklist" data-tn-rank="secondary">
         <div class="eyebrow">Today</div>
         <h2>Setter checklist</h2>
         <div class="grid">
           <div class="notice">1. Identify yourself and True North.<br>2. Ask. Listen. Confirm.<br>3. Confirm homeowner/property/contact details.<br>4. Schedule a specific inspection time.<br>5. Tell the homeowner what the inspection is for.<br>6. Leave useful notes for the salesperson.</div>
-          <div class="card pad">
+          <div class="card pad" data-tn-panel="setter-activity" data-tn-rank="secondary">
             <b>Setter activity today</b>
             <div class="grid grid2">
               <div class="metric"><b id="todayAppts">0</b><span>appointments</span></div>
@@ -217,6 +242,4 @@
   </div>
 </main>
 <div class="footer">True North Restorations · The appointment setter creates the next good conversation. Trust first. Work the system.</div>
-<script type="module" src="/tn-files/inspection-form.js"></script><script type="module" src="/field-ops.js"></script><script type="module" src="/tn-files/setter-link.js"></script></body></html>
-</body>
-</html>
+<script type="module" src="/tn-files/inspection-form.js"></script><script type="module" src="/field-ops.js"></script><script type="module" src="/tn-files/setter-link.js"></script><script type="module" src="/brand/collapse.js"></script></body></html>

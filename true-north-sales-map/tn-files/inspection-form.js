@@ -15,16 +15,34 @@ async function loadConfig() {
   return response.json();
 }
 
+function showSetterSignedOut() {
+  document.documentElement.classList.add('tn-signed-out');
+  document.documentElement.classList.remove('tn-hold-login');
+  $('setterApp')?.classList.add('hidden');
+  $('loginCard')?.classList.remove('hidden');
+  const form = $('setterForm');
+  if (form) form.reset();
+  if ($('lead_id')) $('lead_id').value = '';
+  if ($('city')) $('city').value = 'Mount Vernon';
+  if ($('state')) $('state').value = 'OH';
+  document.getElementById('tnBootHold')?.classList.add('isGone');
+}
+
 async function load() {
   cfg = await loadConfig();
   if (!cfg.configured) {
     $('loginError').textContent = 'Cloud is not configured for this deployment.';
+    showSetterSignedOut();
     return;
   }
   sb = createClient(cfg.url, cfg.publishableKey);
   const { data } = await sb.auth.getSession();
   if (data.session) await enter(data.session);
-  sb.auth.onAuthStateChange((_event, next) => { if (next) enter(next); });
+  else showSetterSignedOut();
+  sb.auth.onAuthStateChange((event, next) => {
+    if (next) enter(next);
+    else if (event === 'SIGNED_OUT') showSetterSignedOut();
+  });
 }
 
 function splitName(name) {
@@ -36,6 +54,8 @@ function splitName(name) {
 
 async function enter(nextSession) {
   session = nextSession;
+  document.documentElement.classList.remove('tn-signed-out', 'tn-hold-login');
+  document.getElementById('tnBootHold')?.classList.add('isGone');
   const { data, error } = await sb.from('reps').select('id,user_id,name,role,active,created_at').eq('user_id', nextSession.user.id).eq('active', true).maybeSingle();
   if (error || !data) {
     $('loginError').textContent = 'Your account is signed in, but there is no active True North team profile for it.';
@@ -136,6 +156,7 @@ $('loginForm').addEventListener('submit', async (event) => {
 });
 
 $('signOut').onclick = () => {
+  showSetterSignedOut();
   try { if (session?.user) localStorage.removeItem(`tn-role:${session.user.id}`); } catch { /* storage unavailable */ }
   (sb ? sb.auth.signOut() : Promise.resolve()).then(() => location.reload());
 };
