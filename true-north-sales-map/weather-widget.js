@@ -1,8 +1,48 @@
 import { alertBannerText, readWeatherCache, weatherCacheKey, writeWeatherCache } from './lib/weather.js';
 
 const HOME = { lat: 40.3931, lng: -82.4857 };
+const WEATHER_OPEN_KEY = 'tnrc2:weatherOpen';
 let ticket = 0;
 let started = false;
+let weatherOpen = false;
+try { weatherOpen = localStorage.getItem(WEATHER_OPEN_KEY) === '1'; } catch { /* stay collapsed */ }
+
+function applyWeatherChrome() {
+  const button = document.getElementById('weatherToggle');
+  const popover = document.getElementById('weatherPopover');
+  if (button) button.setAttribute('aria-expanded', weatherOpen ? 'true' : 'false');
+  if (popover) popover.hidden = !weatherOpen;
+  const temp = document.getElementById('weatherTemp')?.textContent || '';
+  const now = document.getElementById('weatherNow')?.textContent || '';
+  const summary = [temp, now].filter(Boolean).join(', ');
+  if (button) button.setAttribute('aria-label', summary ? `${weatherOpen ? 'Hide' : 'Show'} weather, ${summary}` : `${weatherOpen ? 'Hide' : 'Show'} weather`);
+}
+
+export function setWeatherOpen(open, { persist = true } = {}) {
+  weatherOpen = !!open;
+  applyWeatherChrome();
+  if (persist) {
+    try { localStorage.setItem(WEATHER_OPEN_KEY, weatherOpen ? '1' : '0'); } catch { /* private mode */ }
+  }
+  if (weatherOpen) document.dispatchEvent(new CustomEvent('tn-close-popovers', { detail: 'weather' }));
+}
+
+function bindWeatherToggle() {
+  const button = document.getElementById('weatherToggle');
+  if (!button || button.dataset.bound === '1') return;
+  button.dataset.bound = '1';
+  applyWeatherChrome();
+  button.addEventListener('click', () => setWeatherOpen(!weatherOpen));
+  document.addEventListener('click', (event) => {
+    if (!weatherOpen) return;
+    const stack = document.getElementById('weatherStack');
+    if (stack && stack.contains(event.target)) return;
+    setWeatherOpen(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && weatherOpen) setWeatherOpen(false);
+  });
+}
 
 function pointFromMap(map) {
   if (!map) return HOME;
@@ -18,6 +58,11 @@ function fill(forecast, place) {
   const range = document.getElementById('weatherRange');
   const hours = document.getElementById('weatherHours');
   if (temp) temp.textContent = `${forecast.temperature}°`;
+  const badge = document.getElementById('weatherBadge');
+  if (badge) {
+    badge.hidden = false;
+    badge.textContent = `${forecast.temperature}°`;
+  }
   if (placeEl) placeEl.textContent = place;
   if (now) now.textContent = forecast.conditions;
   const bits = [];
@@ -36,6 +81,7 @@ function fill(forecast, place) {
       return cell;
     }));
   }
+  applyWeatherChrome();
 }
 
 function show(payload, place) {
@@ -56,6 +102,11 @@ function show(payload, place) {
   }
   if (widget) widget.hidden = !forecast;
   if (forecast) fill(forecast, place);
+  else {
+    const badge = document.getElementById('weatherBadge');
+    if (badge) badge.hidden = true;
+    applyWeatherChrome();
+  }
 }
 
 async function load(coords, place) {
@@ -91,6 +142,7 @@ function gpsOnce() {
 export function startMapWeather(map) {
   if (!document.getElementById('weatherStack') || started) return;
   started = true;
+  bindWeatherToggle();
   const center = pointFromMap(map);
   const gps = gpsOnce();
   const early = new Promise((resolve) => setTimeout(() => resolve('center'), 1200));
