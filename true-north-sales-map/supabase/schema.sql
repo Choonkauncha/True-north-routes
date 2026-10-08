@@ -105,3 +105,6 @@ end $$;
 
 -- After creating the Auth users, create/update their management profiles:
 -- update public.reps set role='admin',active=true,email='...' where user_id='AUTH-USER-UUID';
+
+-- Clock-in, location trails, and office message threads are additive.
+-- After this file, run supabase/migrations/20261008_access_clockin.sql.

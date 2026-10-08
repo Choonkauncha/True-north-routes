@@ -48,6 +48,55 @@ The NWS layer shows currently active Ohio weather alerts filtered to storm/wind/
 
 This remains a static-first site, with Vercel Functions only for `/api/config`, `/api/geocode`, and `/api/storms`. Supabase is the shared database/auth layer. The server-only Supabase secret is used only to validate authenticated requests to the geocoding endpoint.
 
+## Clock in, location, and office messages
+
+Setters, canvassers, and sales reps get a large green **Clock In** button on the field map and on setter intake. On a phone it stays fixed at the bottom of the screen so it can be reached with a thumb. After clock-in it turns red, says **Clock Out**, and shows a running timer. The first clock-in shows a short location notice with one **Got it** button. A point is stored at clock-in, clock-out, and each door-status change during that shift. The browser is not asked to track in the background.
+
+**Messages** opens one chat with the office. Newest messages sit at the bottom, with a large text box and Send button. An unread count sits on the Messages button. Admins open Messages, tap a person, and get that same chat.
+
+**Shifts** (`/shifts`) lists who is clocked in right now at the top. Tap a person to see their points on a map and the miles for that day.
+
+Each of those people has one message thread with the office, separate from GroupMe. Admins and managers see every thread, with an unread count. Field users see only their own thread.
+
+Admins and managers open **Shifts** at `/shifts` (also linked from Management). Who is clocked in right now is listed first. Tap a person to see that day's points on a map and the miles between them. The day boundary is Eastern time.
+
+Access is enforced twice:
+
+- Supabase row level security, plus insert triggers that stamp `rep_id` / `sender_rep_id` from the signed-in user.
+- `GET` and `POST /api/field`, which checks the bearer token and role before it reads or writes. The API calls Postgres with the user token and the publishable key, so RLS still applies. It does not use the service-role secret for these tables.
+
+### Apply the migration
+
+Run this after `supabase/schema.sql` on a new project, or on its own if the rest of the schema is already applied.
+
+1. Open the Supabase project → SQL Editor.
+2. Paste `supabase/migrations/20261008_access_clockin.sql` and run it.
+3. Confirm the editor finishes without an error. The script is additive: it creates the new tables, policies, and triggers, and it does not rewrite leads, reps, or appointments.
+4. Redeploy so `/api/field` and `/shifts` are live. Existing environment variables are enough (`SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`). No new secrets.
+
+Re-running the file replaces functions and policies. It does not drop shifts or messages that were already recorded.
+
+### How to test
+
+Use two Supabase users: one `canvasser` (or `appointment_setter` / `salesperson`) and one `admin` or `manager`, each with an active `public.reps` row.
+
+1. **Clock in.** Sign in on `/` or `/setter` as the field user. Tap the green Clock In button. The first time, the location sheet appears. Tap Got it. Allow the browser location prompt. The button turns red, says Clock Out, and the timer starts. In Supabase, `location_consents` has one row for that rep, and `shifts` has an open row whose `rep_id` matches them.
+2. **Door point.** While clocked in, mark a door status on the map (Knocked, No answer, and the other field buttons). `location_points` gains a `door_status` row. Clock out. A `clock_out` point is stored and `clock_out_at` is set. Mark another door after clock-out and confirm no new point is written.
+3. **Own rows only.** With the field user's session, `select * from shifts` in the API or from the browser client returns only that user's shifts. Repeat for `location_points` and `messages`. An admin session sees every row.
+4. **Messages.** From the field user, open Messages. It is one chat. Send a note. Sign in as admin. The Messages button shows an unread count. Open it, tap that person, and reply. The field user's chat shows the reply, and the unread count clears after the chat is opened. Nothing is posted to GroupMe.
+5. **Shifts page.** As admin, open `/shifts`. People who are clocked in right now are at the top. Tap a person. The page shows miles for the day and draws that person's points on the map. A setter or canvasser who opens `/shifts` sees an office-only notice.
+
+`npm test` checks the Eastern day boundary, mile total, unread counts, and that the migration contains the consent notice.
+
+### Lead files
+
+`data/leads.json` and `source/` stay publicly readable in this change. The live map in cloud mode loads leads from Supabase, but local mode and **Initialize cloud data** still fetch `/data/leads.json` with a plain request. `data/leads.json` is about 3.7MB, close to the serverless response limit, so putting that file through a function can break the import. A follow-up can require a signed-in rep without changing the map pins:
+
+- Stop serving `data/leads.json` and `source/*` as static files.
+- Serve them from an authenticated function (or authorize in routing middleware and then continue to the file) using the same bearer-token check as `/api/field`.
+- Send the session token on the local-mode fetch and on the admin import fetch.
+- Leave `data/city-centers.json` and `data/manifest.json` public. They are map chrome, not the lead list.
+
 ## Test locally
 
 ```bash

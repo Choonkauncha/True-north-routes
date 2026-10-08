@@ -4,6 +4,7 @@
     {"source":"/homeowner","destination":"/homeowner.html"},
     {"source":"/setter","destination":"/setter.html"},
     {"source":"/admin","destination":"/admin.html"},
+    {"source":"/shifts","destination":"/shifts.html"},
     {"source":"/rep","destination":"/rep.html"},
     {"source":"/photo","destination":"/photo.html"},
     {"source":"/forms","destination":"/forms.html"},
