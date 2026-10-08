@@ -1,6 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
+const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
+const doorSheetMedia=window.matchMedia('(max-width: 960px)');
+const HOME_BASE={lat:40.3931,lng:-82.4857};
+const HOME_MILES=35;
+const LIST_SNAPS=['sheet-collapsed','sheet-half','sheet-full'];
 const APPOINTMENT_STAGES=['Scheduled','Confirmed','Completed','No-show','Cancelled'];
 const ROLE_OPTIONS=['admin','manager','canvasser','salesperson'];
 const LOCAL_KEY='tnrc2:local';
@@ -12,7 +17,9 @@ const state={
   routeLine:null, userMarker:null, routeStops:[], currentLocation:null,
   filters:{q:'',status:'',rep:'',territory:'',source:'',mine:false},
   layerFlags:{pins:true,density:false,opportunity:true,roofAge:false,storms:false,territories:true},
-  routeMode:'driving', busy:false, config:null, realtimeChannel:null, refreshTimer:null
+  routeMode:'driving', busy:false, config:null, realtimeChannel:null, refreshTimer:null,
+  doorLeadId:null, doorSaving:false, doorUndo:null,
+  homeArea:true, didFit:false, listSnap:'sheet-collapsed', pinBannerDismissed:false
 };
 
 const $=id=>document.getElementById(id);
@@ -68,7 +75,19 @@ function bindStaticEvents(){
   ['statusFilter','repFilter','territoryFilter','sourceFilter'].forEach(id=>$(id).addEventListener('change',()=>{syncFilters();renderAll()}));
   $('mineToggle').addEventListener('change',()=>{syncFilters();renderAll()});
   $('layerBtn').onclick=()=>$('layerMenu').classList.toggle('open');
-  document.addEventListener('click',e=>{if(!$('layerMenu').contains(e.target)&&e.target!==$('layerBtn'))$('layerMenu').classList.remove('open')});
+  $('legendKey').onclick=()=>{
+    const legend=$('mapLegend');
+    const open=legend.classList.toggle('isOpen');
+    $('legendKey').setAttribute('aria-expanded',open?'true':'false');
+    if(!open||!useDoorSheet()){legend.style.top='';return;}
+    const canvas=document.querySelector('.mapCanvas').getBoundingClientRect();
+    const overlay=document.querySelector('.mapTopOverlay').getBoundingClientRect();
+    legend.style.top=`${Math.round(overlay.bottom-canvas.top+8)}px`;
+  };
+  document.addEventListener('click',e=>{
+    if(!$('layerMenu').contains(e.target)&&e.target!==$('layerBtn'))$('layerMenu').classList.remove('open');
+    if(!$('mapLegend').contains(e.target)&&e.target!==$('legendKey')){$('mapLegend').classList.remove('isOpen');$('legendKey').setAttribute('aria-expanded','false');}
+  });
   document.querySelectorAll('[data-layer]').forEach(el=>el.addEventListener('change',()=>{state.layerFlags[el.dataset.layer]=el.checked;refreshMapLayers()}));
   $('routeMode').addEventListener('change',e=>state.routeMode=e.target.value);
   $('routeCount').addEventListener('input',e=>$('routeCountValue').textContent=e.target.value); $('routeDistance').textContent='';
@@ -84,6 +103,21 @@ function bindStaticEvents(){
   $('closeAppointment').onclick=()=>$('appointmentModal').classList.add('hidden');
   $('appStage').addEventListener('change',()=>{});
   $('copyHandoffBtn').onclick=copyCurrentHandoff;
+  $('doorSheetClose').onclick=closeDoorSheet;
+  $('doorSheetScrim').onclick=closeDoorSheet;
+  $('doorSheetFull').onclick=()=>{const id=state.doorLeadId; closeDoorSheet(); if(id) openLead(id);};
+  $('toastUndo').onclick=undoDoorStatus;
+  $('toastNext').onclick=()=>openNextHouse(state.doorUndo?.id);
+  $('homeAreaBtn').onclick=()=>setHomeArea(true);
+  $('allOhioBtn').onclick=()=>setHomeArea(false);
+  $('pinBannerAction').onclick=openAdmin;
+  $('pinBannerDismiss').onclick=()=>{state.pinBannerDismissed=true;$('pinBanner').classList.add('hidden');};
+  bindDoorSwipe();
+  bindListSheet();
+  syncListMode();
+  const onDoorMedia=()=>{if(state.map){closeDoorSheet();refreshMapLayers();}syncListMode();};
+  if(doorSheetMedia.addEventListener) doorSheetMedia.addEventListener('change',onDoorMedia);
+  else doorSheetMedia.addListener(onDoorMedia);
 }
 
 function enterLocal(message){
@@ -178,7 +212,8 @@ function applyFilters(){
 
 function renderAll(){
   if(!state.map)return;
-  applyFilters(); renderStats(); renderWorkList(); renderHandoffs(); renderTeam(); renderSidebarCounts(); refreshMapLayers(); updateSelectedBadge();
+  applyFilters(); renderStats(); renderWorkList(); renderHandoffs(); renderTeam(); renderSidebarCounts(); refreshMapLayers(); updateSelectedBadge(); updateListSummary(); updatePinBanner();
+  if(!state.didFit){state.didFit=true;setTimeout(()=>{publishListPeek();fitMapToScope(false);},80);}
 }
 
 function renderStats(){
@@ -274,15 +309,26 @@ function refreshMapLayers(){
   if(state.layerFlags.storms && !state.stormLayer)loadStorms(false);
   if(state.routeStops?.length)drawRoutePreview();
 }
+function useDoorSheet(){return doorSheetMedia.matches;}
+function pinIconFor(l){
+  const selected=state.selected.has(l.id), s=leadStatus(l);
+  const phone=useDoorSheet();
+  const size=phone?44:18;
+  return L.divIcon({className:phone?'pinWrap pinHit':'pinWrap',html:`<span class="housePin${selected?' selectedPin':''} status-${statusClass(s)}">${selected?'◆':'●'}</span>`,iconSize:[size,size],iconAnchor:[size/2,size/2]});
+}
 function drawLeadPins(){
   const group=state.markerLayer;
   const candidates=state.filtered.filter(isCoords);
+  const phone=useDoorSheet();
   candidates.forEach(l=>{
-    const selected=state.selected.has(l.id), s=leadStatus(l);
-    const icon=L.divIcon({className:'pinWrap',html:`<span class="housePin ${selected?'selectedPin':''} status-${statusClass(s)}">${selected?'◆':'●'}</span>`,iconSize:[18,18],iconAnchor:[9,9]});
-    const m=L.marker([l.lat,l.lng],{icon,title:l.address});
-    m.bindPopup(`<div class="pinPopup"><b>${esc(l.name||'Property lead')}</b><div>${esc(l.address)}, ${esc(l.city)}</div><div class="popupLine"><span class="miniBadge">${esc(s)}</span><b>${scoreLead(l)} pts</b></div><button data-popup-lead="${esc(l.id)}">Open lead</button></div>`);
-    m.on('popupopen',()=>setTimeout(()=>document.querySelector(`[data-popup-lead="${CSS.escape(l.id)}"]`)?.addEventListener('click',()=>openLead(l.id)),0));
+    const s=leadStatus(l);
+    const m=L.marker([l.lat,l.lng],{icon:pinIconFor(l),title:l.address,keyboard:true});
+    if(phone){
+      m.on('click',e=>{L.DomEvent.stop(e);openDoorSheet(l.id);});
+    }else{
+      m.bindPopup(`<div class="pinPopup"><b>${esc(l.name||'Property lead')}</b><div>${esc(l.address)}, ${esc(l.city)}</div><div class="popupLine"><span class="miniBadge">${esc(s)}</span><b>${scoreLead(l)} pts</b></div><button data-popup-lead="${esc(l.id)}">Open lead</button></div>`);
+      m.on('popupopen',()=>setTimeout(()=>document.querySelector(`[data-popup-lead="${CSS.escape(l.id)}"]`)?.addEventListener('click',()=>openLead(l.id)),0));
+    }
     group.addLayer(m);
   });
 }
@@ -299,7 +345,7 @@ function drawTerritories(){
     if(!center)return;
     const t=state.territories.find(x=>x.name===city)||{};
     const rep=state.reps.find(r=>r.id===t.assigned_rep_id)?.name||'Unassigned';
-    const circle=L.circle(center,{radius:Math.max(400,Math.min(4200,Math.sqrt(leads.length)*95)),weight:1.5,fillOpacity:.06,color:t.color||'#20362a'}).addTo(state.map);
+    const circle=L.circle(center,{radius:Math.max(400,Math.min(4200,Math.sqrt(leads.length)*95)),weight:1.5,fillOpacity:.06,color:t.color||'#132B3A'}).addTo(state.map);
     circle.bindPopup(`<b>${esc(city)}</b><br>${fmt(leads.length)} filtered houses<br><span>${esc(rep)}</span>`);
     state._territoryLayers.push(circle);
   });
@@ -315,10 +361,102 @@ function nextBest(){
   toast(`Next best house: ${pool[0].address}`);
 }
 
+function isHomeLead(l){return isCoords(l)&&haversine(HOME_BASE.lat,HOME_BASE.lng,Number(l.lat),Number(l.lng))<=HOME_MILES;}
+function fitMapToScope(animate=false){
+  if(!state.map)return;
+  const mapped=state.filtered.filter(isCoords);
+  const home=mapped.filter(isHomeLead);
+  const use=state.homeArea&&home.length?home:mapped;
+  if(!use.length){state.map.setView([HOME_BASE.lat,HOME_BASE.lng],12,{animate});return;}
+  const bounds=L.latLngBounds(use.map(l=>[Number(l.lat),Number(l.lng)]));
+  const phone=useDoorSheet();
+  state.map.fitBounds(bounds.pad(.12),{animate,maxZoom:16,paddingTopLeft:[16,phone?128:36],paddingBottomRight:[16,phone?150:28]});
+}
 function fitFilteredLeads(){
-  const mapped=state.filtered.filter(isCoords); if(!mapped.length){toast('No mapped houses in the current filter.');return;}
-  const bounds=L.latLngBounds(mapped.map(l=>[Number(l.lat),Number(l.lng)]));
-  state.map.fitBounds(bounds.pad(.10),{animate:true,maxZoom:16});
+  if(!state.filtered.filter(isCoords).length){toast('No mapped houses in the current filter.');fitMapToScope(true);return;}
+  fitMapToScope(true);
+}
+function setHomeArea(on){
+  state.homeArea=!!on;
+  $('homeAreaBtn').classList.toggle('isOn',state.homeArea);
+  $('homeAreaBtn').setAttribute('aria-pressed',state.homeArea?'true':'false');
+  $('allOhioBtn').classList.toggle('isOn',!state.homeArea);
+  $('allOhioBtn').setAttribute('aria-pressed',!state.homeArea?'true':'false');
+  fitMapToScope(true);
+  updateListSummary();
+}
+function canManagePins(){return ['admin','manager'].includes(state.currentRep?.role);}
+function updatePinBanner(){
+  const el=$('pinBanner'); if(!el)return;
+  if(state.pinBannerDismissed||!state.leads.length||state.leads.some(isCoords)){el.classList.add('hidden');return;}
+  const admin=canManagePins();
+  $('pinBannerText').textContent=admin?"Houses aren't pinned yet. Open Admin → Geocode missing house pins.":"Houses aren't pinned yet. Ask an admin to run the pin geocoder.";
+  $('pinBannerAction').classList.toggle('hidden',!admin);
+  el.classList.remove('hidden');
+  if(useDoorSheet()){
+    const canvas=document.querySelector('.mapCanvas')?.getBoundingClientRect();
+    const overlay=document.querySelector('.mapTopOverlay')?.getBoundingClientRect();
+    if(canvas&&overlay)el.style.top=`${Math.round(overlay.bottom-canvas.top+8)}px`;
+  }else el.style.top='';
+}
+function updateListSummary(){
+  const el=$('listSheetSummary'); if(!el)return;
+  const n=state.filtered.length;
+  const ranked=state.filtered.filter(l=>scoreLead(l)>-100).sort((a,b)=>scoreLead(b)-scoreLead(a));
+  const next=state.homeArea?(ranked.find(l=>isHomeLead(l))||ranked.find(l=>!isCoords(l))||ranked[0]):ranked[0];
+  const label=`${fmt(n)} house${n===1?'':'s'}`;
+  el.textContent=next?.address?`${label} · Next: ${next.address}`:label;
+}
+function setListSheet(snap){
+  const sheet=$('listSheet'); if(!sheet)return;
+  if(!useDoorSheet()){
+    sheet.classList.remove('sheet-collapsed','sheet-half','sheet-full','panel-open','sheet-suppressed');
+    document.documentElement.style.setProperty('--list-sheet-peek','0px');
+    return;
+  }
+  const next=LIST_SNAPS.includes(snap)?snap:'sheet-collapsed';
+  LIST_SNAPS.forEach(name=>sheet.classList.remove(name));
+  sheet.classList.add(next);
+  sheet.classList.toggle('panel-open',next!=='sheet-collapsed');
+  state.listSnap=next;
+  $('listSheetGrab')?.setAttribute('aria-expanded',next==='sheet-collapsed'?'false':'true');
+  publishListPeek();
+}
+function publishListPeek(){
+  const root=document.documentElement;
+  if(!useDoorSheet()){root.style.setProperty('--list-sheet-peek','0px');return;}
+  const h=Math.round($('listSheetGrab')?.getBoundingClientRect().height||52);
+  const bottom=getComputedStyle(root).getPropertyValue('--list-sheet-bottom').trim()||'78px';
+  root.style.setProperty('--list-sheet-peek',`calc(${h}px + ${bottom})`);
+}
+function syncListMode(){setListSheet(useDoorSheet()?(state.listSnap||'sheet-collapsed'):'sheet-collapsed');syncListOverlay();}
+function listOverlayOpen(){return $('doorSheet')?.classList.contains('open')||($('toast')?.classList.contains('show')&&!$('toastActions')?.classList.contains('hidden'));}
+function syncListOverlay(){
+  const sheet=$('listSheet'); if(!sheet)return;
+  const block=listOverlayOpen()&&useDoorSheet();
+  if(block&&!sheet.classList.contains('sheet-collapsed'))setListSheet('sheet-collapsed');
+  sheet.classList.toggle('sheet-suppressed',block);
+}
+function bindListSheet(){
+  const grab=$('listSheetGrab'); if(!grab)return;
+  let startY=0,moved=0,dragging=false,startSnap='sheet-collapsed';
+  grab.addEventListener('pointerdown',e=>{
+    if(!useDoorSheet()||e.button>0)return;
+    dragging=true; startY=e.clientY; moved=0; startSnap=state.listSnap||'sheet-collapsed';
+    grab.setPointerCapture?.(e.pointerId);
+  });
+  grab.addEventListener('pointermove',e=>{if(dragging)moved=e.clientY-startY;});
+  const end=()=>{
+    if(!dragging)return;
+    dragging=false;
+    const i=Math.max(0,LIST_SNAPS.indexOf(startSnap));
+    if(moved<-36&&i<LIST_SNAPS.length-1)setListSheet(LIST_SNAPS[i+1]);
+    else if(moved>36&&i>0)setListSheet(LIST_SNAPS[i-1]);
+    else if(Math.abs(moved)<12)setListSheet(i<LIST_SNAPS.length-1?LIST_SNAPS[i+1]:'sheet-collapsed');
+  };
+  grab.addEventListener('pointerup',end);
+  grab.addEventListener('pointercancel',end);
+  window.addEventListener('resize',()=>{syncListMode();state.map?.invalidateSize();});
 }
 
 function toggleMapFocus(){
@@ -335,6 +473,169 @@ async function quickStatus(id,status,continueNext=false){
   renderAll();
   toast(`${status} · ${l.address}`);
   if(continueNext){closeDrawer();setTimeout(nextBest,150);}
+}
+
+function openDoorSheet(id){
+  const l=state.leads.find(x=>x.id===id); if(!l)return;
+  dismissDoorToast();
+  state.doorLeadId=id;
+  state.doorSaving=false;
+  state.map?.closePopup();
+  const s=leadStatus(l);
+  $('doorSheetAddress').textContent=l.address||'Property lead';
+  const nameEl=$('doorSheetName');
+  nameEl.textContent=l.name||'';
+  nameEl.classList.toggle('hidden',!l.name);
+  $('doorSheetPlace').textContent=[l.city,l.state,l.zip].filter(Boolean).join(', ');
+  const badge=$('doorSheetStatus');
+  badge.textContent=s;
+  badge.className=`status ${statusClass(s)}`;
+  $('doorSheetBook').href=`/setter.html?lead=${encodeURIComponent(l.id)}`;
+  $('doorSheetActions').innerHTML=DOOR_STATUSES.map(status=>`<button type="button" class="doorStatus doorStatus-${statusClass(status)}${s===status?' isCurrent':''}" data-door-status="${esc(status)}" aria-pressed="${s===status?'true':'false'}"><span class="doorStatusDot" aria-hidden="true"></span><span>${esc(status)}</span></button>`).join('');
+  $('doorSheetActions').querySelectorAll('[data-door-status]').forEach(btn=>{btn.onclick=()=>applyDoorStatus(l.id,btn.dataset.doorStatus);});
+  const sheet=$('doorSheet');
+  const card=$('doorSheetCard');
+  card.style.transform='';
+  card.style.transition='';
+  clearTimeout(openDoorSheet._t);
+  sheet.classList.remove('hidden');
+  sheet.setAttribute('aria-hidden','false');
+  sheet.getBoundingClientRect();
+  sheet.classList.add('open');
+  syncListOverlay();
+  requestAnimationFrame(()=>panPinAboveSheet(l));
+}
+function closeDoorSheet(){
+  const sheet=$('doorSheet'); if(!sheet||sheet.classList.contains('hidden'))return;
+  const card=$('doorSheetCard');
+  card.style.transform='';
+  card.style.transition='';
+  sheet.classList.remove('open');
+  sheet.setAttribute('aria-hidden','true');
+  state.doorLeadId=null;
+  state.doorSaving=false;
+  clearTimeout(openDoorSheet._t);
+  openDoorSheet._t=setTimeout(()=>{if(!sheet.classList.contains('open'))sheet.classList.add('hidden');},240);
+  syncListOverlay();
+}
+function panPinAboveSheet(l){
+  if(!state.map||!isCoords(l))return;
+  const card=$('doorSheetCard');
+  const mapRect=state.map.getContainer().getBoundingClientRect();
+  const cardTop=window.innerHeight-(card?.offsetHeight||Math.round(window.innerHeight*0.5));
+  let bandBottom=Math.min(mapRect.bottom, cardTop)-18;
+  const panel=document.querySelector('.sidePanel');
+  if(panel){
+    const pr=panel.getBoundingClientRect();
+    if(getComputedStyle(panel).display!=='none'&&pr.height>40&&pr.width>mapRect.width*0.7&&pr.top<bandBottom)bandBottom=Math.min(bandBottom, pr.top-12);
+  }
+  const bandTop=mapRect.top+48;
+  if(bandBottom<bandTop+28)bandBottom=cardTop-18;
+  const targetY=bandTop+Math.max(0, bandBottom-bandTop)*0.55;
+  const pin=state.map.latLngToContainerPoint([Number(l.lat),Number(l.lng)]);
+  const dy=(mapRect.top+pin.y)-targetY;
+  if(Math.abs(dy)>8)state.map.panBy([0,dy],{animate:true,duration:.28});
+}
+function bindDoorSwipe(){
+  const card=$('doorSheetCard');
+  let startY=null, dragging=false;
+  card.addEventListener('pointerdown',e=>{
+    if(e.button>0)return;
+    if(!e.target.closest('.doorSheetHead')||e.target.closest('button'))return;
+    startY=e.clientY; dragging=true;
+    card.style.transition='none';
+    card.setPointerCapture?.(e.pointerId);
+  });
+  card.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    const dy=Math.max(0,e.clientY-startY);
+    card.style.transform=`translateY(${dy}px)`;
+  });
+  const end=e=>{
+    if(!dragging)return;
+    const dy=e.clientY-startY;
+    dragging=false; startY=null;
+    if(dy>70){
+      card.style.transition='transform .2s ease';
+      card.style.transform='translateY(110%)';
+      const sheet=$('doorSheet');
+      sheet.classList.remove('open');
+      sheet.setAttribute('aria-hidden','true');
+      state.doorLeadId=null;
+      state.doorSaving=false;
+      clearTimeout(openDoorSheet._t);
+      openDoorSheet._t=setTimeout(()=>{card.style.transition='';card.style.transform='';if(!sheet.classList.contains('open'))sheet.classList.add('hidden');},220);
+      return;
+    }
+    card.style.transition='';
+    card.style.transform='';
+  };
+  card.addEventListener('pointerup',end);
+  card.addEventListener('pointercancel',end);
+}
+function nearestUnknocked(from){
+  if(!from||!isCoords(from))return null;
+  let best=null, bestD=Infinity;
+  for(const l of state.leads){
+    if(l.id===from.id||!isCoords(l)||leadStatus(l)!=='New')continue;
+    const d=haversine(Number(from.lat),Number(from.lng),Number(l.lat),Number(l.lng));
+    if(d<bestD){best=l; bestD=d;}
+  }
+  return best;
+}
+function openNextHouse(fromId){
+  const from=state.leads.find(x=>x.id===fromId);
+  const next=nearestUnknocked(from);
+  dismissDoorToast();
+  if(!next){toast('No un-knocked houses left nearby.');return;}
+  state.map?.setView([Number(next.lat),Number(next.lng)],18,{animate:false});
+  openDoorSheet(next.id);
+}
+async function undoDoorStatus(){
+  const pending=state.doorUndo; if(!pending)return;
+  state.doorUndo=null;
+  $('toastActions').classList.add('hidden');
+  const l=state.leads.find(x=>x.id===pending.id);
+  if(!l||leadStatus(l)!==pending.to){toast('That door already changed.');return;}
+  try{await persistLeadPatch(l,{status:pending.from});}
+  catch{return;}
+  renderAll();
+  toast(`Restored · ${pending.from}`);
+}
+async function applyDoorStatus(id,status){
+  const l=state.leads.find(x=>x.id===id); if(!l||state.doorSaving)return;
+  if(!DOOR_STATUSES.includes(status))return;
+  const previous=leadStatus(l);
+  if(previous===status){renderAll();closeDoorSheet();toast(`Already ${status} · ${l.address}`);return;}
+  state.doorSaving=true;
+  const buttons=[...$('doorSheetActions').querySelectorAll('button')];
+  buttons.forEach(b=>{b.disabled=true;});
+  const tapped=buttons.find(b=>b.dataset.doorStatus===status);
+  const label=tapped?.querySelector('span:last-child');
+  if(label) label.textContent='Saving…';
+  try{await persistLeadPatch(l,{status});}
+  catch{state.doorSaving=false;buttons.forEach(b=>{b.disabled=false;});if(label) label.textContent=status;return;}
+  state.doorSaving=false;
+  renderAll();
+  closeDoorSheet();
+  toastDoorResult(l, previous, status);
+}
+function toastDoorResult(lead, fromStatus, toStatus){
+  const el=$('toast'); if(!el)return;
+  $('toastText').textContent=`${toStatus} · ${lead.address}`;
+  $('toastActions').classList.remove('hidden');
+  state.doorUndo={id:lead.id, from:fromStatus, to:toStatus};
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>{el.classList.remove('show'); $('toastActions').classList.add('hidden'); state.doorUndo=null; syncListOverlay();},5000);
+  syncListOverlay();
+}
+function dismissDoorToast(){
+  clearTimeout(toast._t);
+  $('toast')?.classList.remove('show');
+  $('toastActions')?.classList.add('hidden');
+  state.doorUndo=null;
+  syncListOverlay();
 }
 
 async function persistLeadPatch(l,patch){
@@ -376,7 +677,7 @@ function openLead(id){
     <div class="drawerSection"><div class="sectionTitle">Appointment handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">Edit handoff</button></div>`:`<button id="bookApptBtn" class="outlineBtn">Book / hand off this lead</button>`}</div>`;
   $('drawer').classList.remove('hidden');
   $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l);
-  if($('drawerSetter')) $('drawerSetter').onclick=()=>{location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`};
+  if($('drawerSetter')) $('drawerSetter').onclick=()=>{location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;};
   $('drawer').querySelectorAll('[data-qstatus]').forEach(btn=>btn.onclick=()=>quickStatus(l.id,btn.dataset.qstatus,true));
   $('saveLeadBtn').onclick=()=>saveLead(l);
   $('bookApptBtn')?.addEventListener('click',()=>openAppointmentForm(l));
@@ -545,7 +846,20 @@ async function loadStorms(showAlert=true){
   }catch(e){if(showAlert)alert(`Storm layer unavailable: ${e.message}`);else console.warn(e)}
 }
 
-function locate(){if(!navigator.geolocation){alert('Browser location is unavailable.');return}navigator.geolocation.getCurrentPosition(pos=>{state.currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};if(state.userMarker)state.userMarker.remove();state.userMarker=L.marker([pos.coords.latitude,pos.coords.longitude]).addTo(state.map).bindPopup('You are here').openPopup();state.map.setView([pos.coords.latitude,pos.coords.longitude],15);renderWorkList()},()=>alert('Location permission was not granted.'))}
+function locate(){
+  if(document.visibilityState==='hidden')return;
+  if(!navigator.geolocation){alert('Browser location is unavailable.');return}
+  const token=++locate._seq;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    if(document.visibilityState==='hidden'||token!==locate._seq||!state.map)return;
+    state.currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    if(state.userMarker)state.userMarker.remove();
+    state.userMarker=L.marker([pos.coords.latitude,pos.coords.longitude]).addTo(state.map).bindPopup('You are here').openPopup();
+    state.map.setView([pos.coords.latitude,pos.coords.longitude],16);
+    renderWorkList();
+  },()=>alert('Location permission was not granted.'),{enableHighAccuracy:true,maximumAge:0,timeout:10000});
+}
+locate._seq=0;
 
 function updateSelectedBadge(){const n=state.selected.size;$('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n;$('routeTray').classList.toggle('hidden',n===0)}
 
@@ -557,8 +871,15 @@ function exportLeads(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='true-north-sales-map-export.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
-function toast(message){
-  const el=$('toast'); if(!el)return; el.textContent=message; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),2600);
+function toast(message, ms=2600){
+  const el=$('toast'); if(!el)return;
+  $('toastText').textContent=message;
+  $('toastActions').classList.add('hidden');
+  state.doorUndo=null;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>{el.classList.remove('show'); syncListOverlay();}, ms);
+  syncListOverlay();
 }
 
 function startRealtime(){
@@ -588,7 +909,7 @@ document.addEventListener('keydown',e=>{
   else if(e.key.toLowerCase()==='n') nextBest();
   else if(e.key.toLowerCase()==='r') openRoutePanel();
   else if(e.key.toLowerCase()==='l') locate();
-  else if(e.key==='Escape'){closeDrawer();closeRoutePanel();$('adminModal').classList.add('hidden');$('appointmentModal').classList.add('hidden');}
+  else if(e.key==='Escape'){closeDoorSheet();closeDrawer();closeRoutePanel();$('adminModal').classList.add('hidden');$('appointmentModal').classList.add('hidden');}
 });
 
 boot();
