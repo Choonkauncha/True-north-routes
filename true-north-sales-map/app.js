@@ -2771,6 +2771,8 @@ function exportLeads(){
 
 function toast(message, ms=2600){
   const el=$('toast'); if(!el)return;
+  // A live echo of the save we just made must not cover the Undo button.
+  if(state.doorUndo) return;
   $('toastText').textContent=message;
   $('toastActions').classList.add('hidden');
   state.doorUndo=null;
