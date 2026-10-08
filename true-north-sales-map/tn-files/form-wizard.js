@@ -1,5 +1,5 @@
 import { bootFiles, signIn, getLead, listTemplates, listAssignments, searchLeads, uploadFormAsset, saveSubmission, plainError } from './store.js';
-import { esc, bindSignOut, signInCard, mountSignature, compressImage, houseBackHref } from './ui.js';
+import { esc, bindSignOut, mountSignIn, revealApp, mountSignature, compressImage, houseBackHref } from './ui.js';
 import { screensFromFields, initialAnswers, validateScreen, snapshotHomeowner, formatAddress, PREVIEW_LEAD, audienceLabel } from './logic.js';
 import { canSeeForm, canUsePhotoBank } from '../lib/role-access.js';
 
@@ -17,6 +17,7 @@ async function start() {
   ctx = await bootFiles();
   bindSignOut(ctx, document.getElementById('signOut'));
   if (!preview && ctx.mode === 'cloud' && !ctx.session) return renderSignIn();
+  revealApp();
   if (preview) {
     const raw = sessionStorage.getItem('tn-form-preview');
     template = raw ? JSON.parse(raw) : null;
@@ -56,7 +57,7 @@ function beginTemplate() {
 }
 
 function renderSignIn() {
-  app.innerHTML = signInCard();
+  mountSignIn(app);
   document.getElementById('tnLogin').onsubmit = async (event) => {
     event.preventDefault();
     try { await signIn(ctx, document.getElementById('tnEmail').value, document.getElementById('tnPassword').value); start(); }
@@ -177,7 +178,7 @@ async function sendFileCopy(attachment) {
 }
 
 function renderPick() {
-  app.innerHTML = `${banner()}<a class="tnTap" href="${esc(houseBackHref(lead))}">Back to this house</a><h1 class="tnTitle" style="margin-top:12px">Which form?</h1><p class="tnSub">${esc(formatAddress(lead) || lead?.name || '')}</p><div class="tnStack">${templates.length ? templates.map((item) => `<button type="button" class="tnCard" data-id="${esc(item.id)}"><b>${esc(item.name)}</b><span>${esc(audienceLabel(item.audience))}${item.is_draft ? ' · Draft' : ''}</span></button>`).join('') : '<p class="tnSub">No forms are assigned to you yet.</p><a class="tnTap" href="' + esc(houseBackHref(lead)) + '">Back to this house</a>'}</div>`;
+  app.innerHTML = `${banner()}<a class="tnTap" href="${esc(houseBackHref(lead))}">Back to this house</a><section data-tn-panel="form-pick" data-tn-rank="primary"><h1 class="tnTitle" style="margin-top:12px">Which form?</h1><p class="tnSub">${esc(formatAddress(lead) || lead?.name || '')}</p><div class="tnStack">${templates.length ? templates.map((item) => `<button type="button" class="tnCard" data-id="${esc(item.id)}"><b>${esc(item.name)}</b><span>${esc(audienceLabel(item.audience))}${item.is_draft ? ' · Draft' : ''}</span></button>`).join('') : '<p class="tnSub">No forms are assigned to you yet.</p><a class="tnTap" href="' + esc(houseBackHref(lead)) + '">Back to this house</a>'}</div></section>`;
   app.querySelectorAll('[data-id]').forEach((button) => button.onclick = () => {
     template = templates.find((item) => item.id === button.dataset.id);
     openTemplate();
@@ -190,7 +191,7 @@ function renderSection() {
   if (!screen) { phase = 'review'; return renderReview(); }
   const total = screens.length + 1;
   const fields = screen.fields.map((field) => fieldHtml(field)).join('');
-  app.innerHTML = `${banner()}<p class="tnProgress">${sectionIndex + 1} of ${total}</p><h1 class="tnTitle">${esc(screen.title)}</h1><p class="tnSub">${esc(template.name)}</p>${fields}<p id="stepError" class="tnError"></p><div class="tnSticky"><button class="tnTap primary" id="nextBtn" type="button">${sectionIndex === screens.length - 1 ? 'Review' : 'Next'}</button><button class="tnTap" id="backBtn" type="button">Back</button></div>`;
+  app.innerHTML = `${banner()}<p class="tnProgress">${sectionIndex + 1} of ${total}</p><section data-tn-panel="form-step" data-tn-rank="primary"><h1 class="tnTitle">${esc(screen.title)}</h1><p class="tnSub">${esc(template.name)}</p>${fields}</section><p id="stepError" class="tnError"></p><div class="tnSticky"><button class="tnTap primary" id="nextBtn" type="button">${sectionIndex === screens.length - 1 ? 'Review' : 'Next'}</button><button class="tnTap" id="backBtn" type="button">Back</button></div>`;
   bindFields(screen);
   document.getElementById('nextBtn').onclick = () => goNext(screen);
   document.getElementById('backBtn').onclick = goBack;
@@ -295,7 +296,7 @@ function renderReview() {
     if (shot) body = `<img class="${field.type === 'signature' ? 'tnSignImg' : 'tnPreview'}" alt="${esc(field.label)}" src="${esc(shot.url)}">`;
     return `<div class="tnPrintRow"><b>${esc(field.label)}</b>${body}</div>`;
   }).join('');
-  app.innerHTML = `${banner()}<p class="tnProgress">Last step</p><h1 class="tnTitle">Look it over</h1><p class="tnSub">${esc(template.name)} · ${esc(formatAddress(lead) || 'No house')}</p><div class="tnCard">${rows}</div><p id="stepError" class="tnError"></p><div class="tnSticky"><button class="tnTap primary" id="submitBtn" type="button">${preview ? 'Finish preview' : 'Submit'}</button><button class="tnTap" id="backBtn" type="button">Back</button></div>`;
+  app.innerHTML = `${banner()}<p class="tnProgress">Last step</p><section data-tn-panel="form-review" data-tn-rank="primary"><h1 class="tnTitle">Look it over</h1><p class="tnSub">${esc(template.name)} · ${esc(formatAddress(lead) || 'No house')}</p><div class="tnCard">${rows}</div></section><p id="stepError" class="tnError"></p><div class="tnSticky"><button class="tnTap primary" id="submitBtn" type="button">${preview ? 'Finish preview' : 'Submit'}</button><button class="tnTap" id="backBtn" type="button">Back</button></div>`;
   document.getElementById('backBtn').onclick = () => { phase = 'section'; sectionIndex = Math.max(0, screens.length - 1); render(); };
   document.getElementById('submitBtn').onclick = submit;
 }

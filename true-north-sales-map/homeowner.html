@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><style>html{background:#0c1424!important}</style><link rel="stylesheet" href="/brand/transitions.css"><script src="/brand/prefetch.js" defer></script>
+<head><style>html{background:#0c1424!important}</style><link rel="stylesheet" href="/brand/transitions.css"><script type="module" src="/brand/prefetch.js"></script>
   <link rel="icon" href="/brand/favicon.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
   <meta charset="UTF-8">
@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/portal.css">
   <link rel="stylesheet" href="/brand/tokens.css">
   <link rel="stylesheet" href="/brand/pages.css">
-</head>
+<link rel="stylesheet" href="/brand/collapse.css"></head>
 <body class="tn-standalone tn-public">
 <a class="tn-skip" href="#main">Skip to form</a>
 <header class="tnHeader">
@@ -44,7 +44,7 @@
       <div id="formCard" class="card pad">
         <form id="homeForm">
           <div class="notice">We document what we can actually verify. Please describe what you have noticed rather than trying to diagnose the roof yourself.</div>
-          <div class="formSection">
+          <div class="formSection" data-tn-panel="homeowner-you" data-tn-rank="primary">
             <h3>1. Your information</h3>
             <div class="grid grid2">
               <div class="field">
@@ -65,7 +65,7 @@
               </div>
             </div>
           </div>
-          <div class="formSection">
+          <div class="formSection" data-tn-panel="homeowner-property" data-tn-rank="secondary">
             <h3>2. Property</h3>
             <div class="grid grid2">
               <div class="field span2">
@@ -94,7 +94,7 @@
               </label>
             </div>
           </div>
-          <div class="formSection">
+          <div class="formSection" data-tn-panel="homeowner-concern" data-tn-rank="secondary">
             <h3>3. What prompted you to reach out?</h3>
             <div class="grid grid2">
               <div class="field">
@@ -149,7 +149,7 @@
               <textarea id="what_they_noticed" name="what_they_noticed" placeholder="Example: We noticed a water spot in the upstairs bedroom after a storm."></textarea>
             </div>
           </div>
-          <div class="formSection">
+          <div class="formSection" data-tn-panel="homeowner-notes" data-tn-rank="secondary">
             <h3>4. Anything else?</h3>
             <div class="field">
               <label for="notes">Notes</label>
@@ -188,6 +188,6 @@
   </div>
 </main>
 <div class="footer">True North Restorations · Mt. Vernon / Knox County, Ohio · Inspect honestly. Document clearly. Earn the job.</div>
-<script>const form=document.getElementById('homeForm'),errorBox=document.getElementById('formError'); form.addEventListener('submit',async e=>{e.preventDefault();errorBox.textContent='';const btn=form.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='Sending…';const data=Object.fromEntries(new FormData(form).entries());data.consent_contact=form.querySelector('[name=consent_contact]').checked;data.homeowner_confirmed=form.querySelector('[name=homeowner_confirmed]').checked;try{const r=await fetch('/api/homeowner-signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)});const p=await r.json();if(!r.ok)throw new Error(p.error||'Something went wrong.');document.getElementById('formCard').classList.add('hidden');document.getElementById('successCard').classList.remove('hidden');document.getElementById('successText').textContent=`We received your request. Your reference is ${p.reference||'received'}. A True North team member will contact you to confirm the next step.`;}catch(err){errorBox.textContent=err.message;btn.disabled=false;btn.textContent='Request my inspection';}});document.getElementById('newRequest').onclick=()=>{document.getElementById('successCard').classList.add('hidden');document.getElementById('formCard').classList.remove('hidden');form.reset();form.querySelector('[name=city]').value='Mount Vernon';form.querySelector('[name=state]').value='OH'};</script></body></html>
+<script>const form=document.getElementById('homeForm'),errorBox=document.getElementById('formError'); form.addEventListener('submit',async e=>{e.preventDefault();errorBox.textContent='';const btn=form.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='Sending…';const data=Object.fromEntries(new FormData(form).entries());data.consent_contact=form.querySelector('[name=consent_contact]').checked;data.homeowner_confirmed=form.querySelector('[name=homeowner_confirmed]').checked;try{const r=await fetch('/api/homeowner-signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)});const p=await r.json();if(!r.ok)throw new Error(p.error||'Something went wrong.');document.getElementById('formCard').classList.add('hidden');document.getElementById('successCard').classList.remove('hidden');document.getElementById('successText').textContent=`We received your request. Your reference is ${p.reference||'received'}. A True North team member will contact you to confirm the next step.`;}catch(err){errorBox.textContent=err.message;btn.disabled=false;btn.textContent='Request my inspection';}});document.getElementById('newRequest').onclick=()=>{document.getElementById('successCard').classList.add('hidden');document.getElementById('formCard').classList.remove('hidden');form.reset();form.querySelector('[name=city]').value='Mount Vernon';form.querySelector('[name=state]').value='OH'};</script><script type="module" src="/brand/collapse.js"></script></body></html>
 </body>
 </html>

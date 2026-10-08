@@ -6,8 +6,14 @@ import {
 } from '../lib/password-reset.js';
 import { passwordUpdateError } from '../lib/must-change-password.js';
 import './password-reset.js';
+import { mountSignInScreen } from '../brand/loader.js';
 
 const app = document.getElementById('app');
+
+function showCard(html) {
+  mountSignInScreen(app);
+  app.innerHTML = html;
+}
 
 function logo() {
   return `<img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242">`;
@@ -18,11 +24,11 @@ function requestForm() {
 }
 
 function renderExpired() {
-  app.innerHTML = `<div class="authCard card"><div class="pad">${logo()}<div class="eyebrow">TRUE NORTH</div><h1 class="tnTitle">Reset link expired</h1><p class="tnSub">${RESET_LINK_BAD}</p>${requestForm()}</div></div>`;
+  showCard(`<div class="authCard card"><div class="pad">${logo()}<div class="eyebrow">TRUE NORTH</div><h1 class="tnTitle">Reset link expired</h1><p class="tnSub">${RESET_LINK_BAD}</p>${requestForm()}</div></div>`);
 }
 
 function renderForm(sb) {
-  app.innerHTML = `<div class="authCard card"><div class="pad">${logo()}<div class="eyebrow">TRUE NORTH</div><h1 class="tnTitle">Choose a new password</h1><form id="resetForm"><label class="tnLabel" for="pw1">New password</label><input class="tnInput" id="pw1" type="password" autocomplete="new-password" minlength="8" required><label class="tnLabel" for="pw2">Type it again</label><input class="tnInput" id="pw2" type="password" autocomplete="new-password" minlength="8" required><p class="tnHelp">At least 8 characters. Use this the next time you sign in.</p><button class="tnTap dark" type="submit">Save password</button><p id="pwMsg" class="tnResetMsg"></p></form></div></div>`;
+  showCard(`<div class="authCard card"><div class="pad">${logo()}<div class="eyebrow">TRUE NORTH</div><h1 class="tnTitle">Choose a new password</h1><form id="resetForm"><label class="tnLabel" for="pw1">New password</label><input class="tnInput" id="pw1" type="password" autocomplete="new-password" minlength="8" required><label class="tnLabel" for="pw2">Type it again</label><input class="tnInput" id="pw2" type="password" autocomplete="new-password" minlength="8" required><p class="tnHelp">At least 8 characters. Use this the next time you sign in.</p><button class="tnTap dark" type="submit">Save password</button><p id="pwMsg" class="tnResetMsg"></p></form></div></div>`);
   document.getElementById('resetForm').onsubmit = (event) => save(event, sb);
 }
 

@@ -51,7 +51,7 @@ export function forgetRole(storage, userId) {
 
 /**
  * redirect: do not paint management or a login form.
- * wait: a session exists and the role is still unknown or already admin. Show a blank hold.
+ * wait: a session exists and the role is still unknown or already admin. Show the branded loader.
  */
 export function earlyManagementDecision(storage) {
   const user = readStoredUser(storage);

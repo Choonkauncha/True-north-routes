@@ -294,7 +294,7 @@ export async function mountMyForms(container, ctx, options = {}) {
         <button class="tnTap primary" type="submit">Save ${estimate ? 'estimate' : 'receipt'}</button>
         <p id="${prefix}Error" class="tnError"></p>
       </form>` : '';
-    return `<section class="tnLibrarySection" id="${estimate ? 'estimatesSection' : 'receiptsSection'}">
+    return `<section class="tnLibrarySection" id="${estimate ? 'estimatesSection' : 'receiptsSection'}" data-tn-panel="${estimate ? 'library-estimates' : 'library-receipts'}" data-tn-rank="${estimate ? 'secondary' : 'primary'}">
       <h2>${title}</h2>
       <p class="tnSub">${blurb}</p>
       <label class="tnTap primary">${estimate ? 'Add an estimate' : 'Add a receipt'}<input id="${prefix}File" type="file" accept="${RECORD_ACCEPT}"${capture}></label>
@@ -327,7 +327,7 @@ export async function mountMyForms(container, ctx, options = {}) {
       ? `<button type="button" class="tnTap" data-rec-delete="${esc(row.id)}" data-kind="${estimate ? 'estimate' : 'receipt'}">Delete</button>`
       : '';
     const open = row.url ? `<a class="tnTap" href="${esc(row.url)}" target="_blank" rel="noopener">View</a>` : '';
-    return `<article class="tnCard tnRecordCard"><b class="tnDocName">${esc(row.file_name || (estimate ? 'Estimate' : 'Receipt'))}</b><span>${esc(bits || 'No details yet')}</span>${note}<div class="tnRecordActions">${open}${remove}</div></article>`;
+    return `<article class="tnCard tnRecordCard" data-tn-panel="record-${esc(row.id || row.file_name || 'row')}" data-tn-rank="secondary"><b class="tnDocName">${esc(row.file_name || (estimate ? 'Estimate' : 'Receipt'))}</b><span>${esc(bits || 'No details yet')}</span>${note}<div class="tnRecordActions">${open}${remove}</div></article>`;
   }
 
   function inspectionSection() {
@@ -335,13 +335,13 @@ export async function mountMyForms(container, ctx, options = {}) {
     const list = folders.length
       ? folders.map((folder) => `<button type="button" class="tnTap tnChoice" data-open-folder="${esc(folder.id)}"><span><b>${esc(folder.name)}</b><span class="tnMeta">Completed inspection</span></span></button>`).join('')
       : '<p class="tnSub">Completed inspections show up here on their own.</p>';
-    return `<section class="tnLibrarySection" id="inspectionFolders"><h2>Completed inspections</h2><p class="tnSub">A permanent folder for every inspection marked Completed. Named by homeowner, address, and date.</p><div class="tnFolderList">${list}</div></section>`;
+    return `<section class="tnLibrarySection" id="inspectionFolders" data-tn-panel="library-inspections" data-tn-rank="secondary"><h2>Completed inspections</h2><p class="tnSub">A permanent folder for every inspection marked Completed. Named by homeowner, address, and date.</p><div class="tnFolderList">${list}</div></section>`;
   }
 
   function customSection() {
     const groups = groupLibrary(customCategories(ui.categories), libraryDocs().filter((doc) => !isInspectionFolder(ui.categories.find((row) => row.id === doc.category_id))));
     const adder = `<form id="newCategory" class="tnRecordForm"><label class="tnLabel" for="categoryName">New category</label><input class="tnInput" id="categoryName" maxlength="60" placeholder="Warranties"><button class="tnTap primary" type="submit">Add category</button><p id="categoryError" class="tnError"></p></form>`;
-    return `<section class="tnLibrarySection" id="customFolders"><h2>Folders</h2><p class="tnSub">Add folders for contingency agreements and anything else the office should keep. Removing a folder moves its files to Uncategorized.</p>${adder}<div class="tnStack">${groups.map((group) => folderCard(group)).join('')}</div></section>`;
+    return `<section class="tnLibrarySection" id="customFolders" data-tn-panel="library-folders" data-tn-rank="secondary"><h2>Folders</h2><p class="tnSub">Add folders for contingency agreements and anything else the office should keep. Removing a folder moves its files to Uncategorized.</p>${adder}<div class="tnStack">${groups.map((group) => folderCard(group)).join('')}</div></section>`;
   }
 
   function folderCard(group) {
@@ -358,7 +358,7 @@ export async function mountMyForms(container, ctx, options = {}) {
     const docs = group.documents.length
       ? group.documents.map((doc) => docHtml(doc)).join('')
       : '<p class="tnSub">No documents in this folder yet.</p>';
-    return `<section class="tnFolder" data-folder="${esc(group.slug)}"><div class="tnFolderHead"><b>${esc(group.name)}</b>${controls}</div>${rename}<div class="tnStack">${docs}</div><label class="tnTap">Add a document<input type="file" data-upload="${esc(group.id)}" accept="${LIBRARY_ACCEPT}"></label></section>`;
+    return `<section class="tnFolder" data-folder="${esc(group.slug)}" data-tn-panel="folder-${esc(group.slug)}" data-tn-rank="secondary"><div class="tnFolderHead"><b>${esc(group.name)}</b>${controls}</div>${rename}<div class="tnStack">${docs}</div><label class="tnTap">Add a document<input type="file" data-upload="${esc(group.id)}" accept="${LIBRARY_ACCEPT}"></label></section>`;
   }
 
   function docHtml(doc) {
@@ -366,7 +366,7 @@ export async function mountMyForms(container, ctx, options = {}) {
     const meta = `${esc(doc.file_name || 'File')} · ${esc(audienceLabel(doc.audience))}${doc.active === false ? ' · Hidden' : ''}`;
     const open = `<button type="button" class="tnTap" data-open="${esc(doc.id)}">Open</button>`;
     const editBtn = `<button type="button" class="tnTap" data-edit-doc="${esc(doc.id)}">${editing ? 'Close' : 'Edit'}</button>`;
-    return `<article class="tnCard tnRecordCard"><b class="tnDocName">${esc(doc.name)}</b><span>${meta}</span><div class="tnRecordActions">${open}${editBtn}</div>${editing ? editPanel(doc) : ''}</article>`;
+    return `<article class="tnCard tnRecordCard" data-tn-panel="library-doc-${esc(doc.id)}" data-tn-rank="secondary"><b class="tnDocName">${esc(doc.name)}</b><span>${meta}</span><div class="tnRecordActions">${open}${editBtn}</div>${editing ? editPanel(doc) : ''}</article>`;
   }
 
   function categoryOptions(selected) {
@@ -418,11 +418,11 @@ export async function mountMyForms(container, ctx, options = {}) {
       <button type="button" class="tnTap" id="closeFolder">Back to the library</button>
       <h2>${esc(folder.name)}</h2>
       <p class="tnPerm">Permanent folder for this completed inspection. It cannot be renamed or deleted.</p>
-      <h3>Roof photos</h3><div class="tnStack">${photoHtml}</div>
-      <h3>Inspection forms</h3><div class="tnStack">${formHtml}</div>
-      <h3>Homeowner intake</h3><div class="tnStack">${intakeHtml}</div>
-      <h3>Receipts and estimates</h3><div class="tnStack">${linked}</div>
-      <h3>More files</h3><div class="tnStack">${extra}</div>
+      <section data-tn-panel="lib-photos" data-tn-rank="primary"><h3>Roof photos</h3><div class="tnStack">${photoHtml}</div></section>
+      <section data-tn-panel="lib-forms" data-tn-rank="secondary"><h3>Inspection forms</h3><div class="tnStack">${formHtml}</div></section>
+      <section data-tn-panel="lib-intake" data-tn-rank="secondary"><h3>Homeowner intake</h3><div class="tnStack">${intakeHtml}</div></section>
+      <section data-tn-panel="lib-money" data-tn-rank="secondary"><h3>Receipts and estimates</h3><div class="tnStack">${linked}</div></section>
+      <section data-tn-panel="lib-files" data-tn-rank="secondary"><h3>More files</h3><div class="tnStack">${extra}</div></section>
       <label class="tnTap primary">Add a file to this inspection<input type="file" data-upload="${esc(folder.id)}" accept="${LIBRARY_ACCEPT}"></label>
     </section>`;
   }

@@ -1,5 +1,5 @@
 import { bootFiles, signIn, signOut } from './store.js';
-import { bindSignOut, esc, signInCard } from './ui.js';
+import { bindSignOut, esc, mountSignIn, revealApp } from './ui.js';
 import { passwordChangeError } from '../lib/password-reset.js';
 import { passwordUpdateError } from '../lib/must-change-password.js';
 import { forgetRole, rememberRole } from '../lib/management-gate.js';
@@ -13,19 +13,22 @@ async function start() {
   const ctx = await bootFiles();
   bindSignOut(ctx, document.getElementById('signOut'));
   if (ctx.mode === 'local') {
+    revealApp();
     app.innerHTML = '<h1 class="tnTitle">My account</h1><p class="tnSub">Password changes need the live Supabase project. This preview is not connected.</p><a class="tnTap" href="/">Back to map</a>';
     return;
   }
   if (!ctx.session) return renderSignIn(ctx);
+  revealApp();
   renderForm(ctx);
 }
 
 function renderSignIn(ctx) {
-  app.innerHTML = signInCard();
+  mountSignIn(app);
   document.getElementById('tnLogin').onsubmit = async (event) => {
     event.preventDefault();
     try {
       await signIn(ctx, document.getElementById('tnEmail').value, document.getElementById('tnPassword').value);
+      revealApp();
       renderForm(ctx);
     } catch (error) {
       document.getElementById('tnLoginError').textContent = error.message;
@@ -37,7 +40,7 @@ function managementCard(ctx) {
   const email = ctx.session?.user?.email || ctx.rep?.email || '';
   if (!canOpenManagement({ email, rep: ctx.rep, adminEmails: ctx.cfg?.adminEmails })) return '';
   const links = MANAGEMENT_LINKS.map((link) => `<a class="tnTap" href="${esc(link.href)}">${esc(link.label)}</a>`).join('');
-  return `<section class="tnCard tnManageCard" id="managementDashboard"><div class="eyebrow">MANAGEMENT</div><b>Management dashboard</b><span>Accounts, the team, documents, messages, and forms. These open the office tools with this same login.</span><div class="tnStack">${links}</div></section>`;
+  return `<section class="tnCard tnManageCard" id="managementDashboard" data-tn-panel="account-management" data-tn-rank="secondary"><div class="eyebrow">MANAGEMENT</div><b>Management dashboard</b><span>Accounts, the team, documents, messages, and forms. These open the office tools with this same login.</span><div class="tnStack">${links}</div></section>`;
 }
 
 function renderForm(ctx) {
@@ -48,7 +51,8 @@ function renderForm(ctx) {
     ${managementCard(ctx)}
     <p class="tnAccountBtns"><a class="tnTap" href="/training.html">Training</a><a class="tnTap" href="/forms.html">My forms</a></p>
     <div id="tnAccountTraining"></div>
-    <form id="pwForm" class="tnCard">
+    <form id="pwForm" class="tnCard" data-tn-panel="account-password" data-tn-rank="primary">
+      <h2>Password</h2>
       <label class="tnLabel" for="pw1">New password</label>
       <input class="tnInput" id="pw1" type="password" autocomplete="new-password" minlength="8" required>
       <label class="tnLabel" for="pw2">Type it again</label>
@@ -62,6 +66,8 @@ function renderForm(ctx) {
   mountAccountTraining(document.getElementById('tnAccountTraining'), ctx).catch(() => {});
   if (ctx.rep?.role && ctx.session?.user?.id) rememberRole(localStorage, ctx.session.user.id, ctx.rep.role);
   document.getElementById('accountSignOut').onclick = async () => {
+    const { coverForSignOut } = await import('../brand/loader.js');
+    coverForSignOut(document);
     forgetRole(localStorage, ctx.session?.user?.id);
     await signOut(ctx);
     location.href = '/';

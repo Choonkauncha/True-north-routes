@@ -1,0 +1,132 @@
+/*
+  Shared collapse control. Same chevron as the map route tray:
+  a 44px header button, aria-expanded, and a height animation.
+  Map popovers (filters, weather, houses summary, route tray) keep
+  their own toggles. This file is for in-flow cards, sections, and sheets.
+*/
+.tnFoldHead {
+  -webkit-appearance: none;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 2px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.tnFoldHead h1,
+.tnFoldHead h2,
+.tnFoldHead h3,
+.tnFoldHead .sectionTitle,
+.tnFoldHead .sectionLabel,
+.tnFoldHead b {
+  margin: 0;
+}
+.tnFoldChevron {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-135deg);
+  transition: transform .18s ease;
+}
+.tnFold.isCollapsed .tnFoldChevron,
+.tnFoldHead[aria-expanded="false"] .tnFoldChevron {
+  transform: rotate(45deg);
+}
+.tnFoldChevronBtn {
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  padding: 0;
+  justify-content: center;
+  flex: none;
+}
+.tnFold > .tnFoldBar {
+  min-height: 44px;
+  cursor: pointer;
+}
+.tnFold > .tnFoldBody {
+  display: grid;
+  grid-template-rows: 1fr;
+  min-height: 0;
+  transition: grid-template-rows .22s ease;
+}
+.tnFold.isCollapsed > .tnFoldBody {
+  grid-template-rows: 0fr;
+  overflow: hidden;
+}
+.tnFold > .tnFoldBody > .tnFoldInner {
+  overflow: hidden;
+  min-height: 0;
+}
+.tnFoldHead:focus-visible {
+  outline: 3px solid #1e6bff;
+  outline-offset: 2px;
+}
+.doorSheetHead .tnFoldChevronBtn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  background: #fff;
+}
+.doorSheetCard .doorSheetHead .eyebrow,
+.doorSheetCard .doorSheetHead h2,
+.doorSheetCard .doorSheetName,
+.doorSheetCard .doorSheetPlace {
+  padding-left: 40px;
+}
+.tnMsgPanel.tnFold > .tnFoldBody {
+  flex: 1;
+  min-height: 0;
+}
+.tnMsgPanel.tnFold.isCollapsed > .tnFoldBody {
+  flex: none;
+}
+.tnMsgPanel.tnFold > .tnFoldBody > .tnFoldInner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+aside.rail.tnFold {
+  height: auto;
+}
+@media (max-width: 900px) {
+  aside.rail.tnFold {
+    display: flex;
+    flex-direction: column;
+    position: static;
+  }
+  aside.rail.tnFold > .tnFoldBody > .tnFoldInner {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+}
+@media (max-width: 560px) {
+  aside.rail.tnFold > .tnFoldBody > .tnFoldInner {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tnFold > .tnFoldBody,
+  .tnFoldChevron {
+    transition: none;
+  }
+}

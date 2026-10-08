@@ -1,5 +1,5 @@
 import { bootFiles, signIn, getLead, listPhotos, savePhoto, updatePhotoNote, takePending, photosForLead, plainError } from './store.js';
-import { compressImage, esc, bindSignOut, signInCard, houseBackHref } from './ui.js';
+import { compressImage, esc, bindSignOut, mountSignIn, revealApp, houseBackHref } from './ui.js';
 import { canUsePhotoBank, formatAddress } from './logic.js';
 
 const app = document.getElementById('app');
@@ -28,6 +28,7 @@ async function start() {
   bindSignOut(ctx, document.getElementById('signOut'));
   if (ctx.mode === 'cloud' && !ctx.session) return renderSignIn();
   if (ctx.mode === 'cloud' && !canUsePhotoBank(ctx.rep?.role)) return renderBlocked();
+  revealApp();
   if (params.get('lead')) {
     const found = await getLead(ctx, params.get('lead'));
     if (found) lead = { ...lead, ...found };
@@ -57,7 +58,7 @@ function shell(inner) {
 }
 
 function renderSignIn() {
-  app.innerHTML = signInCard();
+  mountSignIn(app);
   document.getElementById('tnLogin').onsubmit = async (event) => {
     event.preventDefault();
     const error = document.getElementById('tnLoginError');
@@ -70,6 +71,7 @@ function renderSignIn() {
 }
 
 function renderBlocked() {
+  revealApp();
   const query = location.search.replace(/incoming=1&?/, '');
   app.innerHTML = shell(`<h1 class="tnTitle">Photos are for sales reps</h1><p class="tnSub">Setters can still fill forms for this house.</p><a class="tnTap primary" href="/forms.html${esc(query)}">Fill Form</a>`);
 }
@@ -78,12 +80,12 @@ function render() {
   const title = lead?.address || lead?.name || 'Photo';
   const place = formatAddress(lead);
   if (previewUrl) {
-    app.innerHTML = shell(`<h1 class="tnTitle">Save this photo?</h1><p class="tnSub">${esc(place || title)}</p><img class="tnPreview" alt="Photo to save" src="${previewUrl}"><label class="tnLabel" for="caption">Note</label><input class="tnInput" id="caption" placeholder="Front of roof"><div class="tnSticky"><button class="tnTap primary" id="savePhoto" type="button">Save photo</button><label class="tnTap">Retake<input id="retake" type="file" accept="image/*" capture="environment"></label></div><p id="photoError" class="tnError"></p>`);
+    app.innerHTML = shell(`<section data-tn-panel="photo-save" data-tn-rank="primary"><h1 class="tnTitle">Save this photo?</h1><p class="tnSub">${esc(place || title)}</p><img class="tnPreview" alt="Photo to save" src="${previewUrl}"><label class="tnLabel" for="caption">Note</label><input class="tnInput" id="caption" placeholder="Front of roof"></section><div class="tnSticky"><button class="tnTap primary" id="savePhoto" type="button">Save photo</button><label class="tnTap">Retake<input id="retake" type="file" accept="image/*" capture="environment"></label></div><p id="photoError" class="tnError"></p>`);
     document.getElementById('savePhoto').onclick = onSave;
     document.getElementById('retake').onchange = onPick;
     return;
   }
-  app.innerHTML = shell(`<h1 class="tnTitle">${esc(title)}</h1><p class="tnSub">${esc(lead?.name || 'Photos for this house')}</p><label class="tnTap primary">Take photo<input id="take" type="file" accept="image/*" capture="environment"></label><div id="gallery" class="tnGallery" style="margin-top:12px"></div>`);
+  app.innerHTML = shell(`<section data-tn-panel="photo-capture" data-tn-rank="primary"><h1 class="tnTitle">${esc(title)}</h1><p class="tnSub">${esc(lead?.name || 'Photos for this house')}</p><label class="tnTap primary">Take photo<input id="take" type="file" accept="image/*" capture="environment"></label></section><section data-tn-panel="photo-gallery" data-tn-rank="secondary"><h2>Saved photos</h2><div id="gallery" class="tnGallery" style="margin-top:12px"></div></section>`);
   document.getElementById('take').onchange = onPick;
   loadGallery();
 }
