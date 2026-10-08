@@ -1,0 +1,66 @@
+/* Training library. Phone-first. No horizontal page scroll at 360px. */
+.tnTrain{max-width:100%;min-width:0}
+.tnTrain *{box-sizing:border-box}
+.tnTrain h1,.tnTrain h2,.tnTrain p{overflow-wrap:anywhere}
+.tnTrainHead{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
+.tnTrainHead h1{margin:0;color:#0c1424;font-size:1.75rem;line-height:1.1}
+.tnTrainLead{margin:4px 0 0;color:#3d5160;font-size:1rem;line-height:1.4}
+.tnTrainFilters{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.tnTrainFilters button{min-height:44px;padding:8px 12px;border-radius:999px;border:1px solid #b7c5d1;background:#fff;color:#0c1424;font-weight:800;font-size:0.875rem}
+.tnTrainFilters button[aria-pressed="true"]{background:#0c1424;color:#fff;border-color:#0c1424}
+.tnTrainList{display:grid;gap:12px}
+.tnTrainCard{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;width:100%;min-width:0;padding:10px;border:1px solid #d5dee6;border-radius:16px;background:#fff;color:#122033;text-align:left;box-shadow:0 8px 24px rgba(12,20,36,.05);cursor:pointer}
+.tnTrainCard:focus-visible,.tnTrain button:focus-visible,.tnTrain a:focus-visible,.tnTrain input:focus-visible,.tnTrain select:focus-visible,.tnTrain textarea:focus-visible{outline:3px solid #1e6bff;outline-offset:2px}
+.tnTrainThumb{position:relative;display:block;width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#0c1424 center/cover no-repeat}
+.tnTrainThumb img{width:100%;height:100%;object-fit:cover;display:block}
+.tnTrainThumb i{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-style:normal;font-weight:800;font-size:0.75rem;letter-spacing:.04em;text-align:center;padding:6px}
+.tnTrainBody{min-width:0;display:flex;flex-direction:column;gap:4px}
+.tnTrainTitle{font-weight:800;font-size:1rem;line-height:1.25;color:#0c1424}
+.tnTrainDesc{color:#3d5160;font-size:0.875rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tnTrainMeta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tnTrainBadge,.tnTrainPill{display:inline-flex;align-items:center;min-height:24px;padding:2px 8px;border-radius:999px;font-size:0.75rem;font-weight:800;line-height:1.2}
+.tnTrainBadge{background:#e8f0ff;color:#12315f}
+.tnTrainPill.is-new{background:#e8f0ff;color:#12315f}
+.tnTrainPill.is-progress{background:#fff4d6;color:#6a4b00}
+.tnTrainPill.is-completed{background:#e7f6ee;color:#1e5c3c}
+.tnTrainPill.is-required{background:#0c1424;color:#fff}
+.tnTrainMeta time,.tnTrainMeta span.quiet{color:#3d5160;font-size:0.75rem;font-weight:700}
+.tnTrainStage{width:100%;max-width:100%;background:#0c1424;border-radius:16px;overflow:hidden}
+.tnTrainStage video,.tnTrainStage iframe{display:block;width:100%;aspect-ratio:16/9;height:auto;background:#000;border:0}
+.tnTrainSlide{width:100%;max-width:100%;min-height:0;background:#fff;border:1px solid #d5dee6;border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.tnTrainSlide .slideBar{background:#0c1424;color:#fff;padding:10px 12px;font-weight:800;font-size:0.875rem}
+.tnTrainSlide .slideBody{padding:14px 14px 16px;display:grid;gap:8px}
+.tnTrainSlide h2{margin:0;font-size:1.25rem;line-height:1.25;color:#0c1424}
+.tnTrainSlide li{margin:0 0 6px;color:#122033;font-size:1rem;line-height:1.4}
+.tnTrainSlide img{width:100%;height:auto;max-height:220px;object-fit:contain;border-radius:10px;background:#f3f5f8}
+.tnTrainCanvas{width:100%;height:auto;display:block;background:#fff}
+.tnTrainPdf{width:100%;overflow:auto;background:#fff;border:1px solid #d5dee6;border-radius:16px;max-height:70vh}
+.tnTrainControls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.tnTrainControls button,.tnTrain .tnTrainBtn{min-height:48px;padding:10px 14px;border-radius:12px;border:1px solid #b7c5d1;background:#fff;color:#0c1424;font-weight:800;font-size:1rem;cursor:pointer}
+.tnTrain .tnTrainBtn.primary,.tnTrainControls .primary{background:#1e6bff;border-color:#1e6bff;color:#fff}
+.tnTrain .tnTrainBtn.dark{background:#0c1424;border-color:#0c1424;color:#fff}
+.tnTrainMeter{width:100%;height:10px;border-radius:999px;background:#e6eef8;overflow:hidden;margin-top:8px}
+.tnTrainMeter span{display:block;height:100%;width:0;background:#1e6bff}
+.tnTrainForm{display:grid;gap:4px;margin:12px 0;padding:14px;border:1px solid #d5dee6;border-radius:16px;background:#fff}
+.tnTrainForm label{font-weight:800;color:#0c1424;font-size:0.875rem;margin-top:8px}
+.tnTrainForm input:not([type="checkbox"]),.tnTrainForm select,.tnTrainForm textarea{width:100%;max-width:100%;min-height:48px;border:1px solid #b7c5d1;border-radius:12px;padding:10px 12px;font-size:1rem;background:#fff;color:#122033}
+.tnTrainForm textarea{min-height:96px;resize:vertical}
+.tnTrainPeople{display:grid;gap:8px;margin-top:6px}
+.tnTrainCheck{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:700}
+.tnTrainCheck input{width:20px;height:20px;min-height:20px}
+.tnTrainPerson{display:grid;gap:4px;padding:12px;border:1px solid #d5dee6;border-radius:14px;background:#fff;min-width:0}
+.tnTrainPerson b{color:#0c1424}
+.tnTrainPerson small{color:#3d5160;font-size:0.875rem}
+.tnTrainError{color:#8d3828;font-weight:700;font-size:0.875rem}
+.tnTrainEmpty{padding:16px;border-radius:14px;background:#fff;border:1px solid #d5dee6;color:#3d5160}
+.tnTrainBack{margin-bottom:10px}
+@media (max-width:380px){
+  .tnTrainCard{grid-template-columns:96px minmax(0,1fr);gap:8px;padding:8px}
+  .tnTrainHead h1{font-size:1.5rem}
+}
+body:has(#tab-training:not(.hidden)){overflow-x:clip}
+body:has(#tab-training:not(.hidden)) .rail{max-width:100%}
+body:has(#tab-training:not(.hidden)) .dashMain{min-width:0;max-width:100%}
+#tnTrainingRoot{min-width:0;max-width:100%}
+#tnAccountTraining{margin:16px 0}
+#tnAccountTraining .tnTrainCard{cursor:default}

@@ -13,8 +13,11 @@ import {
   lerpAngle,
   lineLatLngs,
   maneuverText,
+  navZoomFor,
   normalizeSteps,
-  snapToRoute
+  offsetCameraPoint,
+  snapToRoute,
+  splitRoute
 } from '../lib/nav-motion.js';
 
 assert.ok(easeInOut(0.25) < 0.25);
@@ -80,6 +83,23 @@ assert.equal(activeStep(steps, 50).step.type, 'turn');
 assert.equal(activeStep(steps, 140).step.type, 'arrive');
 assert.deepEqual(lineLatLngs({ type: 'LineString', coordinates: [[-82, 40], [-82, 40.1]] }), [{ lng: -82, lat: 40 }, { lng: -82, lat: 40.1 }]);
 
+assert.equal(navZoomFor('walking', 0), 18);
+assert.equal(navZoomFor('foot', 3), 17.5);
+assert.equal(navZoomFor('driving', 0), 16);
+assert.equal(navZoomFor('driving', 13), 15.75);
+assert.equal(navZoomFor('driving', 22), 15.5);
+assert.ok(navZoomFor('driving', 40) < navZoomFor('walking', 0));
+assert.ok(navZoomFor('driving', 0) <= 16);
+assert.ok(navZoomFor('walking', 0) >= 17.5);
+const north = offsetCameraPoint({ x: 100, y: 200 }, 0, 40);
+assert.equal(north.x, 100);
+assert.ok(north.y < 200);
+const routeLine = [{ lat: 40, lng: -82 }, { lat: 40.001, lng: -82 }];
+const parts = splitRoute(routeLine, 40);
+assert.ok(parts.ahead.length >= 2);
+assert.ok(parts.ahead[0].lat > routeLine[0].lat && parts.ahead[0].lat < routeLine[1].lat);
+assert.ok(parts.traveled.length >= 2);
+
 let asked = null;
 const lock = await acquireScreenWakeLock({ wakeLock: { request: async (kind) => { asked = kind; return { release() {} }; } } });
 assert.equal(asked, 'screen');
@@ -115,5 +135,10 @@ const forms = fs.readFileSync(new URL('../tn-files/my-forms.js', import.meta.url
 assert.ok(accounts.includes('accountsCacheReady'));
 assert.ok(forms.includes('formDataCache'));
 assert.ok(app.includes('restyle:false'));
+assert.ok(app.includes('flyTo'));
+assert.ok(app.includes('navZoomFor'));
+assert.ok(app.includes('splitRoute'));
+assert.ok(css.includes('.navStop'));
+assert.ok(!app.includes('Math.max(state.map.getZoom(),17)'));
 
 console.log('nav-motion tests ok');

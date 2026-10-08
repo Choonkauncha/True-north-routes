@@ -30,7 +30,7 @@ assert.equal(isSalesRep('appointment_setter'), false);
 function ids(role) {
   return fieldHomeLinks(role).map((item) => item.id);
 }
-assert.deepEqual(ids('appointment_setter'), ['map', 'inspection', 'forms', 'message', 'account']);
+assert.deepEqual(ids('appointment_setter'), ['map', 'inspection', 'forms', 'message', 'training', 'account']);
 assert.deepEqual(ids('canvasser'), ids('appointment_setter'));
 assert.equal(ids('appointment_setter').includes('photos'), false);
 assert.ok(ids('salesperson').includes('photos'));

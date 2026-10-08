@@ -42,6 +42,7 @@ export function fieldHomeLinks(role) {
     { action: 'message', label: 'Message management', id: 'message' }
   ];
   if (canUsePhotoBank(role)) links.push({ href: '/rep.html', label: 'Roof photos', id: 'photos' });
+  links.push({ href: '/training.html', label: 'Training', id: 'training' });
   links.push({ href: '/account.html', label: 'My account', id: 'account' });
   return links;
 }
