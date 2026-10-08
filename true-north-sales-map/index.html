@@ -19,7 +19,7 @@
 <div class="brandRibbon"><div><b>TRUE NORTH FIELD OS</b><span>Trust first · Work the system · No lead sleeps.</span></div><div class="ribbonActions"><a href="/setter.html">Appointment Setter Intake</a><a href="/homeowner.html">Homeowner Inspection Sign-Up</a></div></div>
 <section class="mapShell">
   <div class="mapCanvas"><div id="map"></div>
-    <div class="mapTopOverlay"><div class="mapSearch"><span>⌕</span><input id="search" aria-label="Search leads" placeholder="Search house, owner, street, ZIP, record…"><div class="searchHint"><kbd>/</kbd></div></div><button id="fitBtn" class="mapControl">Fit leads</button><button id="layerBtn" class="mapControl">Layers ▾</button><div id="layerMenu" class="layerMenu">
+    <div class="mapTopOverlay"><div class="mapSearch"><span>⌕</span><input id="search" aria-label="Search leads" placeholder="Search house, owner, street, ZIP, record…"><div class="searchHint"><kbd>/</kbd></div></div><div class="mapScope" role="group" aria-label="Map area"><button type="button" id="homeAreaBtn" class="isOn" aria-pressed="true">Home area</button><button type="button" id="allOhioBtn" aria-pressed="false">All Ohio</button></div><button id="fitBtn" class="mapControl">Fit leads</button><button id="layerBtn" class="mapControl">Layers ▾</button><div id="layerMenu" class="layerMenu">
       <label><input type="checkbox" data-layer="pins" checked> House pins</label>
       <label><input type="checkbox" data-layer="territories" checked> Territory ownership</label>
       <label><input type="checkbox" data-layer="opportunity" checked> Opportunity heat</label>
@@ -29,8 +29,18 @@
     </div></div>
     <div class="mapHud"><div class="hudTitle">FIELD BOARD <span>INSPECT HONESTLY · DOCUMENT CLEARLY · EARN THE JOB</span></div><div id="stats" class="stats"></div><div class="hudProgress"><div><b id="todayWorked">0</b><span>worked today</span></div><div><b id="todayAppts">0</b><span>appointments</span></div><div><b id="highPriorityCount">0</b><span>high priority</span></div></div></div>
     <div class="mapLegend"><span><i class="legendPin pinNew"></i>New</span><span><i class="legendPin pinKnocked"></i>Knocked</span><span><i class="legendPin pinNoAnswer"></i>No answer</span><span><i class="legendPin pinInterested"></i>Interested</span><span><i class="legendPin pinNot"></i>Not interested</span><span><i class="legendPin pinDnk"></i>Do not knock</span><span><i class="legendPin pinAppt"></i>Appointment</span><span><i class="legendPin pinSelected"></i>Selected</span></div>
+    <div id="pinBanner" class="pinBanner hidden" role="status">
+      <p id="pinBannerText"></p>
+      <button type="button" id="pinBannerAction" class="hidden">Open Admin</button>
+      <button type="button" id="pinBannerDismiss" aria-label="Dismiss">×</button>
+    </div>
   </div>
-  <aside class="sidePanel">
+  <aside class="sidePanel sheet-collapsed" id="listSheet">
+    <button type="button" id="listSheetGrab" class="listSheetGrab" aria-controls="listSheet" aria-expanded="false">
+      <span class="listSheetHandle" aria-hidden="true"></span>
+      <span id="listSheetSummary" class="listSheetSummary">Houses</span>
+    </button>
+    <div class="listSheetBody">
     <div class="filterBar">
       <select id="territoryFilter"><option value="">All territories</option></select><select id="repFilter"><option value="">All reps</option></select>
       <select id="statusFilter"><option value="">All statuses</option><option>New</option><option>Knocked</option><option>No Answer</option><option>Interested</option><option>Appointment</option><option>Not Interested</option><option>Do Not Knock</option></select>
@@ -41,6 +51,7 @@
     <section id="workPanel" class="tabPanel"><div class="nextCard"><div><div class="eyebrow">AUTO-PRIORITIZED</div><strong>Next best house</strong><p>Uses lead status, source priority, property age, verified roof age, territory ownership, and distance.</p></div><button id="nextCardBtn">Go →</button></div><div id="workList" class="scrollList"></div></section>
     <section id="handoffPanel" class="tabPanel hidden"><div class="panelIntro"><b>Sales handoff queue</b><span>Booked appointments stay visible to the whole team.</span></div><div id="handoffList" class="scrollList"></div></section>
     <section id="teamPanel" class="tabPanel hidden"><div class="panelIntro"><b>7-day leaderboard</b><span>Based on recorded field activity.</span></div><div id="teamList" class="scrollList"></div></section>
+    </div>
 </aside>
 <div id="routeTray" class="routeTray hidden"><div><strong><span id="routeTrayCount">0</span> houses queued</strong><span>Select homes, then build an optimized route.</span></div><button id="routeTrayBtn">Build route →</button></div>
 </section>

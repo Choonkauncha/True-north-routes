@@ -15,6 +15,8 @@
   --amber:#A66B19;
   --shadow:0 14px 40px rgba(19,43,58,.14);
   --shadow-soft:0 8px 24px rgba(19,43,58,.10);
+  --list-sheet-bottom:78px;
+  --list-sheet-peek:calc(52px + var(--list-sheet-bottom));
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:#e7ecef}
@@ -24,7 +26,7 @@ button{touch-action:manipulation}
 kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bottom-width:2px;padding:3px 5px;border-radius:5px;color:inherit;background:rgba(255,255,255,.05)}
 
 /* BRAND / SHELL */
-.topbar{height:68px;background:linear-gradient(90deg,var(--navy-2),var(--navy));color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:1002;position:relative;box-shadow:0 4px 20px rgba(10,27,36,.28)}
+.topbar{height:68px;background:linear-gradient(90deg,var(--navy-2),var(--navy));color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:1002;position:relative;box-shadow:0 4px 20px rgba(10,27,36,.28);border-bottom:3px solid var(--orange)}
 .brand{display:flex;gap:12px;align-items:center;min-width:0}
 .logoMark{width:38px;height:38px;position:relative;border:1px solid rgba(255,255,255,.28);border-radius:11px;display:grid;place-items:center;color:#fff;background:linear-gradient(145deg,rgba(229,114,42,.2),rgba(255,255,255,.04));box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
 .logoMark.big{width:56px;height:56px;margin-bottom:6px}
@@ -33,8 +35,15 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 .compassCenter{position:absolute;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px var(--navy)}
 .brandName{font-size:12px;font-weight:900;letter-spacing:2.2px;white-space:nowrap}.brandName span{font-weight:650;letter-spacing:1.1px;opacity:.72}
 .brandSub{font-size:8px;letter-spacing:1.7px;color:#b9c6cc;margin-top:2px;white-space:nowrap}
-.topRight{display:flex;align-items:center;gap:7px}.chip{border:1px solid rgba(255,255,255,.22);padding:7px 10px;border-radius:999px;font-size:9px;letter-spacing:1px}.chip.live{background:#E8F6EE;color:#183828;border-color:#E8F6EE}.chip.local{background:#314852;color:#fff}.datasetCount{font-size:10px;color:#b6c3ca}.ghostBtn,.primaryBtn,.adminBtn,.userMenu button{border-radius:9px;padding:9px 11px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;cursor:pointer;font-weight:800;font-size:11px}.ghostBtn:hover,.adminBtn:hover{background:rgba(255,255,255,.07)}.primaryBtn{background:var(--orange);border-color:var(--orange);box-shadow:0 5px 16px rgba(229,114,42,.28)}.primaryBtn:hover{filter:brightness(1.04)}.primaryBtn kbd{border-color:rgba(19,43,58,.22);background:rgba(19,43,58,.1);color:#fff}.adminBtn{background:rgba(255,255,255,.08)}.userMenu{display:flex;gap:6px;align-items:center;font-size:10px}.userMenu button{padding:7px 8px}
-.cloudNotice{position:fixed;top:68px;left:0;right:0;z-index:1000;background:#fff4cd;color:#66521d;border-bottom:1px solid #e4d69c;padding:8px 16px;font-size:11px}
+.topRight{display:flex;align-items:center;gap:7px}.chip{border:1px solid rgba(255,255,255,.22);padding:7px 10px;border-radius:999px;font-size:9px;letter-spacing:1px}.chip.live{background:var(--orange);color:#fff;border-color:var(--orange)}.chip.local{background:#314852;color:#fff}.datasetCount{font-size:10px;color:#b6c3ca}.ghostBtn,.primaryBtn,.adminBtn,.userMenu button{border-radius:9px;padding:9px 11px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;cursor:pointer;font-weight:800;font-size:11px}.ghostBtn:hover,.adminBtn:hover{background:rgba(255,255,255,.07)}.primaryBtn{background:var(--orange);border-color:var(--orange);box-shadow:0 5px 16px rgba(229,114,42,.28)}.primaryBtn:hover{filter:brightness(1.04)}.primaryBtn kbd{border-color:rgba(19,43,58,.22);background:rgba(19,43,58,.1);color:#fff}.adminBtn{background:rgba(255,255,255,.08)}.userMenu{display:flex;gap:6px;align-items:center;font-size:10px}.userMenu button{padding:7px 8px}
+.cloudNotice{position:fixed;top:71px;left:0;right:0;z-index:1000;background:#fff4cd;color:#66521d;border-bottom:1px solid #e4d69c;padding:8px 16px;font-size:11px}
+.quickLinkBtn{color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.28);border-radius:9px;padding:9px 11px;font-weight:800;font-size:11px;white-space:nowrap}
+.quickLinkBtn:hover{background:rgba(255,255,255,.07)}
+.brandRibbon{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 16px;background:var(--navy);color:#fff;border-bottom:3px solid var(--orange);font-size:12px}
+.brandRibbon b{letter-spacing:.08em}
+.brandRibbon span{margin-left:8px;color:rgba(255,255,255,.78);font-weight:650}
+.ribbonActions{display:flex;gap:8px;flex-wrap:wrap}
+.ribbonActions a{color:#fff;background:var(--orange);text-decoration:none;font-weight:800;border-radius:8px;padding:8px 10px}
 
 /* MAP FIRST */
 #appShell{height:100%;min-height:0;display:flex;flex-direction:column}
@@ -126,6 +135,51 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
   .mapLegend{max-width:calc(100vw - 16px);bottom:84px}
   .mobileBar{height:auto;min-height:64px;padding:6px}
   .mobileBar button{min-height:48px;font-size:15px}
-  .sidePanel{bottom:78px}
   .toast{bottom:78px}
 }
+
+.mapScope{display:flex;border-radius:10px;overflow:hidden;border:1px solid #d7dfe3;box-shadow:var(--shadow-soft);flex:none;background:#fff}
+.mapScope button{min-height:40px;border:0;background:#fff;color:var(--navy);font-weight:800;font-size:12px;padding:0 12px;cursor:pointer}
+.mapScope button.isOn{background:var(--navy);color:#fff}
+.mapScope button+button{box-shadow:inset 1px 0 0 #d7dfe3}
+.listSheetGrab{display:none}
+.listSheetBody{min-height:0;flex:1;display:flex;flex-direction:column;overflow:hidden}
+.listSheetBody>.tabPanel{flex:1}
+.pinBanner{position:absolute;z-index:680;left:14px;right:14px;top:148px;display:flex;gap:8px;align-items:center;max-width:520px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:12px;padding:10px 8px 10px 12px;box-shadow:var(--shadow-soft);color:var(--navy)}
+.pinBanner p{margin:0;flex:1;font-size:14px;font-weight:750;line-height:1.35}
+.pinBanner button{min-height:48px;border:0;border-radius:10px;background:var(--orange);color:#fff;font-weight:900;font-size:14px;padding:0 12px;cursor:pointer}
+#pinBannerDismiss{width:48px;padding:0;background:transparent;color:var(--navy);font-size:26px;line-height:1}
+
+@media(max-width:960px){
+  .brandRibbon,.topRight>a.quickLinkBtn,.chip,.topRight .ghostBtn,.adminBtn,.brandSub{display:none!important}
+  .topbar{height:48px;padding:0 10px}
+  .logoMark{width:32px;height:32px}
+  .brandName{font-size:11px;letter-spacing:1.2px}
+  .brandSub{display:none}
+  .cloudNotice{top:51px}
+  .mapShell{grid-template-columns:1fr!important}
+  .mapHud{display:none}
+  .mapTopOverlay{flex-wrap:wrap;align-items:stretch}
+  .mapSearch{width:calc(100% - 78px);order:1}
+  .mapTopOverlay #layerBtn{order:2;min-height:48px}
+  .mapTopOverlay #fitBtn{display:none}
+  .mapScope{order:3;width:100%;margin-top:0}
+  .mapScope button{flex:1;min-height:48px;font-size:15px}
+  .mapLegend{left:8px;right:8px;bottom:calc(var(--list-sheet-peek) + 8px);max-width:none}
+  .routeTray{bottom:calc(var(--list-sheet-peek) + 8px)}
+  .pinBanner{top:118px;left:8px;right:8px;max-width:none}
+  #listSheet.sidePanel{position:fixed;left:0;right:0;top:auto;width:auto;bottom:var(--list-sheet-bottom);height:auto;max-height:none;border:0;border-radius:16px 16px 0 0;box-shadow:0 -10px 28px rgba(19,43,58,.22);z-index:900;overflow:hidden;display:flex;flex-direction:column}
+  #listSheet .listSheetGrab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;min-height:48px;padding:6px 16px 8px;border:0;background:#fff;color:var(--navy);font-weight:800;font-size:15px;cursor:pointer;touch-action:none}
+  .listSheetHandle{width:42px;height:5px;border-radius:999px;background:#c5d0d6;flex:none}
+  .listSheetSummary{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
+  #listSheet .listSheetBody{min-height:0;flex:1;display:flex;flex-direction:column;overflow:hidden}
+  #listSheet.sheet-collapsed .listSheetBody{display:none}
+  #listSheet.sheet-half{height:50dvh}
+  #listSheet.sheet-full{top:51px;bottom:0;height:auto;border-radius:16px 16px 0 0}
+  #listSheet.panel-open{z-index:1640}
+  #listSheet.sheet-suppressed{visibility:hidden;pointer-events:none}
+  #listSheet .filterBar select,#listSheet .tab,#listSheet .iconBtn,#listSheet .nextCard button{min-height:48px;font-size:14px}
+  #listSheet .tab{font-size:14px}
+  #listSheet .filterBar .mine{min-height:48px;font-size:14px}
+}
+@media(prefers-reduced-motion:reduce){#listSheet.sidePanel{transition:none}}

@@ -3,6 +3,9 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
 const doorSheetMedia=window.matchMedia('(max-width: 960px)');
+const HOME_BASE={lat:40.3931,lng:-82.4857};
+const HOME_MILES=35;
+const LIST_SNAPS=['sheet-collapsed','sheet-half','sheet-full'];
 const APPOINTMENT_STAGES=['Scheduled','Confirmed','Completed','No-show','Cancelled'];
 const ROLE_OPTIONS=['admin','manager','canvasser','salesperson'];
 const LOCAL_KEY='tnrc2:local';
@@ -15,7 +18,8 @@ const state={
   filters:{q:'',status:'',rep:'',territory:'',source:'',mine:false},
   layerFlags:{pins:true,density:false,opportunity:true,roofAge:false,storms:false,territories:true},
   routeMode:'driving', busy:false, config:null, realtimeChannel:null, refreshTimer:null,
-  doorLeadId:null, doorSaving:false, doorUndo:null
+  doorLeadId:null, doorSaving:false, doorUndo:null,
+  homeArea:true, didFit:false, listSnap:'sheet-collapsed', pinBannerDismissed:false
 };
 
 const $=id=>document.getElementById(id);
@@ -92,8 +96,14 @@ function bindStaticEvents(){
   $('doorSheetFull').onclick=()=>{const id=state.doorLeadId; closeDoorSheet(); if(id) openLead(id);};
   $('toastUndo').onclick=undoDoorStatus;
   $('toastNext').onclick=()=>openNextHouse(state.doorUndo?.id);
+  $('homeAreaBtn').onclick=()=>setHomeArea(true);
+  $('allOhioBtn').onclick=()=>setHomeArea(false);
+  $('pinBannerAction').onclick=openAdmin;
+  $('pinBannerDismiss').onclick=()=>{state.pinBannerDismissed=true;$('pinBanner').classList.add('hidden');};
   bindDoorSwipe();
-  const onDoorMedia=()=>{if(!state.map)return; closeDoorSheet(); refreshMapLayers();};
+  bindListSheet();
+  syncListMode();
+  const onDoorMedia=()=>{if(state.map){closeDoorSheet();refreshMapLayers();}syncListMode();};
   if(doorSheetMedia.addEventListener) doorSheetMedia.addEventListener('change',onDoorMedia);
   else doorSheetMedia.addListener(onDoorMedia);
 }
@@ -190,7 +200,8 @@ function applyFilters(){
 
 function renderAll(){
   if(!state.map)return;
-  applyFilters(); renderStats(); renderWorkList(); renderHandoffs(); renderTeam(); renderSidebarCounts(); refreshMapLayers(); updateSelectedBadge();
+  applyFilters(); renderStats(); renderWorkList(); renderHandoffs(); renderTeam(); renderSidebarCounts(); refreshMapLayers(); updateSelectedBadge(); updateListSummary(); updatePinBanner();
+  if(!state.didFit){state.didFit=true;setTimeout(()=>{publishListPeek();fitMapToScope(false);},80);}
 }
 
 function renderStats(){
@@ -322,7 +333,7 @@ function drawTerritories(){
     if(!center)return;
     const t=state.territories.find(x=>x.name===city)||{};
     const rep=state.reps.find(r=>r.id===t.assigned_rep_id)?.name||'Unassigned';
-    const circle=L.circle(center,{radius:Math.max(400,Math.min(4200,Math.sqrt(leads.length)*95)),weight:1.5,fillOpacity:.06,color:t.color||'#20362a'}).addTo(state.map);
+    const circle=L.circle(center,{radius:Math.max(400,Math.min(4200,Math.sqrt(leads.length)*95)),weight:1.5,fillOpacity:.06,color:t.color||'#132B3A'}).addTo(state.map);
     circle.bindPopup(`<b>${esc(city)}</b><br>${fmt(leads.length)} filtered houses<br><span>${esc(rep)}</span>`);
     state._territoryLayers.push(circle);
   });
@@ -338,10 +349,97 @@ function nextBest(){
   toast(`Next best house: ${pool[0].address}`);
 }
 
+function isHomeLead(l){return isCoords(l)&&haversine(HOME_BASE.lat,HOME_BASE.lng,Number(l.lat),Number(l.lng))<=HOME_MILES;}
+function fitMapToScope(animate=false){
+  if(!state.map)return;
+  const mapped=state.filtered.filter(isCoords);
+  const home=mapped.filter(isHomeLead);
+  const use=state.homeArea&&home.length?home:mapped;
+  if(!use.length){state.map.setView([HOME_BASE.lat,HOME_BASE.lng],12,{animate});return;}
+  const bounds=L.latLngBounds(use.map(l=>[Number(l.lat),Number(l.lng)]));
+  const phone=useDoorSheet();
+  state.map.fitBounds(bounds.pad(.12),{animate,maxZoom:16,paddingTopLeft:[16,phone?128:36],paddingBottomRight:[16,phone?150:28]});
+}
 function fitFilteredLeads(){
-  const mapped=state.filtered.filter(isCoords); if(!mapped.length){toast('No mapped houses in the current filter.');return;}
-  const bounds=L.latLngBounds(mapped.map(l=>[Number(l.lat),Number(l.lng)]));
-  state.map.fitBounds(bounds.pad(.10),{animate:true,maxZoom:16});
+  if(!state.filtered.filter(isCoords).length){toast('No mapped houses in the current filter.');fitMapToScope(true);return;}
+  fitMapToScope(true);
+}
+function setHomeArea(on){
+  state.homeArea=!!on;
+  $('homeAreaBtn').classList.toggle('isOn',state.homeArea);
+  $('homeAreaBtn').setAttribute('aria-pressed',state.homeArea?'true':'false');
+  $('allOhioBtn').classList.toggle('isOn',!state.homeArea);
+  $('allOhioBtn').setAttribute('aria-pressed',!state.homeArea?'true':'false');
+  fitMapToScope(true);
+  updateListSummary();
+}
+function canManagePins(){return ['admin','manager'].includes(state.currentRep?.role);}
+function updatePinBanner(){
+  const el=$('pinBanner'); if(!el)return;
+  if(state.pinBannerDismissed||!state.leads.length||state.leads.some(isCoords)){el.classList.add('hidden');return;}
+  const admin=canManagePins();
+  $('pinBannerText').textContent=admin?"Houses aren't pinned yet. Open Admin → Geocode missing house pins.":"Houses aren't pinned yet. Ask an admin to run the pin geocoder.";
+  $('pinBannerAction').classList.toggle('hidden',!admin);
+  el.classList.remove('hidden');
+}
+function updateListSummary(){
+  const el=$('listSheetSummary'); if(!el)return;
+  const n=state.filtered.length;
+  const ranked=state.filtered.filter(l=>scoreLead(l)>-100).sort((a,b)=>scoreLead(b)-scoreLead(a));
+  const next=state.homeArea?(ranked.find(l=>isHomeLead(l))||ranked.find(l=>!isCoords(l))||ranked[0]):ranked[0];
+  const label=`${fmt(n)} house${n===1?'':'s'}`;
+  el.textContent=next?.address?`${label} · Next: ${next.address}`:label;
+}
+function setListSheet(snap){
+  const sheet=$('listSheet'); if(!sheet)return;
+  if(!useDoorSheet()){
+    sheet.classList.remove('sheet-collapsed','sheet-half','sheet-full','panel-open','sheet-suppressed');
+    document.documentElement.style.setProperty('--list-sheet-peek','0px');
+    return;
+  }
+  const next=LIST_SNAPS.includes(snap)?snap:'sheet-collapsed';
+  LIST_SNAPS.forEach(name=>sheet.classList.remove(name));
+  sheet.classList.add(next);
+  sheet.classList.toggle('panel-open',next!=='sheet-collapsed');
+  state.listSnap=next;
+  $('listSheetGrab')?.setAttribute('aria-expanded',next==='sheet-collapsed'?'false':'true');
+  publishListPeek();
+}
+function publishListPeek(){
+  const root=document.documentElement;
+  if(!useDoorSheet()){root.style.setProperty('--list-sheet-peek','0px');return;}
+  const h=Math.round($('listSheetGrab')?.getBoundingClientRect().height||52);
+  const bottom=getComputedStyle(root).getPropertyValue('--list-sheet-bottom').trim()||'78px';
+  root.style.setProperty('--list-sheet-peek',`calc(${h}px + ${bottom})`);
+}
+function syncListMode(){setListSheet(useDoorSheet()?(state.listSnap||'sheet-collapsed'):'sheet-collapsed');syncListOverlay();}
+function listOverlayOpen(){return $('doorSheet')?.classList.contains('open')||($('toast')?.classList.contains('show')&&!$('toastActions')?.classList.contains('hidden'));}
+function syncListOverlay(){
+  const sheet=$('listSheet'); if(!sheet)return;
+  const block=listOverlayOpen()&&useDoorSheet();
+  if(block&&!sheet.classList.contains('sheet-collapsed'))setListSheet('sheet-collapsed');
+  sheet.classList.toggle('sheet-suppressed',block);
+}
+function bindListSheet(){
+  const grab=$('listSheetGrab'); if(!grab)return;
+  let startY=0,moved=0,dragging=false,startSnap='sheet-collapsed';
+  grab.addEventListener('pointerdown',e=>{
+    if(!useDoorSheet()||e.button>0)return;
+    dragging=true; startY=e.clientY; moved=0; startSnap=state.listSnap||'sheet-collapsed';
+    grab.setPointerCapture?.(e.pointerId);
+  });
+  grab.addEventListener('pointermove',e=>{if(dragging)moved=e.clientY-startY;});
+  const end=()=>{
+    if(!dragging)return;
+    dragging=false;
+    const i=Math.max(0,LIST_SNAPS.indexOf(startSnap));
+    if(moved<-36&&i<LIST_SNAPS.length-1)setListSheet(LIST_SNAPS[i+1]);
+    else if(moved>36&&i>0)setListSheet(LIST_SNAPS[i-1]);
+    else if(Math.abs(moved)<12)setListSheet(i<LIST_SNAPS.length-1?LIST_SNAPS[i+1]:'sheet-collapsed');
+  };
+  grab.addEventListener('pointerup',end);
+  grab.addEventListener('pointercancel',end);
+  window.addEventListener('resize',()=>{syncListMode();state.map?.invalidateSize();});
 }
 
 function toggleMapFocus(){
@@ -387,6 +485,7 @@ function openDoorSheet(id){
   sheet.setAttribute('aria-hidden','false');
   sheet.getBoundingClientRect();
   sheet.classList.add('open');
+  syncListOverlay();
   requestAnimationFrame(()=>panPinAboveSheet(l));
 }
 function closeDoorSheet(){
@@ -400,6 +499,7 @@ function closeDoorSheet(){
   state.doorSaving=false;
   clearTimeout(openDoorSheet._t);
   openDoorSheet._t=setTimeout(()=>{if(!sheet.classList.contains('open'))sheet.classList.add('hidden');},240);
+  syncListOverlay();
 }
 function panPinAboveSheet(l){
   if(!state.map||!isCoords(l))return;
@@ -510,13 +610,15 @@ function toastDoorResult(lead, fromStatus, toStatus){
   state.doorUndo={id:lead.id, from:fromStatus, to:toStatus};
   el.classList.add('show');
   clearTimeout(toast._t);
-  toast._t=setTimeout(()=>{el.classList.remove('show'); $('toastActions').classList.add('hidden'); state.doorUndo=null;},5000);
+  toast._t=setTimeout(()=>{el.classList.remove('show'); $('toastActions').classList.add('hidden'); state.doorUndo=null; syncListOverlay();},5000);
+  syncListOverlay();
 }
 function dismissDoorToast(){
   clearTimeout(toast._t);
   $('toast')?.classList.remove('show');
   $('toastActions')?.classList.add('hidden');
   state.doorUndo=null;
+  syncListOverlay();
 }
 
 async function persistLeadPatch(l,patch){
@@ -759,7 +861,8 @@ function toast(message, ms=2600){
   state.doorUndo=null;
   el.classList.add('show');
   clearTimeout(toast._t);
-  toast._t=setTimeout(()=>el.classList.remove('show'), ms);
+  toast._t=setTimeout(()=>{el.classList.remove('show'); syncListOverlay();}, ms);
+  syncListOverlay();
 }
 
 function startRealtime(){
