@@ -73,7 +73,9 @@
 .tnDayBar .btn{min-height:44px}
 .tnPointMeta{font-size:13px;color:#6C7A83}
 
-.tnToast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,12px);z-index:3400;opacity:0;pointer-events:none;background:#0c1424;color:#fff;border-left:3px solid #1e6bff;padding:12px 14px;border-radius:12px;font-size:14px;transition:.2s ease}
+.tnToast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,12px);z-index:3400;opacity:0;pointer-events:none;background:#0c1424;color:#fff;border-left:3px solid #1e6bff;padding:12px 14px;border-radius:12px;font-size:14px;font-weight:700;transition:.2s ease;max-width:calc(100vw - 24px);box-sizing:border-box;overflow-wrap:anywhere;text-align:center}
+.tnAlerts{display:block;width:100%;min-height:44px;border:0;border-bottom:1px solid #DCE3E7;background:#e8f0ff;color:#0c1424;font-weight:800;cursor:pointer}
+.tnAlerts[hidden]{display:none !important}
 .tnToast.show{opacity:1;transform:translate(-50%,0)}
 
 @media(min-width:701px){

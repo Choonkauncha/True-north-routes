@@ -99,7 +99,13 @@
 .tnProperty{width:100%;cursor:pointer}
 .tnTimeline{display:grid;gap:10px;border-left:3px solid #d5dee3;margin-left:6px;padding-left:12px}
 .tnDocItem img{width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:8px}
-.tnMyForms,.tnFolder,.tnRecordCard,.tnRecordForm{min-width:0;max-width:100%}
+.tnMyForms,.tnFolder,.tnRecordCard,.tnRecordForm,.tnLibrarySection{min-width:0;max-width:100%}
+.tnLibrarySection{margin-top:18px}
+.tnLibrarySection h2,.tnLibrarySection h3{margin:0 0 6px;color:#0c1424;overflow-wrap:anywhere}
+.tnLibrarySection h3{margin-top:14px;font-size:16px}
+.tnPerm{margin:0 0 8px;color:#3E4E59;font-size:14px;line-height:1.4}
+.tnFolderList{display:grid;gap:8px;min-width:0}
+.tnLibrarySection img{max-width:100%;height:auto;border-radius:12px}
 .tnFolder{border:1px solid #DCE3E7;border-radius:14px;padding:12px;background:#fff}
 .tnFolderHead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 .tnFolderHead .tnIconBtns{flex:1 1 100%;min-width:0}

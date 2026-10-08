@@ -2,7 +2,6 @@ import { bootFiles, signIn, getLead, listTemplates, listAssignments, searchLeads
 import { esc, bindSignOut, signInCard, mountSignature, compressImage, houseBackHref } from './ui.js';
 import { screensFromFields, initialAnswers, validateScreen, snapshotHomeowner, formatAddress, PREVIEW_LEAD, audienceLabel } from './logic.js';
 import { canSeeForm, canUsePhotoBank } from '../lib/role-access.js';
-import { mountMyForms } from './my-forms.js';
 
 const app = document.getElementById('app');
 const params = new URLSearchParams(location.search);
@@ -37,8 +36,7 @@ async function start() {
   const assignments = await listAssignments(ctx).catch(() => []);
   templates = (await listTemplates(ctx)).filter((item) => item.active !== false && canSeeForm(ctx.rep?.role, item, { repId: ctx.rep?.id, assignments, mode: ctx.mode }));
   if (params.get('template')) template = templates.find((item) => item.id === params.get('template')) || null;
-  if (!lead && !template) phase = 'desk';
-  else if (!lead) phase = 'house';
+  if (!lead) phase = 'house';
   else if (!template && templates.length === 1) { template = templates[0]; openTemplate(); }
   else if (!template) phase = 'pick';
   else openTemplate();
@@ -77,9 +75,6 @@ function banner() {
 function render() {
   pads.forEach((pad) => pad.destroy?.());
   pads = [];
-  if (phase === 'desk') {
-    return mountMyForms(app, ctx, { onFillHouse: () => { phase = 'house'; render(); } });
-  }
   if (phase === 'house') return renderHouse();
   if (phase === 'pick') return renderPick();
   if (phase === 'file') return renderFile();
@@ -89,8 +84,7 @@ function render() {
 }
 
 function renderHouse() {
-  app.innerHTML = `${banner()}<p class="tnProgress">Choose the house</p><h1 class="tnTitle">Which house?</h1><label class="tnLabel" for="houseQ">Search address or name</label><input class="tnInput" id="houseQ" placeholder="Start typing an address"><div id="houseHits" class="tnStack" style="margin-top:10px"></div><div class="tnSticky"><button type="button" class="tnTap" id="backDesk">My forms</button><a class="tnTap" href="/">Back to map</a></div>`;
-  document.getElementById('backDesk').onclick = () => { phase = 'desk'; render(); };
+  app.innerHTML = `${banner()}<p class="tnProgress">Choose the house</p><h1 class="tnTitle">Which house?</h1><label class="tnLabel" for="houseQ">Search address or name</label><input class="tnInput" id="houseQ" placeholder="Start typing an address"><div id="houseHits" class="tnStack" style="margin-top:10px"></div><div class="tnSticky"><a class="tnTap" href="/">Back to map</a></div>`;
   const input = document.getElementById('houseQ');
   let timer;
   input.oninput = () => { clearTimeout(timer); timer = setTimeout(() => runSearch(input.value), 200); };
