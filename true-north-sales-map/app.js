@@ -261,12 +261,13 @@ function beginMapLoader(showNow){
   const gen=++state.mapLoaderGen;
   state.pinsPainted=false;
   clearTimeout(state.mapLoaderGiveUp);
+  state.mapLoaderGiveUp=null;
   if(showNow)revealMapLoader();
-  state.mapLoaderGiveUp=setTimeout(()=>hideMapLoader(gen),12000);
   return gen;
 }
 function settleMapLoader(gen){
   if(gen!==state.mapLoaderGen||!state.pinsPainted||state.awaitingFirstFit)return;
+  if(!state.mapLoaderGiveUp)state.mapLoaderGiveUp=setTimeout(()=>hideMapLoader(gen),12000);
   state.map?.invalidateSize();
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     if(gen!==state.mapLoaderGen||!state.pinsPainted||state.awaitingFirstFit)return;
