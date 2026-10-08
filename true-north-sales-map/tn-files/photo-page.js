@@ -1,4 +1,4 @@
-import { bootFiles, signIn, getLead, listPhotos, savePhoto, takePending, photosForLead, plainError } from './store.js';
+import { bootFiles, signIn, getLead, listPhotos, savePhoto, updatePhotoNote, takePending, photosForLead, plainError } from './store.js';
 import { compressImage, esc, bindSignOut, signInCard, houseBackHref } from './ui.js';
 import { canUsePhotoBank, formatAddress } from './logic.js';
 
@@ -130,11 +130,36 @@ async function loadGallery() {
   if (!gallery) return;
   try {
     const photos = photosForLead(await listPhotos(ctx), lead);
-    gallery.innerHTML = photos.length ? photos.map((photo) => `<button type="button" data-src="${esc(photo.url)}"><img alt="${esc(photo.caption || 'House photo')}" src="${esc(photo.url)}"></button>`).join('') : '<p class="tnSub">No photos yet.</p>';
-    gallery.querySelectorAll('button').forEach((button) => { button.onclick = () => openLightbox(button.dataset.src); });
+    gallery.innerHTML = photos.length ? photos.map((photo) => `<figure class="tnPhotoCard" data-photo="${esc(photo.id)}">
+      <button type="button" data-src="${esc(photo.url)}"><img alt="${esc(photo.caption || 'House photo')}" src="${esc(photo.url)}"></button>
+      <figcaption class="tnPhotoNote" data-note>${esc(photo.caption || 'No note yet')}</figcaption>
+      <button type="button" class="tnTap" data-edit-note>Edit note</button>
+    </figure>`).join('') : '<p class="tnSub">No photos yet.</p>';
+    gallery.querySelectorAll('[data-src]').forEach((button) => { button.onclick = () => openLightbox(button.dataset.src); });
+    gallery.querySelectorAll('[data-edit-note]').forEach((button) => { button.onclick = () => editNote(button.closest('[data-photo]'), photos); });
   } catch (error) {
     gallery.innerHTML = `<p class="tnError">${esc(plainError(error))}</p>`;
   }
+}
+
+function editNote(card, photos) {
+  const photo = photos.find((item) => item.id === card.dataset.photo);
+  if (!photo || card.querySelector('input')) return;
+  const note = card.querySelector('[data-note]');
+  note.innerHTML = `<label class="tnLabel" for="note-${esc(photo.id)}">Note</label><input class="tnInput" id="note-${esc(photo.id)}" maxlength="500" value="${esc(photo.caption || '')}">`;
+  const button = card.querySelector('[data-edit-note]');
+  button.textContent = 'Save note';
+  button.onclick = async () => {
+    button.disabled = true;
+    try {
+      const saved = await updatePhotoNote(ctx, photo, card.querySelector('input').value);
+      photo.caption = saved.caption;
+      loadGallery();
+    } catch (error) {
+      button.disabled = false;
+      note.insertAdjacentHTML('beforeend', `<p class="tnError">${esc(plainError(error))}</p>`);
+    }
+  };
 }
 
 function openLightbox(src) {

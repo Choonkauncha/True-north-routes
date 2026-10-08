@@ -4,6 +4,7 @@ import './tn-files/password-reset.js';
 import { PASSWORD_UPDATED } from './lib/password-reset.js';
 import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } from './lib/route-picks.js';
 import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
+import { roleLabel } from './lib/field-rules.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -12,7 +13,6 @@ const HOME_BASE={lat:40.3931,lng:-82.4857};
 const HOME_MILES=35;
 const LIST_SNAPS=['sheet-collapsed','sheet-half','sheet-full'];
 const APPOINTMENT_STAGES=['Scheduled','Confirmed','Completed','No-show','Cancelled'];
-const ROLE_OPTIONS=['admin','manager','canvasser','salesperson'];
 const LOCAL_KEY='tnrc2:local';
 
 const state={
@@ -309,7 +309,7 @@ function renderTeam(){
   const by={}; state.reps.forEach(r=>by[r.id]={rep:r,knocks:0,appts:0,interested:0});
   state.activities.filter(a=>new Date(a.created_at).getTime()>=cutoff).forEach(a=>{if(!by[a.actor_id])return; const to=a.metadata?.to_status; if(['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].includes(to))by[a.actor_id].knocks++;if(to==='Interested')by[a.actor_id].interested++;if(a.action==='appointment_booked')by[a.actor_id].appts++});
   const rows=Object.values(by).sort((a,b)=>(b.appts*10+b.interested*2+b.knocks)-(a.appts*10+a.interested*2+a.knocks));
-  list.innerHTML=rows.map((x,i)=>`<div class="teamRow"><div class="rank">${i+1}</div><div class="teamName"><strong>${esc(x.rep.name)}</strong><small>${esc(x.rep.role)}</small></div><div><b>${x.knocks}</b><small>worked</small></div><div><b>${x.appts}</b><small>appts</small></div></div>`).join('')||'<div class="empty">No team members configured.</div>';
+  list.innerHTML=rows.map((x,i)=>`<div class="teamRow"><div class="rank">${i+1}</div><div class="teamName"><strong>${esc(x.rep.name)}</strong><small>${esc(roleLabel(x.rep.role))}</small></div><div><b>${x.knocks}</b><small>worked</small></div><div><b>${x.appts}</b><small>appts</small></div></div>`).join('')||'<div class="empty">No team members configured.</div>';
 }
 
 function scoreLead(l){
@@ -716,7 +716,7 @@ function openLead(id){
     <div class="drawerActions"><button id="drawerMaps" class="darkBtn">Open Google Maps</button><button id="drawerDir" class="outlineBtn">Directions</button></div>
     <div class="fieldActions"><button data-qstatus="Knocked">Knocked</button><button data-qstatus="No Answer">No answer</button><button data-qstatus="Interested">Interested</button><button data-qstatus="Not Interested">Not interested</button></div>
     <label>Sales status</label><select id="dStatus">${STATUS_OPTIONS.map(x=>`<option value="${esc(x)}" ${leadStatus(l)===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
-    <label>Assigned rep</label><select id="dOwner"><option value="">Unassigned</option>${reps.map(r=>`<option value="${esc(r.id)}" ${l.assignedRepId===r.id?'selected':''}>${esc(r.name)} · ${esc(r.role)}</option>`).join('')}</select>
+    <label>Assigned rep</label><select id="dOwner"><option value="">Unassigned</option>${reps.map(r=>`<option value="${esc(r.id)}" ${l.assignedRepId===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('')}</select>
     <div class="verifiedGrid"><label>Roof age (verified)</label><input id="dRoofAge" type="number" min="0" max="100" value="${esc(l.roof_age_years??l.roofAgeYears??'')}" placeholder="e.g. 16"><label><input id="dRoofVerified" type="checkbox" ${l.roof_age_verified||l.roofAgeVerified?'checked':''}> verified</label></div>
     <label>Notes</label><textarea id="dNotes" placeholder="Homeowner response, roof condition, next action…">${esc(notes)}</textarea>
     <button id="saveLeadBtn" class="saveBtn">Save field result</button>
@@ -812,7 +812,7 @@ function openAppointmentForm(l,appt=null){
   const appointment=appt||{lead_id:l.id,stage:'Scheduled',scheduled_at:'',salesperson_id:''};
   $('appointmentModal').classList.remove('hidden'); $('appointmentTitle').textContent=appt?'Edit handoff':'Book appointment';
   $('appLeadId').value=l.id; $('appScheduled').value=appointment.scheduled_at?new Date(appointment.scheduled_at).toISOString().slice(0,16):''; $('appStage').value=appointment.stage||'Scheduled';
-  $('appSalesperson').innerHTML='<option value="">Unassigned</option>'+state.reps.filter(r=>['salesperson','manager','admin'].includes(r.role)).map(r=>`<option value="${esc(r.id)}" ${appointment.salesperson_id===r.id||appointment.salesperson?.id===r.id?'selected':''}>${esc(r.name)} · ${esc(r.role)}</option>`).join('');
+  $('appSalesperson').innerHTML='<option value="">Unassigned</option>'+state.reps.filter(r=>['salesperson','manager','admin'].includes(r.role)).map(r=>`<option value="${esc(r.id)}" ${appointment.salesperson_id===r.id||appointment.salesperson?.id===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('');
   $('appNotes').value=appointment.notes||l.notes||''; $('appId').value=appointment.id||'';
 }
 async function saveAppointmentFromForm(e){e.preventDefault();

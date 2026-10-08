@@ -32,12 +32,13 @@ export function isFieldRole(role) {
   return FIELD_ROLES.includes(role);
 }
 
-/** Managers can create and reset setters, canvassers, and sales reps. Only an admin can touch admin or manager accounts, or open as someone. */
+/** Managers can create and reset setters and sales reps, and can still reset or turn off an older canvasser login. Only an admin can touch admin or manager accounts, or open as someone. New canvasser logins are not created. */
 export function canManageAccount(actorRole, targetRole, action) {
   if (!MANAGEMENT_ROLES.includes(actorRole)) return false;
   if (!ALL_ROLES.includes(targetRole)) return false;
   if (action === 'open_as') return actorRole === 'admin';
   if (!['create', 'reset', 'deactivate', 'reactivate'].includes(action)) return false;
+  if (action === 'create' && targetRole === 'canvasser') return false;
   if (targetRole === 'admin' || targetRole === 'manager') return actorRole === 'admin';
   return true;
 }
@@ -47,7 +48,7 @@ export function roleLabel(role) {
     admin: 'Admin',
     manager: 'Manager',
     appointment_setter: 'Appointment setter',
-    canvasser: 'Canvasser',
+    canvasser: 'Appointment setter',
     salesperson: 'Sales rep'
   }[role] || role;
 }

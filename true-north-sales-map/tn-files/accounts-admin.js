@@ -1,12 +1,9 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { esc } from './ui.js';
 import { canManageAccount, roleLabel } from '../lib/account-rules.js';
+import { CREATABLE_FIELD_ROLES } from '../lib/role-access.js';
 
-const FIELD = [
-  ['appointment_setter', 'Appointment setter'],
-  ['canvasser', 'Canvasser'],
-  ['salesperson', 'Sales rep']
-];
+const FIELD = CREATABLE_FIELD_ROLES;
 const ADMIN_EXTRA = [
   ['manager', 'Manager'],
   ['admin', 'Admin']

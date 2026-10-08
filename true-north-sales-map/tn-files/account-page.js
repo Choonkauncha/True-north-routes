@@ -1,6 +1,7 @@
 import { bootFiles, signIn, signOut } from './store.js';
 import { bindSignOut, esc, signInCard } from './ui.js';
 import { passwordChangeError } from '../lib/password-reset.js';
+import { roleLabel } from '../lib/role-access.js';
 
 const app = document.getElementById('app');
 
@@ -30,9 +31,10 @@ function renderSignIn(ctx) {
 
 function renderForm(ctx) {
   const who = ctx.rep?.name || ctx.session.user.email || 'Signed in';
-  const role = ctx.rep?.role ? ` · ${ctx.rep.role.replaceAll('_', ' ')}` : '';
+  const role = ctx.rep?.role ? ` · ${roleLabel(ctx.rep.role)}` : '';
   app.innerHTML = `<h1 class="tnTitle">My account</h1>
     <p class="tnSub">${esc(who)}${esc(role)}</p>
+    <p class="tnAccountBtns"><a class="tnTap" href="/forms.html">My forms</a></p>
     <form id="pwForm" class="tnCard">
       <label class="tnLabel" for="pw1">New password</label>
       <input class="tnInput" id="pw1" type="password" autocomplete="new-password" minlength="8" required>

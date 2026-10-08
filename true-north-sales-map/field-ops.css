@@ -103,8 +103,8 @@ body:has(#toast.show .toastActions:not(.hidden):not([hidden])) .tnFieldOps{
   .topRight .primaryBtn,.userMenu button{padding:8px 10px;min-height:44px;white-space:nowrap}
   .tnMore{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:0 10px;border-radius:10px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
   .tnMoreMenu:not([hidden]){display:block;position:fixed;top:64px;right:8px;z-index:1800;min-width:210px;background:#fff;border-radius:14px;box-shadow:0 16px 40px rgba(19,43,58,.28);overflow:hidden}
-  .tnMoreMenu a{display:flex;align-items:center;min-height:48px;padding:0 16px;color:#0c1424;text-decoration:none;font-weight:800;font-size:16px;border-bottom:1px solid #E6EBEE}
-  .tnMoreMenu a:last-child{border-bottom:0}
+  .tnMoreMenu a,.tnMoreMenu button{display:flex;align-items:center;width:100%;min-height:48px;padding:0 16px;border:0;border-bottom:1px solid #E6EBEE;background:#fff;color:#0c1424;font-weight:800;font-size:16px;text-align:left;text-decoration:none;cursor:pointer}
+  .tnMoreMenu a:last-child,.tnMoreMenu button:last-child{border-bottom:0}
   :root{--tn-clock-bottom:calc(10px + env(safe-area-inset-bottom))}
   body:has(#mobileBar){--tn-clock-bottom:62px}
   .tnFieldOps{
