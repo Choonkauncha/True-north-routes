@@ -1275,6 +1275,7 @@ async function fetchRoadRoute(start,stops){
     $('routeDistance').textContent=`${summary} · road-network optimized`;
     $('routeTrayStats').textContent=summary;
   }catch(e){state.routeGeometry=null;drawRoutePreview();$('routeDistance').textContent=`Road router unavailable · ≈ ${fmtDistance(routeHaversineDistance(start,stops))}`;$('routeTrayStats').textContent=`≈ ${fmtDistance(routeHaversineDistance(start,stops))} straight line`;console.warn(e)}
+  liftMapChrome();
 }
 function routeHaversineDistance(start,stops){let total=0,cur=start;for(const p of stops){total+=haversine(cur.lat,cur.lng,p.lat,p.lng);cur=p}return total}
 function fmtDistance(miles){const n=Number(miles||0);return n<10?`${n.toFixed(1)} mi`:`${Math.round(n)} mi`}
@@ -1577,6 +1578,7 @@ function updateSelectedBadge(){
   $('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n;
   updateRouteTraySummary();
   if(shouldExpandRouteTray(prev,n))setRouteTrayCollapsed(false);
+  else liftMapChrome();
 }
 function readRouteTrayCollapsed(){
   let saved=null;

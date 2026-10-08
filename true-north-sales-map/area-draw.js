@@ -8,8 +8,19 @@ export function bindAreaDraw(api) {
   let pointerId = null;
   let points = [];
   let liveLine = null;
+  let liveHalo = null;
   let areaLayer = null;
   let mapLock = null;
+
+  function areaRenderer(current) {
+    if (!current.getPane('areaPane')) {
+      const pane = current.createPane('areaPane');
+      pane.style.zIndex = '450';
+      pane.style.pointerEvents = 'none';
+    }
+    if (!current._tnAreaRenderer) current._tnAreaRenderer = L.svg({ pane: 'areaPane' }).addTo(current);
+    return current._tnAreaRenderer;
+  }
 
   function map() {
     return api.getMap?.() || null;
@@ -74,20 +85,23 @@ export function bindAreaDraw(api) {
   function clearLive() {
     points = [];
     pointerId = null;
-    if (liveLine) {
-      liveLine.remove();
-      liveLine = null;
-    }
+    liveHalo?.remove();
+    liveLine?.remove();
+    liveHalo = null;
+    liveLine = null;
   }
 
   function drawLive() {
     const current = map();
     if (!current) return;
     const latlngs = points.map((point) => [point.lat, point.lng]);
+    const renderer = areaRenderer(current);
     if (!liveLine) {
-      liveLine = L.polyline(latlngs, { color: '#1e6bff', weight: 3, interactive: false }).addTo(current);
+      liveHalo = L.polyline(latlngs, { renderer, color: '#ffffff', weight: 8, opacity: 0.95, interactive: false }).addTo(current);
+      liveLine = L.polyline(latlngs, { renderer, color: '#1e6bff', weight: 4, interactive: false }).addTo(current);
       return;
     }
+    liveHalo.setLatLngs(latlngs);
     liveLine.setLatLngs(latlngs);
   }
 
@@ -102,10 +116,11 @@ export function bindAreaDraw(api) {
       return;
     }
     areaLayer = L.polygon(latlngs, {
+      renderer: areaRenderer(current),
       color: '#0c1424',
-      weight: 2,
+      weight: 3,
       fillColor: '#1e6bff',
-      fillOpacity: 0.16,
+      fillOpacity: 0.34,
       interactive: false
     }).addTo(current);
     document.getElementById('clearAreaBtn')?.classList.remove('hidden');
@@ -148,7 +163,6 @@ export function bindAreaDraw(api) {
 
   function clearStroke() {
     clearLive();
-    if (liveLine) liveLine.remove();
   }
 
   function clearArea() {

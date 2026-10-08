@@ -327,7 +327,7 @@ html.routeTrayStartCollapsed .routeTray{padding:0 8px 0 14px;gap:0;min-height:44
 #drawCancel{background:#1e6bff;border-color:#1e6bff}
 .drawCatcher{position:absolute;z-index:840;inset:0;touch-action:none;cursor:crosshair;background:transparent}
 body.is-drawing{touch-action:none;overscroll-behavior:none}
-body.is-drawing #routeTray,body.is-drawing #listSheet,body.is-drawing #mobileBar,body.is-drawing .mapTopOverlay,body.is-drawing .mapInfo,body.is-drawing .weatherStack,body.is-drawing .mapHud,body.is-drawing .mapLegend,body.is-drawing .pinBanner{visibility:hidden;pointer-events:none}
+body.is-drawing #routeTray,body.is-drawing #listSheet,body.is-drawing #mobileBar,body.is-drawing .mapTopOverlay,body.is-drawing .mapInfo,body.is-drawing .weatherStack,body.is-drawing .mapHud,body.is-drawing .mapLegend,body.is-drawing .pinBanner{display:none!important}
 @media(max-width:960px){
   .mapToolBtns{margin-left:0;width:100%;justify-content:flex-end}
   #filterBtn{margin-right:auto}
