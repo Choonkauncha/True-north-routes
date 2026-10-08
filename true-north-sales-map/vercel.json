@@ -9,7 +9,8 @@
     {"source":"/photo","destination":"/photo.html"},
     {"source":"/forms","destination":"/forms.html"},
     {"source":"/files","destination":"/files.html"},
-    {"source":"/form-print","destination":"/form-print.html"}
+    {"source":"/form-print","destination":"/form-print.html"},
+    {"source":"/account","destination":"/account.html"}
   ],
   "headers": [
     {"source":"/data/(.*)","headers":[{"key":"Cache-Control","value":"public, max-age=86400, stale-while-revalidate=604800"}]},

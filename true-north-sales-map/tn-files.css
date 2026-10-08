@@ -95,3 +95,19 @@
 }
 .rail button{min-height:44px}
 .headerLinks a,.headerLinks button{min-height:44px;display:inline-flex;align-items:center}
+a.tnAccountLink{display:inline-flex!important;align-items:center;min-height:44px}
+.tnAccountList{display:grid;gap:10px;margin-top:14px}
+.tnAccountCard{background:#fff;border:1px solid #DCE3E7;border-radius:14px;padding:14px}
+.tnAccountCard b{display:block;color:#132B3A;font-size:18px}
+.tnAccountCard>span{display:block;color:#5c6d76;font-size:14px;margin:4px 0 10px}
+.tnAccountBtns{display:flex;flex-wrap:wrap;gap:8px}
+.tnAccountBtns button,.tnAccountBtns a{min-height:48px;flex:1 1 140px}
+.tnAccountCard .tnTap,.tnAccountBtns button{
+  min-height:48px;border-radius:12px;border:2px solid #132B3A;background:#fff;color:#132B3A;
+  font-weight:800;font-size:15px;padding:8px 12px
+}
+.tnResetForm{display:grid;gap:8px;margin-top:10px}
+.tnAccountDetail{margin-top:12px;display:grid;gap:8px}
+.tnAccountDetail h2{margin:8px 0 0;font-size:16px;color:#132B3A}
+.tnAccountDetail p{margin:0;padding:8px 0;border-bottom:1px solid #edf0f2;font-size:15px}
+.tnAccountDetail span{display:block;color:#6C7A83;font-size:13px}
