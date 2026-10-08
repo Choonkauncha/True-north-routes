@@ -1,18 +1,23 @@
 <!doctype html>
 <html lang="en">
-<head><style>html{background:#0c1424!important}</style><link rel="stylesheet" href="/brand/transitions.css"><script src="/brand/prefetch.js" defer></script><link rel="icon" href="/brand/favicon.png" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+<head><style>html{background:#0c1424!important}</style><link rel="stylesheet" href="/brand/transitions.css"><script src="/brand/prefetch.js" defer></script><link rel="icon" href="/brand/favicon.png" type="image/png" sizes="32x32">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <script>try{var s=localStorage.getItem('tnrc2:routeTrayCollapsed');if(s==='1'||(s!=='0'&&matchMedia('(max-width:960px)').matches))document.documentElement.classList.add('routeTrayStartCollapsed')}catch(e){}</script>
 <title>True North — Field Command Center</title>
-<link rel="preconnect" href="https://unpkg.com"><link rel="preconnect" href="https://cdn.jsdelivr.net">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://qdovtewieuojjsebipex.supabase.co" crossorigin>
+<link rel="preconnect" href="https://a.tile.openstreetmap.org">
+<link rel="preconnect" href="https://b.tile.openstreetmap.org">
+<link rel="preconnect" href="https://c.tile.openstreetmap.org">
+<link rel="preload" href="/vendor/leaflet/leaflet.js" as="script">
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/tn-files.css">
 </head>
 <body>
 <div id="appShell">
 <header class="topbar">
-  <div class="brand"><img class="logoFull" src="/brand/logo-full.webp" alt="True North Restorations" width="168" height="128"><img class="logoMark" src="/brand/logo-emblem.webp" alt="" width="36" height="36"><div class="brandWords"><div class="brandName">TRUE NORTH <span>RESTORATIONS</span></div><div class="brandSub">FIELD COMMAND CENTER · KNOX COUNTY, OHIO</div></div></div>
+  <div class="brand"><img class="logoFull" alt="True North Restorations" width="168" height="56" decoding="async"><script>if(matchMedia('(min-width:961px)').matches)document.currentScript.previousElementSibling.src='/brand/logo-full.webp'</script><img class="logoMark" src="/brand/logo-emblem.webp" alt="" width="36" height="36"><div class="brandWords"><div class="brandName">TRUE NORTH <span>RESTORATIONS</span></div><div class="brandSub">FIELD COMMAND CENTER · KNOX COUNTY, OHIO</div></div></div>
   <div class="topRight"><span id="connection" class="chip">STARTING…</span><button id="locateBtn" class="ghostBtn">My location</button><span id="datasetCount" class="datasetCount"></span><button id="focusBtn" class="ghostBtn">Focus map</button><a href="/account.html" class="quickLinkBtn">My account</a><a href="/setter.html" class="quickLinkBtn">Inspection form</a><a href="/homeowner.html" class="quickLinkBtn">Homeowner form</a><button id="nextBtn" class="ghostBtn">Next house <kbd>N</kbd></button><button id="routeBtn" class="primaryBtn">Route <span id="selectedCount">0</span> <kbd>R</kbd></button><a id="adminBtn" href="/admin" class="adminBtn hidden">Management</a><div id="userMenu" class="userMenu hidden"><span id="userIdentity"></span><button id="logoutBtn">Sign out</button></div></div>
 </header>
 <div id="cloudNotice" class="cloudNotice hidden"></div>
@@ -108,9 +113,7 @@
 <div id="adminModal" class="modalOverlay hidden"><div class="modalCard adminCard"><button class="closeBtn" id="closeAdmin">×</button><div class="eyebrow">ADMIN / MANAGER</div><h2>Command center setup</h2><a id="adminAccountsLink" class="adminAccountsLink hidden" href="/admin#accounts">Accounts</a><p id="adminCloudStatus" class="muted"></p><div class="adminMetrics"><div><b id="adminLeadCount">0</b><span>leads</span></div><div><b id="adminMappedCount">0</b><span>mapped</span></div><div><b id="adminTerritoryCount">0</b><span>territories</span></div></div><div class="adminActions"><button id="adminImportBtn">Initialize cloud data</button><button id="adminTerritoryBtn">Initialize territories</button><button id="adminGeocodeBtn">Geocode missing house pins</button><button id="adminStormBtn">Load active storm alerts</button><button id="adminExportBtn">Export lead state</button></div><div class="progressWrap"><div id="adminProgress" class="progressBar"></div></div><small id="adminProgressLabel">Ready</small><div class="adminSection"><div class="sectionTitle">Territory ownership</div><div id="territoryAdmin" class="territoryAdmin"></div></div></div></div>
 
 <div id="postSignIn" class="modalOverlay hidden"><div class="modalCard loginCard" role="dialog" aria-labelledby="postSignInTitle"><div class="eyebrow">SIGNED IN</div><h2 id="postSignInTitle">Management</h2><p id="postSignInWho" class="muted"></p><div id="postSignInLinks" class="postSignInLinks"></div><button type="button" id="postSignInContinue" class="outlineBtn">Continue to the map</button></div></div>
-<div id="loginModal" class="modalOverlay hidden"><div class="modalCard loginCard"><img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242"><div class="eyebrow">TRUE NORTH RESTORATIONS</div><h2>Field command center</h2><p class="muted">Sign in for shared live lead status, rep ownership, appointments, and team metrics.</p><form id="loginForm"><label>Email<input id="loginEmail" type="email" autocomplete="email" required></label><label>Password<input id="loginPassword" type="password" autocomplete="current-password" required></label><button type="submit" class="darkBtn">Sign in</button></form><div id="loginError" class="error"></div><p id="loginNote" class="tnResetNote"></p><button type="button" class="tnForgot" data-forgot>Forgot password?</button><form id="forgotForm" data-forgot-form class="tnForgotForm hidden"><label>Email<input id="forgotEmail" data-forgot-email type="email" autocomplete="email" required></label><button type="submit" class="darkBtn">Send reset link</button><p data-forgot-msg class="tnResetMsg"></p></form><button id="localModeBtn" class="textBtn">Use local test mode</button></div></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin=""></script>
+<div id="loginModal" class="modalOverlay hidden"><div class="modalCard loginCard"><img class="signInLogo" data-src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242"><div class="eyebrow">TRUE NORTH RESTORATIONS</div><h2>Field command center</h2><p class="muted">Sign in for shared live lead status, rep ownership, appointments, and team metrics.</p><form id="loginForm"><label>Email<input id="loginEmail" type="email" autocomplete="email" required></label><label>Password<input id="loginPassword" type="password" autocomplete="current-password" required></label><button type="submit" class="darkBtn">Sign in</button></form><div id="loginError" class="error"></div><p id="loginNote" class="tnResetNote"></p><button type="button" class="tnForgot" data-forgot>Forgot password?</button><form id="forgotForm" data-forgot-form class="tnForgotForm hidden"><label>Email<input id="forgotEmail" data-forgot-email type="email" autocomplete="email" required></label><button type="submit" class="darkBtn">Send reset link</button><p data-forgot-msg class="tnResetMsg"></p></form><button id="localModeBtn" class="textBtn">Use local test mode</button></div></div>
+<script src="/vendor/leaflet/leaflet.js" defer></script>
 <script type="module" src="/app.js"></script>
-<script type="module" src="/tn-files/sheet-actions.js"></script>
 </body></html>

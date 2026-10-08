@@ -1,17 +1,14 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import './field-ops.js';
-import './tn-files/password-reset.js';
 import { PASSWORD_UPDATED } from './lib/password-reset.js';
 import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } from './lib/route-picks.js';
 import { ROUTE_TRAY_KEY, routeTrayCollapsedByDefault, routeTraySummary, shouldExpandRouteTray } from './lib/route-tray.js';
 import { MAP_FACTS } from './lib/map-facts.js';
 import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
 import { acquireScreenWakeLock, activeStep, createGpsFilter, createInterpolator, createReadoutThrottle, createRerouteGate, lineLatLngs, maneuverText, normalizeSteps, releaseScreenWakeLock, snapToRoute } from './lib/nav-motion.js';
-import { createArrayCursor, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, parseJsonArraySlice, planLeadSync } from './lib/lead-cache.js';
+import { createArrayCursor, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, normalizeStamp, parseJsonArraySlice, planLeadSync, takeCompleteObjects } from './lib/lead-cache.js';
 import { readLeadCache, writeLeadCache } from './lib/lead-store.js';
+import { LEAD_OVERLAY_COLUMNS, LEAD_OVERLAY_OR, STATIC_LEAD_SOURCES, mergeLeadOverlay, pageRanges } from './lib/lead-sync.js';
 import { STREET_ZOOM, clusterLeads, pinDiff, sampleHeat } from './lib/pin-layer.js';
 import { HAIL_MILES, WARNING_COLORS, housesInStorm, readStormCache, reportMarkerText, writeStormCache } from './lib/storm-maps.js';
-import { setWeatherLocation, startMapWeather } from './weather-widget.js';
 import { roleLabel } from './lib/field-rules.js';
 import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/account-rules.js';
 
@@ -39,7 +36,7 @@ const state={
   leadsById:new Map(), pinMarkers:new Map(), pinShown:new Set(), pinRenderer:null, pinClusters:null, clusterSig:'', clusterSource:null, clusterZoom:null,
   heatTimer:null, heatKey:'', territoryKey:'', bootDone:false, stormBusy:false, fieldWarmed:false, listSortToken:0,
   navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[],
-  pendingPostSignIn:false,
+  pendingPostSignIn:false, paintTicket:0, toolsDeferred:false, pinsMarked:false, cloudReady:false, staticPromise:null,
   tileLayer:null, mapLoaderGen:0, mapSettled:false, pinsPainted:false, awaitingFirstFit:false, factTimer:null, mapLoaderGiveUp:null
 };
 
@@ -54,19 +51,49 @@ const localSaved=l=>JSON.parse(localStorage.getItem(`tnrc2:lead:${l.id}`)||'{}')
 function saveLocal(l,v){localStorage.setItem(`tnrc2:lead:${l.id}`,JSON.stringify(v));}
 function debounce(fn,ms=150){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
 
+let cloudToken='';
+let cloudFlight=null;
+let weatherApiPromise;
+function weatherApi(){ weatherApiPromise ||= import('./weather-widget.js'); return weatherApiPromise; }
+function deferFieldTools(){
+  if(state.toolsDeferred) return;
+  state.toolsDeferred=true;
+  import('./field-ops.js').catch(()=>{});
+  import('./tn-files/password-reset.js').catch(()=>{});
+  import('./tn-files/sheet-actions.js').catch(()=>{});
+}
+function markFirstPins(){
+  if(state.pinsMarked) return;
+  state.pinsMarked=true;
+  window.__tnFirstPins=performance.now();
+  document.documentElement.dataset.tnPins='1';
+  deferFieldTools();
+}
+
 async function boot(){
   bindStaticEvents();
-  state.centers=await fetchJSON('/data/city-centers.json').catch(()=>({}));
-  const cfg=await fetchJSON('/api/config').catch(()=>null);
+  initMapOnce();
+  setTimeout(deferFieldTools, 4000);
+  const centersP=fetchJSON('/data/city-centers.json').catch(()=>({}));
+  const cfgP=fetchJSON('/api/config').catch(()=>null);
+  const cached=await readLeadCache().catch(()=>null);
+  if(cached?.leads?.length){
+    streamLeads(cached.leads, cached.leads.length, null);
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+  }else startStaticLeads().catch(error=>console.error(error));
+  const [centers, cfg]=await Promise.all([centersP, cfgP]);
+  state.centers=centers||{};
   if(cfg?.configured){
     state.config=cfg;
     try{
+      const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
       state.supabase=createClient(cfg.url,cfg.publishableKey);
       const {data}=await state.supabase.auth.getSession();
       if(data.session) await enterCloud(data.session);
       else showLogin();
       state.supabase.auth.onAuthStateChange(async(_event,session)=>{
-        if(session) await enterCloud(session); else showLogin();
+        if(session) await enterCloud(session);
+        else { cloudToken=''; state.cloudReady=false; showLogin(); }
       });
     }catch(e){console.error(e);enterLocal(`Cloud client error: ${e.message}`)}
   }else{
@@ -186,15 +213,15 @@ function bindStaticEvents(){
 }
 
 function enterLocal(message){
-  state.mode='local'; state.session=null; state.currentRep=null;
+  state.mode='local'; state.session=null; state.currentRep=null; state.cloudReady=false;
   hideLogin(); $('userMenu').classList.add('hidden'); $('adminBtn').classList.add('hidden');
   $('connection').textContent='LOCAL DEVICE'; $('connection').className='chip local';
   $('cloudNotice').textContent=message||'Local mode'; $('cloudNotice').classList.remove('hidden');
-  setBootProgress(0,0);
+  if(!state.bootDone) setBootProgress(0,0);
   loadLocalDataset().catch(e=>{hideBoot();showFatal(e)});
 }
 async function loadLocalDataset(){
-  const manifest=await fetchJSON('/data/manifest.json').catch(()=>null);
+  const manifest=state.staticManifest||await fetchJSON('/data/manifest.json').catch(()=>null);
   const stamp=localStamp(manifest);
   const meta=JSON.parse(localStorage.getItem('tnrc2:leadsMeta')||'{}');
   state.reps=JSON.parse(localStorage.getItem('tnrc2:reps')||'[]');
@@ -207,15 +234,75 @@ async function loadLocalDataset(){
   const cached=await readLeadCache();
   if(cached?.stamp===stamp && Array.isArray(cached.leads) && cached.leads.length){
     if(!total) $('datasetCount').textContent=`${fmt(cached.leads.length)} source records`;
-    streamLeads(cached.leads, total||cached.leads.length, meta);
+    if(!state.bootDone) streamLeads(cached.leads, total||cached.leads.length, meta);
+    return;
+  }
+  if(state.staticPromise){
+    const leads=await state.staticPromise;
+    if(!total && leads) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
+    writeLeadCache({stamp, leads, savedAt:Date.now()});
     return;
   }
   const response=await fetch('/data/leads.json');
   if(!response.ok) throw new Error(`HTTP ${response.status}`);
-  const text=await response.text();
-  const leads=await ingestLeadText(text, total, meta);
+  if(!response.body?.getReader){
+    const text=await response.text();
+    const leads=await ingestLeadText(text, total, meta);
+    if(!total) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
+    writeLeadCache({stamp, leads, savedAt:Date.now()});
+    return;
+  }
+  const leads=await readLeadResponse(response, total, meta);
   if(!total) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
   writeLeadCache({stamp, leads, savedAt:Date.now()});
+}
+function startStaticLeads(){
+  if(state.staticPromise) return state.staticPromise;
+  state.staticPromise=(async()=>{
+    const manifest=await fetchJSON('/data/manifest.json').catch(()=>null);
+    state.staticManifest=manifest;
+    const total=manifest?.totalRecords||0;
+    if(total && $('datasetCount')) $('datasetCount').textContent=`${fmt(total)} source records`;
+    const response=await fetch('/data/leads.json');
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    if(!response.body?.getReader){
+      const text=await response.text();
+      return ingestLeadText(text, total, null);
+    }
+    return readLeadResponse(response, total, null);
+  })();
+  return state.staticPromise;
+}
+async function readLeadResponse(response, total, meta){
+  const reader=response.body.getReader();
+  const decoder=new TextDecoder();
+  let text='';
+  const cursor=createArrayCursor();
+  let mark=0;
+  const leads=[];
+  let accept=!state.bootDone;
+  state.stopLeadRead=()=>{ accept=false; };
+  const take=(batch, last)=>{
+    if(batch.length) leads.push(...batch);
+    if(accept) ingestLeadChunk(batch, meta, total||leads.length, last);
+  };
+  while(true){
+    const {done,value}=await reader.read();
+    text+=decoder.decode(value||new Uint8Array(), {stream:!done});
+    while(true){
+      const end=takeCompleteObjects(text, cursor, 400);
+      if(end<=mark) break;
+      const batch=parseJsonArraySlice(text, mark, end);
+      mark=end;
+      if(!batch.length) break;
+      take(batch, false);
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+    }
+    if(done) break;
+  }
+  const tail=parseJsonArraySlice(text, mark, text.length);
+  take(tail, true);
+  return leads;
 }
 async function ingestLeadText(text, total, meta){
   resetLeadStream();
@@ -240,26 +327,54 @@ async function ingestLeadText(text, total, meta){
 }
 
 async function enterCloud(session){
+  const token=session?.access_token||'';
+  if(!token) return;
+  if(token===cloudToken && (cloudFlight || state.cloudReady)) return cloudFlight;
+  cloudToken=token;
+  state.cloudReady=false;
+  cloudFlight=runEnterCloud(session).catch(error=>{ cloudToken=''; throw error; }).finally(()=>{ cloudFlight=null; });
+  return cloudFlight;
+}
+async function runEnterCloud(session){
   state.mode='cloud'; state.session=session; state.user=session.user; hideLogin();
   $('connection').textContent='CLOUD SYNC'; $('connection').className='chip live';
   $('userMenu').classList.remove('hidden');
   $('userIdentity').textContent=session.user.email||session.user.id;
   $('cloudNotice').classList.add('hidden');
+  const sideP=loadSideData();
   try{
-    setBootProgress(0,0);
-    await loadCloudData();
+    await loadLeadBundle();
     const open=canOpenManagement({email:session.user.email, rep:state.currentRep, adminEmails:state.config?.adminEmails});
     $('adminBtn').classList.toggle('hidden', !open);
     if(state.pendingPostSignIn){state.pendingPostSignIn=false; if(open) showPostSignIn();}
-    initMapOnce();
-    streamLeads(state.leads, state.leads.length, null);
+    if(!state.map) initMapOnce();
     startRealtime();
-  }catch(e){console.error(e);state.pendingPostSignIn=false;enterLocal(`Cloud connection failed: ${e.message}`)}
+    state.cloudReady=true;
+    await sideP;
+    publishSideData();
+  }catch(e){
+    console.error(e);
+    cloudToken='';
+    state.cloudReady=false;
+    state.pendingPostSignIn=false;
+    enterLocal(`Cloud connection failed: ${e.message}`);
+  }
 }
 
 async function loadCloudData(){
+  const sideP=loadSideData();
+  await loadLeadBundle();
+  await sideP;
+  publishSideData();
+}
+async function loadLeadBundle(){
   const sb=state.supabase;
-  state.reps=await fetchAll(()=>sb.from('reps').select('id,user_id,name,role,active').eq('active',true).order('name'));
+  const [reps, territories, leads]=await Promise.all([
+    fetchAll(()=>sb.from('reps').select('id,user_id,name,role,active').eq('active',true).order('name')),
+    fetchAll(()=>sb.from('territories').select('*').order('name')),
+    loadCloudLeadRows()
+  ]);
+  state.reps=reps;
   state.currentRep=managementProfile({
     email:state.user?.email,
     rep:state.reps.find(r=>r.user_id===state.user.id)||null,
@@ -267,36 +382,123 @@ async function loadCloudData(){
     name:state.user?.user_metadata?.name||''
   });
   if(!state.currentRep) throw new Error('Your Supabase account is signed in, but no active rep profile exists yet. Add the user to public.reps.');
-  state.territories=await fetchAll(()=>sb.from('territories').select('*').order('name'));
-  state.leads=await loadCloudLeadRows();
-  state.leadsById=new Map(state.leads.map(lead=>[lead.id, lead]));
-  state.appointments=await fetchAll(()=>sb.from('appointments').select('*,canvasser:reps!appointments_canvasser_id_fkey(id,name),salesperson:reps!appointments_salesperson_id_fkey(id,name)').order('scheduled_at',{ascending:true}));
-  state.activities=await fetchAll(()=>sb.from('lead_activity').select('id,lead_id,actor_id,action,metadata,created_at,actor:reps!lead_activity_actor_id_fkey(name)').order('created_at',{ascending:false}).limit(3000));
-  $('datasetCount').textContent=`${fmt(state.leads.length)} live leads`;
+  state.territories=territories;
+  if(leads) replaceLeads(leads);
 }
-
+function loadSideData(){
+  const sb=state.supabase;
+  return Promise.all([
+    fetchAll(()=>sb.from('appointments').select('*,canvasser:reps!appointments_canvasser_id_fkey(id,name),salesperson:reps!appointments_salesperson_id_fkey(id,name)').order('scheduled_at',{ascending:true})),
+    fetchAll(()=>sb.from('lead_activity').select('id,lead_id,actor_id,action,metadata,created_at,actor:reps!lead_activity_actor_id_fkey(name)').order('created_at',{ascending:false}).limit(3000))
+  ]).then(([appointments, activities])=>{
+    state.appointments=appointments;
+    state.activities=activities;
+  });
+}
+function publishSideData(){
+  if(!state.bootDone) return;
+  renderStats();
+  renderHandoffs();
+  renderTeam();
+  renderSidebarCounts();
+  state.listPaintToken='';
+  paintWorkList();
+}
 async function loadCloudLeadRows(){
   const sb=state.supabase;
   const cached=await readLeadCache();
-  let remoteCount=null, remoteUpdatedAt='';
+  const cachedLeads=Array.isArray(cached?.leads)?cached.leads:[];
+  let boot=null;
   try{
-    const countQuery=await sb.from('leads').select('id',{count:'exact',head:true});
-    remoteCount=countQuery.count;
-    const newest=await sb.from('leads').select('updated_at').order('updated_at',{ascending:false}).limit(1);
-    remoteUpdatedAt=newest.data?.[0]?.updated_at||'';
-  }catch{/* a failed stamp check falls through to a full read */}
-  const plan=planLeadSync({cachedStamp:cached?.stamp||'', cachedCount:cached?.leads?.length||0, remoteCount, remoteUpdatedAt});
-  if(plan==='use-cache') return cached.leads.map(normalizeLead);
+    const rpc=await sb.rpc('lead_map_boot');
+    if(!rpc.error && rpc.data) boot=typeof rpc.data==='string'?JSON.parse(rpc.data):rpc.data;
+  }catch{ boot=null; }
+  let remoteCount=boot&&boot.count!=null?Number(boot.count):null;
+  let remoteUpdatedAt=boot?normalizeStamp(boot.newest):'';
+  if(!boot){
+    try{
+      const [countQuery, newest]=await Promise.all([
+        sb.from('leads').select('id',{count:'exact',head:true}),
+        sb.from('leads').select('updated_at').order('updated_at',{ascending:false}).limit(1)
+      ]);
+      if(!countQuery.error) remoteCount=countQuery.count;
+      remoteUpdatedAt=normalizeStamp(newest.data?.[0]?.updated_at||'');
+    }catch{/* a failed stamp check falls through to a full read */}
+  }
+  const plan=planLeadSync({cachedStamp:normalizeStamp(cached?.stamp||''), cachedCount:cachedLeads.length, remoteCount, remoteUpdatedAt});
+  if(plan==='use-cache') return null;
   if(plan==='delta'){
-    const delta=await fetchAll(()=>sb.from('leads').select('*').gt('updated_at', cached.stamp).order('updated_at'));
-    const merged=mergeLeadDelta(cached.leads, delta).map(normalizeLead);
-    const stamp=remoteUpdatedAt||newestUpdatedAt(merged);
+    const since=cached.stamp;
+    const head=await sb.from('leads').select('id',{count:'exact',head:true}).gt('updated_at', since);
+    const delta=head.count?await fetchAllParallel(()=>sb.from('leads').select('*').gt('updated_at', since).order('updated_at'), head.count):[];
+    const merged=mergeLeadDelta(cachedLeads, delta).map(normalizeLead);
+    const stamp=remoteUpdatedAt||normalizeStamp(newestUpdatedAt(merged));
     writeLeadCache({stamp, leads:merged, savedAt:Date.now()});
     return merged;
   }
-  const leads=(await fetchAll(()=>sb.from('leads').select('*').order('city').order('address'))).map(normalizeLead);
-  writeLeadCache({stamp:remoteUpdatedAt||newestUpdatedAt(leads), leads, savedAt:Date.now()});
-  return leads;
+  return loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt);
+}
+async function loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt){
+  const basePromise=state.staticPromise||startStaticLeads();
+  let overlay=Array.isArray(boot?.overlay)?boot.overlay:null;
+  let added=Array.isArray(boot?.added)?boot.added:null;
+  if(!boot){
+    const [overlayRows, addedRows]=await Promise.all([fetchOverlayRows(sb), fetchAddedRows(sb)]);
+    overlay=overlayRows;
+    added=addedRows;
+  }
+  const base=await basePromise;
+  const fixes=await fetchCoordFixes(sb, base).catch(()=>[]);
+  let merged=mergeLeadOverlay(base, [...(overlay||[]), ...(fixes||[])], added||[]).map(normalizeLead);
+  if(remoteCount!=null && merged.length!==Number(remoteCount)){
+    merged=(await fetchAllParallel(()=>sb.from('leads').select('*').order('id'), remoteCount)).map(normalizeLead);
+  }
+  const stamp=remoteUpdatedAt||normalizeStamp(newestUpdatedAt(merged));
+  writeLeadCache({stamp, leads:merged, savedAt:Date.now()});
+  return merged;
+}
+async function fetchOverlayRows(sb){
+  const head=await sb.from('leads').select('id',{count:'exact',head:true}).or(LEAD_OVERLAY_OR);
+  if(head.error) throw head.error;
+  return fetchAllParallel(()=>sb.from('leads').select(LEAD_OVERLAY_COLUMNS).or(LEAD_OVERLAY_OR).order('id'), head.count||0);
+}
+async function fetchAddedRows(sb){
+  const filter=`source.is.null,source.not.in.("${STATIC_LEAD_SOURCES.join('","')}")`;
+  const {data, error}=await sb.from('leads').select('*').or(filter);
+  if(error) throw error;
+  return data||[];
+}
+async function fetchCoordFixes(sb, leads){
+  const ids=(leads||[]).filter(lead=>lead?.lat==null||lead?.lng==null).map(lead=>lead.id).filter(Boolean);
+  const out=[];
+  for(let index=0; index<ids.length; index+=80){
+    const {data, error}=await sb.from('leads').select('id,lat,lng,geocode_match').in('id', ids.slice(index, index+80));
+    if(error) return out;
+    for(const row of data||[]) if(row?.lat!=null && row?.lng!=null) out.push(row);
+  }
+  return out;
+}
+function replaceLeads(rows){
+  state.stopLeadRead?.();
+  state.paintTicket++;
+  const normalized=rows.map(normalizeLead);
+  state.leads=normalized;
+  state.leadsById=new Map(normalized.map(lead=>[lead.id, lead]));
+  state.clusterSource=null;
+  state.clusterSig='';
+  state.clusterZoom=null;
+  state.listFilterKey='';
+  state.listRows=null;
+  state.heatKey='';
+  state.territoryKey='';
+  if($('datasetCount')) $('datasetCount').textContent=`${fmt(normalized.length)} live leads`;
+  if(!state.map) initMapOnce();
+  const fit=!state.didFit;
+  state.bootDone=true;
+  buildFilters();
+  renderNow(fit);
+  markFirstPins();
+  warmFieldLayers();
 }
 function resetLeadStream(){
   state.leads=[];
@@ -309,10 +511,12 @@ function resetLeadStream(){
   state.territoryKey='';
 }
 function streamLeads(rows, total, meta){
+  const ticket=++state.paintTicket;
   resetLeadStream();
   let index=0;
   const size=2000;
   const step=()=>{
+    if(ticket!==state.paintTicket) return;
     const end=Math.min(rows.length, index+size);
     const chunk=[];
     for(let i=index;i<end;i++) chunk.push(rows[i]);
@@ -338,6 +542,7 @@ function ingestLeadChunk(rows, meta, total, isLast){
     renderNow(isLast);
     state.bootDone=true;
     state.pinsPainted=true;
+    markFirstPins();
     settleMapLoader(state.mapLoaderGen);
   }else if(!isLast){
     applyFilters();
@@ -363,17 +568,32 @@ function warmFieldLayers(){
   if(state.fieldWarmed)return;
   state.fieldWarmed=true;
   if(state.layerFlags.radar||state.layerFlags.warnings||state.layerFlags.reports) ensureStormMaps();
-  startMapWeather(state.map);
+  weatherApi().then(mod=>mod.startMapWeather(state.map)).catch(()=>{});
 }
 async function fetchAll(makeBuilder){
   const out=[]; let from=0,step=1000;
   while(true){const {data,error}=await makeBuilder().range(from,from+step-1);if(error)throw error;if(!data?.length)break;out.push(...data);if(data.length<step)break;from+=step;}
   return out;
 }
+async function fetchAllParallel(makeBuilder, count){
+  const total=Number(count);
+  if(!Number.isFinite(total) || total<=0) return [];
+  const ranges=pageRanges(total, 1000);
+  const pages=await Promise.all(ranges.map(([from, to])=>makeBuilder().range(from, to)));
+  const out=[];
+  for(const result of pages){
+    if(result.error) throw result.error;
+    if(result.data?.length) out.push(...result.data);
+  }
+  return out;
+}
 
 function normalizeLead(l){return {...l,status:l.status||'New',assignedRepId:l.assigned_rep_id||l.assignedRepId||null,roofAgeYears:l.roof_age_years??l.roofAgeYears??null,roofAgeVerified:l.roof_age_verified??l.roofAgeVerified??false,lat:l.lat??null,lng:l.lng??null};}
 
 function showLogin(){
+  deferFieldTools();
+  const logo=document.querySelector('#loginModal .signInLogo');
+  if(logo?.dataset.src && !logo.getAttribute('src')) logo.src=logo.dataset.src;
   $('loginModal').classList.remove('hidden'); $('appShell').classList.add('blurred');
   $('loginError').textContent='';
   const note=$('loginNote');
@@ -682,7 +902,19 @@ function scheduleHeat(){
   clearTimeout(state.heatTimer);
   const want=state.layerFlags.density||state.layerFlags.opportunity||state.layerFlags.roofAge;
   if(!want){state.heatLayers.forEach(layer=>layer.remove());state.heatLayers=[];state.heatKey='';return}
-  state.heatTimer=setTimeout(rebuildHeat, 180);
+  state.heatTimer=setTimeout(()=>{ ensureHeat().then(()=>{ if(window.L?.heatLayer) rebuildHeat(); }).catch(()=>{}); }, 180);
+}
+let heatPromise;
+function ensureHeat(){
+  if(window.L?.heatLayer) return Promise.resolve();
+  heatPromise ||= new Promise((resolve, reject)=>{
+    const script=document.createElement('script');
+    script.src='/vendor/leaflet/leaflet-heat.js';
+    script.onload=()=>resolve();
+    script.onerror=()=>reject(new Error('heat map did not load'));
+    document.head.appendChild(script);
+  });
+  return heatPromise;
 }
 function rebuildHeat(){
   const key=[state.layerFlags.density,state.layerFlags.opportunity,state.layerFlags.roofAge,state.filtered.length,state.listFilterKey].join(':');
@@ -1465,7 +1697,7 @@ function locate(){
   navigator.geolocation.getCurrentPosition(pos=>{
     if(document.visibilityState==='hidden'||token!==locate._seq||!state.map)return;
     state.currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    setWeatherLocation(state.currentLocation);
+    weatherApi().then(mod=>mod.setWeatherLocation(state.currentLocation)).catch(()=>{});
     if(state.userMarker)state.userMarker.remove();
     state.userMarker=L.marker([pos.coords.latitude,pos.coords.longitude]).addTo(state.map).bindPopup('You are here').openPopup();
     state.map.setView([pos.coords.latitude,pos.coords.longitude],16);

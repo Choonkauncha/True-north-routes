@@ -3,5 +3,5 @@
   "private":true,
   "type":"module",
   "version":"2.0.0",
-  "scripts":{"start":"python -m http.server 4173","test":"node scripts/field-rules.test.mjs && node scripts/forms-photos.test.mjs && node scripts/role-access.test.mjs && node scripts/documents.test.mjs && node scripts/records.test.mjs && node scripts/account-rules.test.mjs && node scripts/password-reset.test.mjs && node scripts/validate-data.mjs && node scripts/route-picks.test.mjs && node scripts/route-nav.test.mjs && node scripts/route-tray.test.mjs && node scripts/weather.test.mjs && node scripts/storm-maps.test.mjs && node scripts/lead-cache.test.mjs && node scripts/nav-motion.test.mjs"}
+  "scripts":{"start":"python -m http.server 4173","test":"node scripts/field-rules.test.mjs && node scripts/forms-photos.test.mjs && node scripts/role-access.test.mjs && node scripts/documents.test.mjs && node scripts/records.test.mjs && node scripts/account-rules.test.mjs && node scripts/password-reset.test.mjs && node scripts/validate-data.mjs && node scripts/route-picks.test.mjs && node scripts/route-nav.test.mjs && node scripts/route-tray.test.mjs && node scripts/weather.test.mjs && node scripts/storm-maps.test.mjs && node scripts/lead-cache.test.mjs && node scripts/lead-sync.test.mjs && node scripts/nav-motion.test.mjs"}
 }
