@@ -1,17 +1,19 @@
 import { STARTER_TEMPLATES, formatAddress, normalizeAddressKey } from './logic.js';
 import { cleanPhotoNote } from '../lib/role-access.js';
 import { managementProfile } from '../lib/account-rules.js';
+import { canDeleteRecord, libraryFileKind, parseAmount, seedCategories, sortCategories } from '../lib/records.js';
 
 const DB_NAME = 'tn-files-local';
 const PENDING_ID = 'incoming';
+const LOCAL_STORES = ['photos', 'submissions', 'templates', 'pending', 'categories', 'receipts', 'estimates'];
 let leadCache = null;
 
 function openDb() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, 2);
     request.onupgradeneeded = () => {
       const db = request.result;
-      ['photos', 'submissions', 'templates', 'pending'].forEach((name) => {
+      LOCAL_STORES.forEach((name) => {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath: 'id' });
       });
     };
@@ -128,6 +130,7 @@ export async function saveTemplate(ctx, template) {
     draft_notice: template.draft_notice || '',
     active: template.active !== false
   };
+  if (template.category_id) row.category_id = template.category_id;
   if (template.kind === 'file') {
     row.kind = 'file';
     row.fields = [];
@@ -181,11 +184,10 @@ export async function replaceAssignments(ctx, templateId, repIds) {
 }
 
 export async function uploadLibraryFile(ctx, file) {
-  const name = String(file?.name || 'form').trim();
-  const type = file?.type || '';
-  const allowed = type === 'application/pdf' || type.startsWith('image/');
-  if (!allowed) throw new Error('Upload a PDF or an image.');
-  if (file.size > 12 * 1024 * 1024) throw new Error('That file is over 12 MB.');
+  const kind = libraryFileKind(file);
+  if (kind.error) throw new Error(kind.error);
+  const name = kind.name;
+  const type = kind.mime;
   const id = crypto.randomUUID();
   const safe = name.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80) || 'form';
   if (ctx.mode === 'local') {
@@ -461,6 +463,235 @@ export async function listReps(ctx) {
   return data || [];
 }
 
+export async function listCategories(ctx) {
+  if (ctx.mode === 'local') {
+    let rows = await idbAll('categories');
+    if (!rows.length) {
+      for (const category of seedCategories()) await idbPut('categories', category);
+      rows = await idbAll('categories');
+    }
+    return sortCategories(rows);
+  }
+  const { data, error } = await ctx.sb.from('document_categories').select('*').order('sort_order');
+  if (error) throw error;
+  return sortCategories(data || []);
+}
+
+export async function saveCategory(ctx, category) {
+  const name = String(category.name || '').trim();
+  if (!name) throw new Error('Name the category.');
+  if (ctx.mode === 'local') {
+    const saved = {
+      id: category.id || crypto.randomUUID(),
+      name,
+      slug: category.slug,
+      sort_order: category.sort_order || 0,
+      system: Boolean(category.system)
+    };
+    await idbPut('categories', saved);
+    return saved;
+  }
+  if (category.id) {
+    const { data, error } = await ctx.sb.from('document_categories').update({ name, sort_order: category.sort_order }).eq('id', category.id).select('*').single();
+    if (error) throw error;
+    return data;
+  }
+  const { data, error } = await ctx.sb.from('document_categories').insert({
+    name,
+    slug: category.slug,
+    sort_order: category.sort_order || 0,
+    system: false
+  }).select('*').single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCategory(ctx, id) {
+  if (ctx.mode === 'local') {
+    await idbDelete('categories', id);
+    return;
+  }
+  const { error } = await ctx.sb.from('document_categories').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function openStoredFile(ctx, path) {
+  if (!path) return '';
+  if (String(path).startsWith('local:')) return pendingObjectUrl(String(path).slice(6));
+  if (ctx.mode === 'local') return '';
+  const signed = await ctx.sb.storage.from('form-assets').createSignedUrl(path, 60 * 60);
+  if (signed.error) throw signed.error;
+  return signed.data?.signedUrl || '';
+}
+
+export function discardStoredFile(ctx, path) {
+  return removeStoredFile(ctx, path);
+}
+
+async function removeStoredFile(ctx, path) {
+  if (!path || String(path).startsWith('local:') || ctx.mode === 'local') {
+    if (String(path || '').startsWith('local:')) await idbDelete('pending', String(path).slice(6));
+    return;
+  }
+  await ctx.sb.storage.from('form-assets').remove([path]);
+}
+
+export async function deleteLibraryDocument(ctx, template) {
+  if (ctx.mode === 'local') {
+    await idbDelete('templates', template.id);
+    await removeStoredFile(ctx, template.storage_path);
+    return;
+  }
+  const { error } = await ctx.sb.from('form_templates').delete().eq('id', template.id);
+  if (error) throw error;
+  await removeStoredFile(ctx, template.storage_path);
+}
+
+function recordPath(prefix, repId, name) {
+  const safe = String(name || 'file').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80) || 'file';
+  return `${prefix}/${repId}/${crypto.randomUUID()}-${safe}`;
+}
+
+async function uploadRecordFile(ctx, prefix, file, imagesAndPdfOnly) {
+  const kind = libraryFileKind(file, { imagesAndPdfOnly });
+  if (kind.error) throw new Error(kind.error);
+  if (ctx.mode === 'cloud' && !ctx.rep?.id) throw new Error('Sign in again before uploading.');
+  const repId = ctx.rep?.id || 'local';
+  const id = crypto.randomUUID();
+  if (ctx.mode === 'local') {
+    await idbPut('pending', { id, blob: file, type: kind.mime, name: kind.name, created_at: new Date().toISOString() });
+    return { id, path: `local:${id}`, mime_type: kind.mime, file_name: kind.name, url: URL.createObjectURL(file) };
+  }
+  const path = recordPath(prefix, repId, kind.name);
+  const upload = await ctx.sb.storage.from('form-assets').upload(path, file, { contentType: kind.mime, upsert: false });
+  if (upload.error) throw upload.error;
+  const signed = await ctx.sb.storage.from('form-assets').createSignedUrl(path, 60 * 60);
+  return { path, mime_type: kind.mime, file_name: kind.name, url: signed.data?.signedUrl || '' };
+}
+
+function cleanRecordFields({ amount, note, vendor, homeowner_name, address_snapshot, record_date, lead_id, status }) {
+  const money = parseAmount(amount);
+  if (money.error) throw new Error(money.error);
+  const cleanedNote = String(note || '').trim();
+  if (cleanedNote.length > 1000) throw new Error('Keep the note under 1000 characters.');
+  const day = String(record_date || '').slice(0, 10);
+  return {
+    amount: money.amount,
+    note: cleanedNote,
+    vendor: String(vendor || '').trim().slice(0, 120),
+    homeowner_name: String(homeowner_name || '').trim().slice(0, 120),
+    address_snapshot: String(address_snapshot || '').trim().slice(0, 200),
+    record_date: day || null,
+    lead_id: lead_id || null,
+    status: status || 'draft'
+  };
+}
+
+async function listRecordTable(ctx, table, storeName) {
+  if (ctx.mode === 'local') {
+    const rows = await idbAll(storeName);
+    const out = [];
+    for (const row of rows) {
+      const url = row.storage_path ? await openStoredFile(ctx, row.storage_path) : '';
+      out.push({ ...row, url });
+    }
+    return out.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  }
+  const { data, error } = await ctx.sb.from(table).select('*').order('created_at', { ascending: false }).limit(300);
+  if (error) throw error;
+  const rows = data || [];
+  await Promise.all(rows.map(async (row) => {
+    try { row.url = await openStoredFile(ctx, row.storage_path); }
+    catch { row.url = ''; }
+  }));
+  return rows;
+}
+
+export function listReceipts(ctx) {
+  return listRecordTable(ctx, 'receipt_records', 'receipts');
+}
+
+export function listEstimates(ctx) {
+  return listRecordTable(ctx, 'estimate_records', 'estimates');
+}
+
+export async function saveReceipt(ctx, input) {
+  const fields = cleanRecordFields(input);
+  const uploaded = await uploadRecordFile(ctx, 'receipts', input.file, true);
+  const row = {
+    storage_path: uploaded.path,
+    file_name: uploaded.file_name,
+    mime_type: uploaded.mime_type,
+    amount: fields.amount,
+    vendor: fields.vendor,
+    record_date: fields.record_date,
+    lead_id: fields.lead_id,
+    address_snapshot: fields.address_snapshot,
+    note: fields.note
+  };
+  if (ctx.mode === 'local') {
+    const saved = { ...row, id: crypto.randomUUID(), uploaded_by: 'local', created_at: new Date().toISOString(), url: uploaded.url };
+    await idbPut('receipts', saved);
+    return saved;
+  }
+  const { data, error } = await ctx.sb.from('receipt_records').insert({ ...row, uploaded_by: ctx.rep.id }).select('*').single();
+  if (error) {
+    await removeStoredFile(ctx, uploaded.path);
+    throw error;
+  }
+  return { ...data, url: uploaded.url };
+}
+
+export async function saveEstimate(ctx, input) {
+  const fields = cleanRecordFields(input);
+  if (!['draft', 'sent', 'accepted', 'declined'].includes(fields.status)) throw new Error('Choose a status.');
+  const uploaded = await uploadRecordFile(ctx, 'estimates', input.file, true);
+  const row = {
+    storage_path: uploaded.path,
+    file_name: uploaded.file_name,
+    mime_type: uploaded.mime_type,
+    homeowner_name: fields.homeowner_name,
+    amount: fields.amount,
+    record_date: fields.record_date,
+    status: fields.status,
+    lead_id: fields.lead_id,
+    address_snapshot: fields.address_snapshot,
+    note: fields.note
+  };
+  if (ctx.mode === 'local') {
+    const saved = { ...row, id: crypto.randomUUID(), uploaded_by: 'local', created_at: new Date().toISOString(), url: uploaded.url };
+    await idbPut('estimates', saved);
+    return saved;
+  }
+  const { data, error } = await ctx.sb.from('estimate_records').insert({ ...row, uploaded_by: ctx.rep.id }).select('*').single();
+  if (error) {
+    await removeStoredFile(ctx, uploaded.path);
+    throw error;
+  }
+  return { ...data, url: uploaded.url };
+}
+
+async function deleteRecord(ctx, table, storeName, row) {
+  const role = ctx.mode === 'local' ? 'admin' : ctx.rep?.role;
+  if (!canDeleteRecord(role, row, ctx.rep?.id)) throw new Error('You can only delete a record you uploaded.');
+  if (ctx.mode === 'local') {
+    await idbDelete(storeName, row.id);
+    await removeStoredFile(ctx, row.storage_path);
+    return;
+  }
+  const { error } = await ctx.sb.from(table).delete().eq('id', row.id);
+  if (error) throw error;
+  await removeStoredFile(ctx, row.storage_path);
+}
+
+export function deleteReceipt(ctx, row) {
+  return deleteRecord(ctx, 'receipt_records', 'receipts', row);
+}
+
+export function deleteEstimate(ctx, row) {
+  return deleteRecord(ctx, 'estimate_records', 'estimates', row);
+}
+
 export function photosForLead(photos, lead) {
   const id = lead?.id || '';
   const key = normalizeAddressKey(formatAddress(lead) || lead?.address || '');
@@ -479,6 +710,9 @@ export function groupPhotosByAddress(photos) {
 
 export function plainError(error) {
   const message = String(error?.message || error || 'Something went wrong.');
+  if (/document_categories|receipt_records|estimate_records|guard_document_category|category_id/i.test(message)) {
+    return 'Run supabase/migrations/20261008_document_library.sql in the Supabase SQL editor, then try again.';
+  }
   if (/reviewed_at/i.test(message)) {
     return 'Run supabase/migrations/20261008_document_review.sql in the Supabase SQL editor, then try again.';
   }

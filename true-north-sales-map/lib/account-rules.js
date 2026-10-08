@@ -59,7 +59,8 @@ export const MANAGEMENT_LINKS = Object.freeze([
   { href: '/admin#team', label: 'Team & roles', hint: 'See who is on the team' },
   { href: '/admin#files', label: 'Documents', hint: 'Paperwork by property' },
   { href: '/admin#messages', label: 'Messages from the field', hint: 'Reply to setters and sales reps' },
-  { href: '/admin#builder', label: 'Form library', hint: 'Upload and assign forms' }
+  { href: '/admin#builder', label: 'Form library', hint: 'Upload and assign forms' },
+  { href: '/admin#library', label: 'Document folders', hint: 'Contingency, agreements, receipts, and estimates' }
 ]);
 
 /**
