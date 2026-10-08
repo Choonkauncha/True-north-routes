@@ -17,10 +17,11 @@ function walk(dir, files = []) {
   return files;
 }
 
+const cdn = 'https://cdn.jsdelivr.net/npm/';
 const badSample = [
-  "import('https://cdn.jsdelivr.net/npm/tus-js-client@4.2.3/lib.esm/browser/index.js')",
-  'import("https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js")',
-  "from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js'"
+  `import('${cdn}tus-js-client@4.2.3/${'lib.esm'}/browser/index.js')`,
+  `import("${cdn}@ffmpeg/ffmpeg@0.12.10/${'dist/esm'}/index.js")`,
+  `from '${cdn}@ffmpeg/util@0.12.1/${'dist/esm'}/index.js'`
 ];
 for (const sample of badSample) assert.match(sample, rawCdnModule);
 const coreBase = "const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';";
