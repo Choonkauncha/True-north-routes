@@ -365,7 +365,7 @@ body.tn-workspace.tn-public .tn-hero .eyebrow { color: #8fb5ff; }
   body.tn-map-workspace #listSheet.sheet-full { top: 60px; }
   body.tn-map-workspace #listSheet .nextCard { padding: 18px; }
   body.tn-map-workspace .tnMore { color: #243854; border-color: #dce3ee; background: white; min-height: 40px; font-size: 12px; }
-  body.tn-map-workspace .tnMoreMenu { top: calc(100% + 8px); border: 1px solid #dce3ee; border-radius: 14px; padding: 8px; box-shadow: var(--shadow); }
+  body.tn-map-workspace .tnMoreMenu { border: 1px solid #dce3ee; border-radius: 14px; box-shadow: var(--shadow); }
   body.tn-admin-workspace .dashboardShell { grid-template-columns: 1fr; }
   body.tn-admin-workspace .rail { position: static; height: auto; padding: 10px 16px; flex-direction: row; display: flex; flex-wrap: nowrap; overflow-x: auto; border-right: 0; border-bottom: 1px solid #e0e6ef; gap: 6px; }
   body.tn-admin-workspace .rail .sectionLabel { display: none; }
