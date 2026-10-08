@@ -31,10 +31,28 @@ export function planLeadSync({ cachedStamp = '', cachedCount = 0, remoteCount = 
   return 'full';
 }
 
+export function leadHasCoords(lead) {
+  if (lead?.lat == null || lead?.lng == null) return false;
+  return Number.isFinite(Number(lead.lat)) && Number.isFinite(Number(lead.lng));
+}
+
+/** Rows saved before pins were stored have addresses and no coordinates. Do not paint from those. */
+export function leadCacheUsable(payload) {
+  return Array.isArray(payload?.leads) && payload.leads.some(leadHasCoords);
+}
+
 export function mergeLeadDelta(leads, delta) {
   if (!delta?.length) return leads || [];
   const byId = new Map((leads || []).map((lead) => [lead.id, lead]));
-  delta.forEach((row) => { if (row?.id) byId.set(row.id, row); });
+  delta.forEach((row) => {
+    if (!row?.id) return;
+    const prev = byId.get(row.id);
+    if (prev && leadHasCoords(prev) && !leadHasCoords(row)) {
+      byId.set(row.id, { ...row, lat: prev.lat, lng: prev.lng });
+      return;
+    }
+    byId.set(row.id, row);
+  });
   return [...byId.values()];
 }
 

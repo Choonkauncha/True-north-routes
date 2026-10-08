@@ -15,6 +15,11 @@ export function pageRanges(count, step = 1000) {
   return ranges;
 }
 
+function hasCoords(lead) {
+  if (lead?.lat == null || lead?.lng == null) return false;
+  return Number.isFinite(Number(lead.lat)) && Number.isFinite(Number(lead.lng));
+}
+
 /** Static houses plus the cloud fields that change, plus leads the file does not contain. */
 export function mergeLeadOverlay(base, overlay, added) {
   const byId = new Map((base || []).map((lead) => [lead.id, { ...lead }]));
@@ -33,7 +38,13 @@ export function mergeLeadOverlay(base, overlay, added) {
   }
   for (const row of added || []) {
     if (!row?.id) continue;
-    byId.set(row.id, { ...(byId.get(row.id) || {}), ...row });
+    const prev = byId.get(row.id) || {};
+    const next = { ...prev, ...row };
+    if (hasCoords(prev) && !hasCoords(row)) {
+      next.lat = prev.lat;
+      next.lng = prev.lng;
+    }
+    byId.set(row.id, next);
   }
   return [...byId.values()];
 }

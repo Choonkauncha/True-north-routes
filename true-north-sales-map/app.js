@@ -5,7 +5,7 @@ import { MAP_FACTS } from './lib/map-facts.js';
 import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
 import { acquireScreenWakeLock, activeStep, arrowRotationDegrees, bearingDegrees, chooseTravelHeading, compassHeadingFromOrientation, createGpsFilter, createInterpolator, createReadoutThrottle, createRerouteGate, lineLatLngs, maneuverText, navLookaheadPixels, navZoomFor, normalizeSteps, offsetCameraPoint, pointAlong, releaseScreenWakeLock, requestCompassPermission, smoothBearing, snapToRoute, splitRoute } from './lib/nav-motion.js';
 import { installMapBearing, setMapHeading } from './lib/map-bearing.js';
-import { createArrayCursor, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, normalizeStamp, parseJsonArraySlice, planLeadSync, takeCompleteObjects } from './lib/lead-cache.js';
+import { createArrayCursor, leadCacheUsable, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, normalizeStamp, parseJsonArraySlice, planLeadSync, takeCompleteObjects } from './lib/lead-cache.js';
 import { readLeadCache, writeLeadCache } from './lib/lead-store.js';
 import { LEAD_OVERLAY_COLUMNS, LEAD_OVERLAY_OR, STATIC_LEAD_SOURCES, mergeLeadOverlay, pageRanges } from './lib/lead-sync.js';
 import { STREET_ZOOM, clusterLeads, pinDiff, sampleHeat } from './lib/pin-layer.js';
@@ -44,7 +44,7 @@ const state={
   navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[],
   pendingPostSignIn:false, paintTicket:0, toolsDeferred:false, pinsMarked:false, cloudReady:false, staticPromise:null,
   tileLayer:null, mapLoaderGen:0, mapSettled:false, pinsPainted:false, awaitingFirstFit:false, factTimer:null, mapLoaderGiveUp:null,
-  sessionReady:false
+  sessionReady:false, leadLoadSettled:false
 };
 
 const $=id=>document.getElementById(id);
@@ -80,6 +80,11 @@ function markFirstPins(){
   deferFieldTools();
 }
 
+
+function rememberLeadCache(stamp, leads){
+  if(!leadCacheUsable({leads})) return;
+  writeLeadCache({stamp, leads, savedAt:Date.now()});
+}
 async function boot(){
   bindStaticEvents();
   const authed=!!readStoredUser(localStorage);
@@ -91,7 +96,7 @@ async function boot(){
   const cfgP=fetchJSON('/api/config').catch(()=>null);
   if(authed){
     const cached=await readLeadCache().catch(()=>null);
-    if(cached?.leads?.length){
+    if(leadCacheUsable(cached)){
       streamLeads(cached.leads, cached.leads.length, null);
       await new Promise(resolve=>requestAnimationFrame(resolve));
     }else startStaticLeads().catch(error=>console.error(error));
@@ -299,7 +304,7 @@ async function loadLocalDataset(){
   $('datasetCount').textContent=total?`${fmt(total)} source records`:'';
   initMapOnce();
   const cached=await readLeadCache();
-  if(cached?.stamp===stamp && Array.isArray(cached.leads) && cached.leads.length){
+  if(leadCacheUsable(cached) && cached.stamp===stamp){
     if(!total) $('datasetCount').textContent=`${fmt(cached.leads.length)} source records`;
     if(!state.bootDone) streamLeads(cached.leads, total||cached.leads.length, meta);
     return;
@@ -307,7 +312,7 @@ async function loadLocalDataset(){
   if(state.staticPromise){
     const leads=await state.staticPromise;
     if(!total && leads) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
-    writeLeadCache({stamp, leads, savedAt:Date.now()});
+    rememberLeadCache(stamp, leads);
     return;
   }
   const response=await fetch('/data/leads.json');
@@ -316,12 +321,12 @@ async function loadLocalDataset(){
     const text=await response.text();
     const leads=await ingestLeadText(text, total, meta);
     if(!total) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
-    writeLeadCache({stamp, leads, savedAt:Date.now()});
+    rememberLeadCache(stamp, leads);
     return;
   }
   const leads=await readLeadResponse(response, total, meta);
   if(!total) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
-  writeLeadCache({stamp, leads, savedAt:Date.now()});
+  rememberLeadCache(stamp, leads);
 }
 function startStaticLeads(){
   if(state.staticPromise) return state.staticPromise;
@@ -426,6 +431,7 @@ async function runEnterCloud(session){
     if(!state.map) initMapOnce();
     startRealtime();
     state.cloudReady=true;
+    updatePinBanner();
     await sideP;
     if(epoch!==authEpoch) return;
     publishSideData();
@@ -483,8 +489,9 @@ function publishSideData(){
 }
 async function loadCloudLeadRows(){
   const sb=state.supabase;
-  const cached=await readLeadCache();
-  const cachedLeads=Array.isArray(cached?.leads)?cached.leads:[];
+  const raw=await readLeadCache();
+  const cached=leadCacheUsable(raw)?raw:null;
+  const cachedLeads=cached?.leads||[];
   let boot=null;
   try{
     const rpc=await sb.rpc('lead_map_boot');
@@ -510,7 +517,7 @@ async function loadCloudLeadRows(){
     const delta=head.count?await fetchAllParallel(()=>sb.from('leads').select('*').gt('updated_at', since).order('updated_at'), head.count):[];
     const merged=mergeLeadDelta(cachedLeads, delta).map(normalizeLead);
     const stamp=remoteUpdatedAt||normalizeStamp(newestUpdatedAt(merged));
-    writeLeadCache({stamp, leads:merged, savedAt:Date.now()});
+    rememberLeadCache(stamp, merged);
     return merged;
   }
   return loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt);
@@ -531,7 +538,7 @@ async function loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt){
     merged=(await fetchAllParallel(()=>sb.from('leads').select('*').order('id'), remoteCount)).map(normalizeLead);
   }
   const stamp=remoteUpdatedAt||normalizeStamp(newestUpdatedAt(merged));
-  writeLeadCache({stamp, leads:merged, savedAt:Date.now()});
+  rememberLeadCache(stamp, merged);
   return merged;
 }
 async function fetchOverlayRows(sb){
@@ -572,6 +579,7 @@ function replaceLeads(rows){
   if(!state.map) initMapOnce();
   const fit=!state.didFit;
   state.bootDone=true;
+  state.leadLoadSettled=true;
   buildFilters();
   renderNow(fit);
   markFirstPins();
@@ -583,6 +591,7 @@ function resetLeadStream(){
   state.listFilterKey='';
   state.listRows=null;
   state.bootDone=false;
+  state.leadLoadSettled=false;
   state.clusterSource=null;
   state.clusterZoom=null;
   state.territoryKey='';
@@ -613,6 +622,7 @@ function ingestLeadChunk(rows, meta, total, isLast){
   });
   const totalCount=total||state.leads.length;
   setBootProgress(state.leads.length, totalCount);
+  if(isLast) state.leadLoadSettled=true;
   const first=!state.bootDone;
   if(first){
     buildFilters();
@@ -1234,7 +1244,9 @@ function setHomeArea(on){
 function canManagePins(){return ['admin','manager'].includes(state.currentRep?.role);}
 function updatePinBanner(){
   const el=$('pinBanner'); if(!el)return;
-  if(state.pinBannerDismissed||!state.leads.length||state.leads.some(isCoords)){el.classList.add('hidden');return;}
+  const mapped=state.leads.some(isCoords);
+  const waitingForCloud=state.mode==='cloud'&&!state.cloudReady;
+  if(state.pinBannerDismissed||waitingForCloud||!state.leadLoadSettled||!state.leads.length||mapped){el.classList.add('hidden');return;}
   const admin=canManagePins();
   $('pinBannerText').textContent=admin?"Houses aren't pinned yet. Open Admin → Geocode missing house pins.":"Houses aren't pinned yet. Ask an admin to run the pin geocoder.";
   $('pinBannerAction').classList.toggle('hidden',!admin);

@@ -21,6 +21,14 @@ assert.equal(merged.find((lead) => lead.id === 'a').lat, 1);
 assert.equal(merged.find((lead) => lead.id === 'a').assigned_rep_id, 'rep-1');
 assert.equal(merged.find((lead) => lead.id === 'b').lat, 40.2);
 assert.equal(merged.find((lead) => lead.id === 'c').address, '1 Public Sq');
+const keptPins = mergeLeadOverlay(
+  [{ id: 'a', name: 'Ada', lat: 40.1, lng: -82.4 }],
+  [],
+  [{ id: 'a', name: 'Ada', lat: null, lng: null, status: 'New', source: 'Setter' }]
+);
+assert.equal(keptPins[0].lat, 40.1);
+assert.equal(keptPins[0].lng, -82.4);
+assert.equal(keptPins[0].status, 'New');
 assert.ok(LEAD_OVERLAY_COLUMNS.split(',').includes('status'));
 assert.ok(LEAD_OVERLAY_OR.includes('status.neq.New'));
 assert.ok(STATIC_LEAD_SOURCES.includes('Knox Walk List'));
