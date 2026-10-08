@@ -1,9 +1,14 @@
 {
-  "generated": "2026-10-06",
-  "totalRecords": 12410,
+  "generated": "2026-10-08",
+  "totalRecords": 17232,
   "csvRecords": 1100,
-  "knoxRecords": 11310,
-  "knoxSections": 18,
-  "knoxExpected": 11310,
-  "mapNote": "Knox territory markers use supplied city/ZIP centers; individual records link directly to Google Maps."
+  "knoxRecords": 16132,
+  "knoxOwnerOccupiedRecords": 11310,
+  "knoxWalkListAdded": 4822,
+  "knoxWalkListTotal": 16136,
+  "knoxSections": 20,
+  "knoxExpected": 16136,
+  "mappedRecords": 17177,
+  "geocodeSource": "US Census Geocoder (Public_AR_Current) batch; Knox County ODNR parcel centroid fallback",
+  "mapNote": "Houses carry lat/lng from the US Census geocoder or the county parcel centroid; unmatched records link to Google Maps."
 }

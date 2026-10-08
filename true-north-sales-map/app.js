@@ -2,6 +2,8 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 import './field-ops.js';
 import './tn-files/password-reset.js';
 import { PASSWORD_UPDATED } from './lib/password-reset.js';
+import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } from './lib/route-picks.js';
+import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -22,7 +24,9 @@ const state={
   layerFlags:{pins:true,density:false,opportunity:true,roofAge:false,storms:false,territories:true},
   routeMode:'driving', busy:false, config:null, realtimeChannel:null, refreshTimer:null,
   doorLeadId:null, doorSaving:false, doorUndo:null,
-  homeArea:true, didFit:false, listSnap:'sheet-collapsed', pinBannerDismissed:false
+  homeArea:true, didFit:false, listSnap:'sheet-collapsed', pinBannerDismissed:false,
+  listShown:180, listFilterKey:'',
+  navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[]
 };
 
 const $=id=>document.getElementById(id);
@@ -65,6 +69,8 @@ function bindStaticEvents(){
   $('nextBtn').onclick=nextBest; $('nextCardBtn').onclick=nextBest;
   $('mobileNext').onclick=nextBest; $('mobileRoute').onclick=openRoutePanel; $('mobileLocate').onclick=locate;
   $('routeBtn').onclick=openRoutePanel; $('routeTrayBtn').onclick=openRoutePanel;
+  $('selectVisibleBtn').onclick=selectVisibleForRoute; $('clearRouteBtn').onclick=clearRoute;
+  $('doorSheetRoute').onclick=()=>{if(!state.doorLeadId)return;toggleSelected(state.doorLeadId);$('doorSheetRoute').textContent=routeToggleLabel(state.selected.has(state.doorLeadId));};
   $('focusBtn').onclick=toggleMapFocus; $('fitBtn').onclick=fitFilteredLeads;
   $('closeDrawer').onclick=closeDrawer;
   $('closeAdmin').onclick=()=>$('adminModal').classList.add('hidden');
@@ -92,7 +98,22 @@ function bindStaticEvents(){
     if(!$('mapLegend').contains(e.target)&&e.target!==$('legendKey')){$('mapLegend').classList.remove('isOpen');$('legendKey').setAttribute('aria-expanded','false');}
   });
   document.querySelectorAll('[data-layer]').forEach(el=>el.addEventListener('change',()=>{state.layerFlags[el.dataset.layer]=el.checked;refreshMapLayers()}));
-  $('routeMode').addEventListener('change',e=>state.routeMode=e.target.value);
+  $('routeMode').addEventListener('change',e=>setRouteMode(e.target.value));
+  $('trayDrive').onclick=()=>setRouteMode('driving');
+  $('trayWalk').onclick=()=>setRouteMode('walking');
+  $('startRouteBtn').onclick=startRoute;
+  $('navChoiceBtn').onclick=()=>openNavChoice(false);
+  $('navInApp').onclick=()=>confirmNavChoice('app');
+  $('navGoogle').onclick=()=>confirmNavChoice('google');
+  $('navApple').onclick=()=>confirmNavChoice('apple');
+  $('navChoiceCancel').onclick=closeNavChoice;
+  $('navChoiceClose').onclick=closeNavChoice;
+  $('navRecenter').onclick=recenterNav;
+  $('navGoogleLeg').onclick=()=>openExternalLeg('google');
+  $('navAppleLeg').onclick=()=>openExternalLeg('apple');
+  $('navNextStop').onclick=()=>advanceNavStop();
+  $('navEnd').onclick=()=>endNavigation('Navigation ended.');
+  syncNavChoiceButton();
   $('routeCount').addEventListener('input',e=>$('routeCountValue').textContent=e.target.value); $('routeDistance').textContent='';
   $('optimizeRouteBtn').onclick=optimizeAndDrawRoute;
   $('openGoogleRouteBtn').onclick=openGoogleRouteBlocks;
@@ -192,6 +213,7 @@ function initMapOnce(){
   state.map=L.map('map',{zoomControl:true,preferCanvas:true}).setView([40.39,-82.49],11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(state.map);
   state.markerLayer=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:42,showCoverageOnHover:false,spiderfyOnMaxZoom:true}).addTo(state.map);
+  state.map.on('dragstart',()=>{ if(state.navigating&&state.navFollow){state.navFollow=false;syncRecenterButton();} });
 }
 
 function syncFilters(){
@@ -242,11 +264,19 @@ function renderSidebarCounts(){
 
 function renderWorkList(){
   const list=$('workList');
-  const top=state.filtered.slice().sort((a,b)=>scoreLead(b)-scoreLead(a)).slice(0,180);
+  const sorted=state.filtered.slice().sort((a,b)=>scoreLead(b)-scoreLead(a));
+  const key=JSON.stringify(state.filters);
+  if(state.listFilterKey!==key){state.listFilterKey=key;state.listShown=180;}
+  const shown=Math.min(sorted.length, state.listShown||180);
+  const top=sorted.slice(0, shown);
   if(!top.length){list.innerHTML='<div class="empty"><b>No houses match these filters.</b><br>Try Reset, change territory, or use the map search.</div>';return}
-  list.innerHTML=top.map(l=>leadHTML(l)).join('');
+  const more=sorted.length>shown?`<button type="button" id="showMoreLeads" class="showMoreLeads">Show more · ${fmt(shown)} of ${fmt(sorted.length)}</button>`:'';
+  const scroll=list.scrollTop;
+  list.innerHTML=top.map(l=>leadHTML(l)).join('')+more;
+  list.scrollTop=scroll;
   list.querySelectorAll('.leadRow').forEach(el=>el.onclick=e=>{if(e.target.closest('.rowCheck'))return;openLead(el.dataset.id)});
-  list.querySelectorAll('.rowCheck').forEach(cb=>cb.onchange=()=>{cb.checked?state.selected.add(cb.dataset.id):state.selected.delete(cb.dataset.id);updateSelectedBadge()});
+  list.querySelectorAll('.rowCheck').forEach(cb=>cb.onchange=()=>{cb.checked?state.selected.add(cb.dataset.id):state.selected.delete(cb.dataset.id);updateSelectedBadge();refreshSelectedMarkers();syncRouteButtons(cb.dataset.id)});
+  $('showMoreLeads')?.addEventListener('click',()=>{state.listShown=Math.min(sorted.length, shown+180);renderWorkList()});
 }
 function leadHTML(l){
   const s=leadStatus(l), owner=leadOwnerName(l), score=scoreLead(l), old=l.year_built??l.yearBuilt;
@@ -312,7 +342,8 @@ function refreshMapLayers(){
   if(state.layerFlags.roofAge)drawHeat('roof');
   if(state.layerFlags.territories)drawTerritories();
   if(state.layerFlags.storms && !state.stormLayer)loadStorms(false);
-  if(state.routeStops?.length)drawRoutePreview();
+  if(state.routeStops?.length)drawRoutePreview(false);
+  else if(state.navigating)drawNavOverlay();
 }
 function useDoorSheet(){return doorSheetMedia.matches;}
 function pinIconFor(l){
@@ -328,11 +359,16 @@ function drawLeadPins(){
   candidates.forEach(l=>{
     const s=leadStatus(l);
     const m=L.marker([l.lat,l.lng],{icon:pinIconFor(l),title:l.address,keyboard:true});
+    m._leadId=l.id;
     if(phone){
       m.on('click',e=>{L.DomEvent.stop(e);openDoorSheet(l.id);});
     }else{
-      m.bindPopup(`<div class="pinPopup"><b>${esc(l.name||'Property lead')}</b><div>${esc(l.address)}, ${esc(l.city)}</div><div class="popupLine"><span class="miniBadge">${esc(s)}</span><b>${scoreLead(l)} pts</b></div><button data-popup-lead="${esc(l.id)}">Open lead</button></div>`);
-      m.on('popupopen',()=>setTimeout(()=>document.querySelector(`[data-popup-lead="${CSS.escape(l.id)}"]`)?.addEventListener('click',()=>openLead(l.id)),0));
+      m.bindPopup(`<div class="pinPopup"><b>${esc(l.name||'Property lead')}</b><div>${esc(l.address)}, ${esc(l.city)}</div><div class="popupLine"><span class="miniBadge">${esc(s)}</span><b>${scoreLead(l)} pts</b></div><div class="popupActions"><button type="button" class="routeToggle" data-popup-route="${esc(l.id)}">${routeToggleLabel(state.selected.has(l.id))}</button><button type="button" data-popup-lead="${esc(l.id)}">Open lead</button></div></div>`);
+      m.on('popupopen',()=>setTimeout(()=>{
+        const routeBtn=document.querySelector(`[data-popup-route="${CSS.escape(l.id)}"]`);
+        routeBtn?.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();toggleSelected(l.id);if(routeBtn)routeBtn.textContent=routeToggleLabel(state.selected.has(l.id))});
+        document.querySelector(`[data-popup-lead="${CSS.escape(l.id)}"]`)?.addEventListener('click',()=>openLead(l.id));
+      },0));
     }
     group.addLayer(m);
   });
@@ -496,6 +532,7 @@ function openDoorSheet(id){
   badge.textContent=s;
   badge.className=`status ${statusClass(s)}`;
   $('doorSheetBook').href=`/setter.html?lead=${encodeURIComponent(l.id)}`;
+  $('doorSheetRoute').textContent=routeToggleLabel(state.selected.has(l.id));
   $('doorSheetActions').innerHTML=DOOR_STATUSES.map(status=>`<button type="button" class="doorStatus doorStatus-${statusClass(status)}${s===status?' isCurrent':''}" data-door-status="${esc(status)}" aria-pressed="${s===status?'true':'false'}"><span class="doorStatusDot" aria-hidden="true"></span><span>${esc(status)}</span></button>`).join('');
   $('doorSheetActions').querySelectorAll('[data-door-status]').forEach(btn=>{btn.onclick=()=>applyDoorStatus(l.id,btn.dataset.doorStatus);});
   const sheet=$('doorSheet');
@@ -611,7 +648,7 @@ async function applyDoorStatus(id,status){
   const l=state.leads.find(x=>x.id===id); if(!l||state.doorSaving)return;
   if(!DOOR_STATUSES.includes(status))return;
   const previous=leadStatus(l);
-  if(previous===status){renderAll();closeDoorSheet();toast(`Already ${status} · ${l.address}`);return;}
+  if(previous===status){renderAll();closeDoorSheet();toast(`Already ${status} · ${l.address}`);maybeAdvanceNav(id);return;}
   state.doorSaving=true;
   const buttons=[...$('doorSheetActions').querySelectorAll('button')];
   buttons.forEach(b=>{b.disabled=true;});
@@ -624,6 +661,7 @@ async function applyDoorStatus(id,status){
   renderAll();
   closeDoorSheet();
   toastDoorResult(l, previous, status);
+  maybeAdvanceNav(id);
 }
 function toastDoorResult(lead, fromStatus, toStatus){
   const el=$('toast'); if(!el)return;
@@ -723,16 +761,17 @@ async function optimizeAndDrawRoute(){
   state.routeStops=nearestNeighbor2Opt(leads,start);
   renderRouteStops();
   $('routeDistance').textContent='Optimizing…';
-  if(state.routeMode==='driving') await fetchRoadRoute(start,state.routeStops); else {drawRoutePreview();$('routeDistance').textContent=`≈ ${fmtDistance(routeHaversineDistance(start,state.routeStops))} straight-line estimate`;}
+  await fetchRoadRoute(start,state.routeStops);
 }
 async function fetchRoadRoute(start,stops){
-  try{const points=[start,...stops].map(p=>({lat:p.lat,lng:p.lng}));const r=await fetch('/api/route',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:'driving',coordinates:points})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Route service failed');
+  try{const points=[start,...stops].map(p=>({lat:p.lat,lng:p.lng}));const r=await fetch('/api/route',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:osrmProfile(state.routeMode),coordinates:points})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Route service failed');
     if(Array.isArray(data.order)&&data.order.length===stops.length){const ordered=data.order.map(i=>stops[i-1]).filter(Boolean);if(ordered.length===stops.length){state.routeStops=ordered;renderRouteStops();}}
-    if(state.routeLine){state.map.removeLayer(state.routeLine);state.routeLine=null}
-    state.routeLine=L.geoJSON(data.geometry,{style:{color:'#203a29',weight:5,opacity:.78}}).addTo(state.map);
-    if(data.geometry?.coordinates?.length)state.map.fitBounds(state.routeLine.getBounds().pad(.12));
-    $('routeDistance').textContent=`${fmtDistance(data.distance/1609.344)} · ${fmtDuration(data.duration)} · road-network optimized`;
-  }catch(e){drawRoutePreview();$('routeDistance').textContent=`Road router unavailable · ≈ ${fmtDistance(routeHaversineDistance(start,stops))}`;console.warn(e)}
+    state.routeGeometry=data.geometry||null;
+    drawRoutePreview(!state.navigating);
+    const summary=`${fmtDistance(data.distance/1609.344)} · ${fmtDuration(data.duration)} · ${state.routeMode==='walking'?'walking':'driving'}`;
+    $('routeDistance').textContent=`${summary} · road-network optimized`;
+    $('routeTrayStats').textContent=summary;
+  }catch(e){state.routeGeometry=null;drawRoutePreview();$('routeDistance').textContent=`Road router unavailable · ≈ ${fmtDistance(routeHaversineDistance(start,stops))}`;$('routeTrayStats').textContent=`≈ ${fmtDistance(routeHaversineDistance(start,stops))} straight line`;console.warn(e)}
 }
 function routeHaversineDistance(start,stops){let total=0,cur=start;for(const p of stops){total+=haversine(cur.lat,cur.lng,p.lat,p.lng);cur=p}return total}
 function fmtDistance(miles){const n=Number(miles||0);return n<10?`${n.toFixed(1)} mi`:`${Math.round(n)} mi`}
@@ -745,12 +784,13 @@ function nearestNeighbor2Opt(leads,start){
   while(improved&&loops++<6){improved=false;for(let i=0;i<out.length-2;i++){for(let j=i+2;j<out.length;j++){const a=out[i],b=out[i+1],c=out[j],d=out[j+1];const before=haversine(a.lat,a.lng,b.lat,b.lng)+(d?haversine(c.lat,c.lng,d.lat,d.lng):0);const after=haversine(a.lat,a.lng,c.lat,c.lng)+(d?haversine(b.lat,b.lng,d.lat,d.lng):0);if(after+0.000001<before){const rev=out.slice(i+1,j+1).reverse();out.splice(i+1,rev.length,...rev);improved=true}}}}
   return out;
 }
-function drawRoutePreview(){
+function drawRoutePreview(fit=true){
   if(state.routeLine){state.map.removeLayer(state.routeLine);state.routeLine=null}
-  if(!state.routeStops?.length)return;
-  const coords=state.routeStops.map(l=>[Number(l.lat),Number(l.lng)]);
-  state.routeLine=L.polyline(coords,{weight:5,opacity:.75,dashArray:'8 7'}).addTo(state.map);
-  state.map.fitBounds(state.routeLine.getBounds().pad(.12));
+  if(!state.routeStops?.length||!state.map)return;
+  if(state.routeGeometry)state.routeLine=L.geoJSON(state.routeGeometry,{style:{color:'#203a29',weight:5,opacity:.78}}).addTo(state.map);
+  else{const coords=state.routeStops.map(l=>[Number(l.lat),Number(l.lng)]);state.routeLine=L.polyline(coords,{weight:5,opacity:.75,dashArray:'8 7'}).addTo(state.map);}
+  if(fit){try{state.map.fitBounds(state.routeLine.getBounds().pad(.12));}catch{}}
+  if(state.navigating)drawNavOverlay();
 }
 function renderRouteStops(){
   $('routeStops').innerHTML=state.routeStops.map((l,i)=>`<div class="routeStop"><span>${i+1}</span><div><b>${esc(l.address)}</b><small>${esc(l.city)} · ${scoreLead(l)} pts</small></div><button data-route-lead="${esc(l.id)}">×</button></div>`).join('')||'<div class="empty">No route yet.</div>';
@@ -759,7 +799,13 @@ function renderRouteStops(){
 function openGoogleRouteBlocks(){
   if(!state.routeStops.length){alert('Optimize a route first.');return}
   const chunks=[];for(let i=0;i<state.routeStops.length;i+=9)chunks.push(state.routeStops.slice(i,i+9));
-  chunks.forEach((chunk,idx)=>{const origin=idx===0?(state.currentLocation?`${state.currentLocation.lat},${state.currentLocation.lng}`:addressOf(chunk[0])):addressOf(state.routeStops[idx*9-1]);const destination=addressOf(chunk.at(-1));const mids=chunk.slice(0,-1).map(addressOf);const u=`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}${mids.length?`&waypoints=${encodeURIComponent(mids.join('|'))}`:''}&travelmode=${encodeURIComponent(state.routeMode)}`;window.open(u,'_blank','noopener')});
+  const travel=googleTravelMode(state.routeMode);
+  chunks.forEach((chunk,idx)=>{const origin=idx===0?(state.currentLocation?`${state.currentLocation.lat},${state.currentLocation.lng}`:addressOf(chunk[0])):addressOf(state.routeStops[idx*9-1]);const destination=addressOf(chunk.at(-1));const mids=chunk.slice(0,-1).map(addressOf);const u=`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}${mids.length?`&waypoints=${encodeURIComponent(mids.join('|'))}`:''}&travelmode=${encodeURIComponent(travel)}`;window.open(u,'_blank','noopener')});
+}
+function openAppleRoute(stops=state.routeStops){
+  const points=(stops||[]).filter(isCoords);
+  if(!points.length){toast('Optimize a route first.');return}
+  window.open(appleDirectionsUrl(state.currentLocation, points, state.routeMode),'_blank','noopener');
 }
 
 function openAppointmentForm(l,appt=null){
@@ -820,7 +866,7 @@ async function importLeadsToCloud(){
   if(!['admin','manager'].includes(state.currentRep.role)){alert('Admin/manager role required.');return}
   const local=await fetchJSON('/data/leads.json');const total=local.length;let done=0;
   setAdminProgress(0,`Importing ${fmt(total)} source leads…`);
-  for(let i=0;i<total;i+=400){const batch=local.slice(i,i+400).map(l=>({id:l.id,source:l.source,name:l.name,address:l.address,secondary_address:l.secondaryAddress||'',city:l.city,state:l.state,zip:l.zip,full_address:l.fullAddress,record_id:l.recordId||null,record_type:l.recordType||null,year_built:l.yearBuilt??null,priority:l.priority||null,owner_occupied:l.ownerOccupied||null,pdf_page:l.pdfPage??null}));const {error}=await state.supabase.from('leads').upsert(batch,{onConflict:'id',ignoreDuplicates:true});if(error){alert(`Import stopped: ${error.message}`);return}done+=batch.length;setAdminProgress(Math.round(done/total*100),`Imported ${fmt(done)} / ${fmt(total)}`)}
+  for(let i=0;i<total;i+=400){const batch=local.slice(i,i+400).map(l=>({id:l.id,source:l.source,name:l.name,address:l.address,secondary_address:l.secondaryAddress||'',city:l.city,state:l.state,zip:l.zip,full_address:l.fullAddress,record_id:l.recordId||null,record_type:l.recordType||null,year_built:l.yearBuilt??null,priority:l.priority||null,owner_occupied:l.ownerOccupied||null,pdf_page:l.pdfPage??null,lat:l.lat??null,lng:l.lng??null,geocode_match:l.geocodeMatch??null}));const {error}=await state.supabase.from('leads').upsert(batch,{onConflict:'id',ignoreDuplicates:true});if(error){alert(`Import stopped: ${error.message}`);return}done+=batch.length;setAdminProgress(Math.round(done/total*100),`Imported ${fmt(done)} / ${fmt(total)}`)}
   await loadCloudData();renderAll();$('adminLeadCount').textContent=fmt(state.leads.length);$('adminMappedCount').textContent=fmt(state.leads.filter(isCoords).length);
   alert(`Cloud dataset initialized with ${fmt(state.leads.length)} leads.`);
 }
@@ -870,7 +916,208 @@ function locate(){
 }
 locate._seq=0;
 
-function updateSelectedBadge(){const n=state.selected.size;$('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n;$('routeTray').classList.toggle('hidden',n===0)}
+function updateSelectedBadge(){const n=state.selected.size;$('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n}
+function toggleSelected(id){
+  if(state.selected.has(id))state.selected.delete(id);else state.selected.add(id);
+  document.querySelectorAll(`.rowCheck[data-id="${CSS.escape(id)}"]`).forEach(box=>{box.checked=state.selected.has(id)});
+  updateSelectedBadge();refreshSelectedMarkers();syncRouteButtons(id);
+}
+function syncRouteButtons(id){
+  const label=routeToggleLabel(state.selected.has(id));
+  document.querySelectorAll(`[data-popup-route="${CSS.escape(id)}"]`).forEach(btn=>{btn.textContent=label});
+  if(state.doorLeadId===id&&$('doorSheetRoute'))$('doorSheetRoute').textContent=label;
+}
+function refreshSelectedMarkers(){
+  state.markerLayer?.eachLayer(layer=>{
+    if(!layer._leadId)return;
+    const lead=state.leads.find(item=>item.id===layer._leadId);
+    if(lead)layer.setIcon(pinIconFor(lead));
+  });
+}
+function selectVisibleForRoute(){
+  const mapped=state.filtered.filter(isCoords);
+  let inView=[];
+  if(state.map){const bounds=state.map.getBounds();inView=mapped.filter(lead=>bounds.contains([Number(lead.lat),Number(lead.lng)]));}
+  const pool=visibleRoutePool(inView,mapped).slice().sort((a,b)=>scoreLead(b)-scoreLead(a));
+  const {chosen,leftOut}=pickRouteStops(pool.map(lead=>lead.id),state.selected,ROUTE_STOP_LIMIT);
+  chosen.forEach(id=>state.selected.add(id));
+  const note=leftOut?`Route stop limit is ${ROUTE_STOP_LIMIT}. Added ${fmt(chosen.length)} mapped houses; ${fmt(leftOut)} more stayed off this route.`:(chosen.length?`Added ${fmt(chosen.length)} mapped houses from the map.`:'No mapped houses in this view.');
+  $('routeTrayNote').textContent=note;
+  $('routeWarning').textContent=leftOut?note:'';
+  toast(note);
+  updateSelectedBadge();refreshSelectedMarkers();renderWorkList();
+}
+function clearRoute(){
+  endNavigation('');
+  state.selected.clear();state.routeStops=[];state.routeGeometry=null;
+  $('routeWarning').textContent='';$('routeDistance').textContent='';$('routeTrayStats').textContent='';
+  $('routeStops').innerHTML='<div class="empty">No route yet.</div>';
+  $('routeTrayNote').textContent='Select homes, then build an optimized route.';
+  renderAll();
+}
+function setRouteMode(mode){
+  const next=mode==='walking'?'walking':'driving';
+  const changed=state.routeMode!==next;
+  state.routeMode=next;
+  if($('routeMode')&&$('routeMode').value!==next)$('routeMode').value=next;
+  $('trayDrive').classList.toggle('isOn', next==='driving');
+  $('trayDrive').setAttribute('aria-pressed', next==='driving'?'true':'false');
+  $('trayWalk').classList.toggle('isOn', next==='walking');
+  $('trayWalk').setAttribute('aria-pressed', next==='walking'?'true':'false');
+  if(changed&&state.routeStops?.length)optimizeAndDrawRoute();
+}
+function syncNavChoiceButton(){
+  const saved=readNavChoice(localStorage.getItem(NAV_CHOICE_KEY));
+  const btn=$('navChoiceBtn'); if(!btn)return;
+  const labels={app:'In-app nav', google:'Google Maps', apple:'Apple Maps'};
+  btn.classList.toggle('hidden', !saved);
+  btn.textContent=saved?`Nav: ${labels[saved]}`:'Change nav app';
+}
+function openNavChoice(launch){
+  state.navLaunch=launch;
+  const apple=isAppleDevice(navigator.userAgent, navigator.maxTouchPoints);
+  $('navApple').classList.toggle('hidden', !apple);
+  $('navChoiceMode').textContent=state.routeMode==='walking'?'Walking. Google Maps and Apple Maps use Walk.':'Driving. Google Maps and Apple Maps use Drive.';
+  $('navRemember').checked=Boolean(readNavChoice(localStorage.getItem(NAV_CHOICE_KEY)));
+  $('navChoice').classList.remove('hidden');
+}
+function closeNavChoice(){$('navChoice').classList.add('hidden')}
+function confirmNavChoice(choice){
+  if($('navRemember').checked)localStorage.setItem(NAV_CHOICE_KEY, choice);
+  else localStorage.removeItem(NAV_CHOICE_KEY);
+  const launch=state.navLaunch;
+  closeNavChoice();
+  syncNavChoiceButton();
+  if(launch)runNavChoice(choice);
+  else toast($('navRemember').checked?`Saved. Next routes use ${choice==='app'?'in-app navigation':choice==='apple'?'Apple Maps':'Google Maps'}.`:'Next routes will ask again.');
+}
+async function startRoute(){
+  if(!state.routeStops?.length){await optimizeAndDrawRoute();if(!state.routeStops?.length)return}
+  const saved=readNavChoice(localStorage.getItem(NAV_CHOICE_KEY));
+  if(saved){runNavChoice(saved);return}
+  openNavChoice(true);
+}
+function runNavChoice(choice){
+  if(choice==='google'){openGoogleRouteBlocks();return}
+  if(choice==='apple'){openAppleRoute();return}
+  beginInAppNav();
+}
+function beginInAppNav(){
+  if(!state.routeStops?.length){toast('Build a route first.');return}
+  if(!navigator.geolocation){$('routeTrayNote').textContent='This browser cannot share location. Use Google Maps for turn-by-turn.';toast('Location is unavailable. Open Google Maps instead.');return}
+  if(state.navWatch!=null)navigator.geolocation.clearWatch(state.navWatch);
+  state.navigating=true;state.navIndex=0;state.navFollow=true;state.navPrompted='';state.navLegStop='';state.navLegFrom=null;state.navLegGeometry=null;
+  if(state.userMarker){state.userMarker.remove();state.userMarker=null}
+  $('navBar').classList.remove('hidden');
+  $('routeTray').classList.add('isNavHidden');
+  $('navAppleLeg').classList.toggle('hidden', !isAppleDevice(navigator.userAgent, navigator.maxTouchPoints));
+  syncRecenterButton();
+  $('navTitle').textContent='Next stop';
+  $('navMeta').textContent='Waiting for location…';
+  state.navWatch=navigator.geolocation.watchPosition(onNavPosition, onNavError, {enableHighAccuracy:true, maximumAge:2000, timeout:15000});
+}
+function endNavigation(message){
+  if(state.navWatch!=null&&navigator.geolocation)navigator.geolocation.clearWatch(state.navWatch);
+  state.navWatch=null;state.navigating=false;state.navLegGeometry=null;
+  clearNavLayers();
+  $('navBar')?.classList.add('hidden');
+  $('routeTray')?.classList.remove('isNavHidden');
+  if(message)toast(message);
+}
+function onNavError(err){
+  const denied=err&&err.code===1;
+  const message=denied?'Location is blocked. Allow it in the browser, or use Google Maps.':'Location is unavailable right now. You can still open Google Maps.';
+  if($('navMeta'))$('navMeta').textContent=message;
+  if($('routeTrayNote'))$('routeTrayNote').textContent=message;
+  toast(message);
+}
+function onNavPosition(pos){
+  if(!state.navigating||!state.map)return;
+  const here={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy,heading:pos.coords.heading};
+  state.currentLocation=here;
+  const stop=state.routeStops[state.navIndex];
+  if(!stop){endNavigation('Route complete.');return}
+  const meters=metersBetween(here, stop);
+  drawNavOverlay();
+  if(state.navLegStop!==stop.id||!state.navLegFrom||metersBetween(here, state.navLegFrom)>30){
+    state.navLegStop=stop.id;state.navLegFrom={lat:here.lat,lng:here.lng};loadNavLeg(here, stop);
+  }else updateNavReadout(stop, state.navLegMeters, state.navLegSeconds, !state.navLegGeometry);
+  if(arrivedAtStop(here, stop)&&state.navPrompted!==stop.id){
+    state.navPrompted=stop.id;openDoorSheet(stop.id);
+    toast(`You're within ${ARRIVAL_METERS} m. Mark this door, and the route moves to the next stop.`);
+  }else if(state.navPrompted===stop.id&&meters>ARRIVAL_METERS+25)state.navPrompted='';
+  if(state.navFollow)state.map.panTo([here.lat, here.lng],{animate:true});
+}
+let navLegToken=0;
+async function loadNavLeg(here, stop){
+  const token=++navLegToken;
+  const meters=metersBetween(here, stop);
+  state.navLegMeters=meters;state.navLegSeconds=etaSeconds(meters, state.routeMode);state.navLegGeometry=null;
+  updateNavReadout(stop, meters, state.navLegSeconds, true);
+  try{
+    const r=await fetch('/api/route',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:osrmProfile(state.routeMode),service:'route',coordinates:[{lat:here.lat,lng:here.lng},{lat:Number(stop.lat),lng:Number(stop.lng)}]})});
+    const data=await r.json();
+    if(!r.ok||token!==navLegToken||!state.navigating)throw new Error(data.error||'Route leg failed');
+    state.navLegGeometry=data.geometry||null;
+    state.navLegMeters=Number(data.distance)||meters;
+    state.navLegSeconds=Number(data.duration)||state.navLegSeconds;
+    updateNavReadout(stop, state.navLegMeters, state.navLegSeconds, false);
+    drawNavOverlay();
+  }catch{if(token===navLegToken)drawNavOverlay()}
+}
+function updateNavReadout(stop, meters, seconds, estimate){
+  $('navTitle').textContent=`Next · ${stop.address||'Stop'} · ${state.navIndex+1} of ${state.routeStops.length}`;
+  const mode=state.routeMode==='walking'?'walk':'drive';
+  $('navMeta').textContent=`${fmtDistance((Number(meters)||0)/1609.344)} · ${fmtDuration(seconds)} ${mode}${estimate?' · estimate':''}`;
+}
+function clearNavLayers(){(state.navLayers||[]).forEach(layer=>{try{layer.remove()}catch{}});state.navLayers=[]}
+function drawNavOverlay(){
+  if(!state.map||!state.navigating)return;
+  clearNavLayers();
+  const here=state.currentLocation;
+  const stop=state.routeStops[state.navIndex];
+  if(here&&Number.isFinite(Number(here.lat))&&Number.isFinite(Number(here.lng))){
+    const radius=Math.max(8, Math.min(250, Number(here.accuracy)||30));
+    const circle=L.circle([here.lat, here.lng],{radius, color:'#1e6bff', weight:1, fillColor:'#1e6bff', fillOpacity:.18}).addTo(state.map);
+    const dot=L.circleMarker([here.lat, here.lng],{radius:8, color:'#fff', weight:3, fillColor:'#1e6bff', fillOpacity:1}).addTo(state.map);
+    state.navLayers.push(circle, dot);
+    if(Number.isFinite(Number(here.heading))){
+      const rad=Number(here.heading)*Math.PI/180; const reach=28;
+      const dLat=(reach*Math.cos(rad))/111320;
+      const dLng=(reach*Math.sin(rad))/(111320*Math.cos(Number(here.lat)*Math.PI/180));
+      state.navLayers.push(L.polyline([[here.lat, here.lng],[here.lat+dLat, here.lng+dLng]],{color:'#1e6bff', weight:5, opacity:.95}).addTo(state.map));
+    }
+  }
+  if(stop&&isCoords(stop)){
+    state.navLayers.push(L.circleMarker([Number(stop.lat), Number(stop.lng)],{radius:16, color:'#1e6bff', weight:3, fillColor:'#1e6bff', fillOpacity:.15}).addTo(state.map));
+    if(here){
+      if(state.navLegGeometry)state.navLayers.push(L.geoJSON(state.navLegGeometry,{style:{color:'#1e6bff', weight:6, opacity:.92}}).addTo(state.map));
+      else state.navLayers.push(L.polyline([[here.lat, here.lng],[Number(stop.lat), Number(stop.lng)]],{color:'#1e6bff', weight:5, opacity:.9}).addTo(state.map));
+    }
+  }
+}
+function syncRecenterButton(){const btn=$('navRecenter');if(!btn)return;btn.textContent=state.navFollow?'Following':'Recenter';btn.classList.toggle('isOn', state.navFollow)}
+function recenterNav(){state.navFollow=true;syncRecenterButton();if(state.currentLocation&&state.map)state.map.setView([state.currentLocation.lat, state.currentLocation.lng], Math.max(state.map.getZoom(),17))}
+function openExternalLeg(kind){
+  const stop=state.routeStops[state.navIndex];
+  if(!stop){toast('No stop left on this route.');return}
+  if(kind==='apple'){openAppleRoute([stop]);return}
+  window.open(googleDirectionsUrl(state.currentLocation, stop, state.routeMode),'_blank','noopener');
+}
+function advanceNavStop(){
+  if(!state.navigating)return;
+  state.navIndex+=1;state.navPrompted='';state.navLegStop='';state.navLegGeometry=null;
+  const stop=state.routeStops[state.navIndex];
+  if(!stop){endNavigation('Route complete.');return}
+  closeDoorSheet();
+  toast(`Next stop · ${stop.address}`);
+  if(state.currentLocation)onNavPosition({coords:{latitude:state.currentLocation.lat,longitude:state.currentLocation.lng,accuracy:state.currentLocation.accuracy,heading:state.currentLocation.heading}});
+}
+function maybeAdvanceNav(id){
+  if(!state.navigating)return;
+  const stop=state.routeStops[state.navIndex];
+  if(stop&&stop.id===id)advanceNavStop();
+}
 
 function haversine(lat1,lon1,lat2,lon2){const R=3958.7613,rad=Math.PI/180;const dLat=(lat2-lat1)*rad,dLon=(lon2-lon1)*rad;const a=Math.sin(dLat/2)**2+Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(a))}
 

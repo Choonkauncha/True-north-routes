@@ -8,7 +8,7 @@ UX upgrades include a map-first shell, the official True North logo, focus-map m
 
 The header, sign-in screens, and favicon use the official full badge in `brand/true-north-full-logo.png`. Pages load `brand/logo-full.webp`. Phone headers use the compass-and-roof crop in `brand/logo-emblem.webp`.
 
-Map-first canvassing operations for Vercel. The supplied dataset contains **12,410 leads** (1,100 CSV + 11,310 Knox owner-occupied records).
+Map-first canvassing operations for Vercel. The supplied dataset contains **17,232 leads**. The manifest records a Knox walk-list total of **16,136**, with coordinates on 17,177 houses.
 
 ## What changed
 
@@ -21,7 +21,7 @@ Map-first canvassing operations for Vercel. The supplied dataset contains **12,4
 - Active storm alerts from the National Weather Service. This is a **current warning layer**, not a historical hail-damage archive.
 - Appointment handoff queue for salesperson transfer.
 - 7-day canvasser leaderboard based on recorded field activity.
-- Admin/manager tools to seed the 12,410 source rows, initialize territories, run batch geocoding, load storm alerts, and export lead state.
+- Admin/manager tools to seed the source rows, initialize territories, run batch geocoding, load storm alerts, and export lead state.
 - Local device fallback is retained for testing, but it is not shared between reps.
 
 ## One-time setup (fresh project)
