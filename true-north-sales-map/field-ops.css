@@ -1,4 +1,4 @@
-.tnFieldOps{display:inline-flex;align-items:center;gap:8px}
+.tnFieldOps{display:inline-flex;align-items:center;gap:8px;transition:opacity .2s ease,transform .2s ease,visibility 0s linear}
 .tnClockBtn,.tnMsgBtn,.tnShiftsLink{
   min-height:44px;min-width:44px;border-radius:12px;padding:8px 14px;border:0;cursor:pointer;
   font-weight:800;font-size:15px;text-decoration:none;position:relative;line-height:1.1;
@@ -80,8 +80,13 @@
 }
 body.sheet-open .tnFieldOps,
 body:has(#doorSheet.open) .tnFieldOps,
-body:has(.doorSheet.open) .tnFieldOps{
-  display:none !important;
+body:has(.doorSheet.open) .tnFieldOps,
+body:has(#toast.show #toastActions:not(.hidden):not([hidden])) .tnFieldOps,
+body:has(#toast.show .toastActions:not(.hidden):not([hidden])) .tnFieldOps{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .2s ease,transform .2s ease,visibility 0s linear .2s;
 }
 @media(max-width:700px){
   .brandRibbon{display:none !important}
@@ -104,6 +109,21 @@ body:has(.doorSheet.open) .tnFieldOps{
   .tnShiftLayout{grid-template-columns:1fr}
   .tnShiftMap{height:68vh}
   .tnPhoneHide{display:none!important}
-  .tnToast,.toast.show{bottom:132px}
+  .tnToast{bottom:132px}
+  body.sheet-open .tnFieldOps,
+  body:has(#doorSheet.open) .tnFieldOps,
+  body:has(.doorSheet.open) .tnFieldOps,
+  body:has(#toast.show #toastActions:not(.hidden):not([hidden])) .tnFieldOps,
+  body:has(#toast.show .toastActions:not(.hidden):not([hidden])) .tnFieldOps{
+    transform:translateY(16px);
+  }
   body:has(.tnFieldOps) .container{padding-bottom:96px}
+}
+@media(prefers-reduced-motion:reduce){
+  .tnFieldOps,
+  body.sheet-open .tnFieldOps,
+  body:has(#doorSheet.open) .tnFieldOps,
+  body:has(.doorSheet.open) .tnFieldOps,
+  body:has(#toast.show #toastActions:not(.hidden):not([hidden])) .tnFieldOps,
+  body:has(#toast.show .toastActions:not(.hidden):not([hidden])) .tnFieldOps{transition:none}
 }

@@ -44,19 +44,12 @@ function ensureCss() {
 }
 
 function toast(message) {
-  const mapToast = document.querySelector('#toast.toast');
-  if (mapToast) {
-    mapToast.textContent = message;
-    mapToast.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => mapToast.classList.remove('show'), 2800);
-    return;
-  }
   let node = document.getElementById('tnToast');
   if (!node) {
     node = document.createElement('div');
     node.id = 'tnToast';
     node.className = 'tnToast';
+    node.setAttribute('role', 'status');
     document.body.appendChild(node);
   }
   node.textContent = message;
