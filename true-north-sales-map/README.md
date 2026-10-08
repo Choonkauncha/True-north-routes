@@ -2,11 +2,11 @@
 
 ## Brand + UX refresh (v2.1)
 
-The command center now uses the internal True North training brand system: True North Navy `#132B3A`, Safety Orange `#E5722A`, Slate `#3E4E59`, and Field Gray `#F3F5F6`, with the training line “Inspect Honestly. Document Clearly. Earn the Job.” The brand guide describes the voice as local, straightforward, informed, low-pressure, and accountable.
+The command center uses the official full badge on deep navy `#0c1424` and electric blue `#1e6bff`, with Slate `#3E4E59` and Field Gray `#F3F5F6`. The training line stays “Inspect Honestly. Document Clearly. Earn the Job.” The brand guide describes the voice as local, straightforward, informed, low-pressure, and accountable.
 
 UX upgrades include a map-first shell, the official True North logo, focus-map mode, keyboard shortcuts (`/`, `N`, `R`, `L`), live cloud refresh via Supabase Realtime, quick field-result actions, a persistent route tray, mobile field controls, richer priority/distance/territory metadata, toast feedback, and improved map controls.
 
-The header, sign-in screens, and favicon use the official True North Restorations logo in `brand/true-north-logo.png`.
+The header, sign-in screens, and favicon use the official full badge in `brand/true-north-full-logo.png`. Pages load `brand/logo-full.webp`. Phone headers use the compass-and-roof crop in `brand/logo-emblem.webp`.
 
 Map-first canvassing operations for Vercel. The supplied dataset contains **12,410 leads** (1,100 CSV + 11,310 Knox owner-occupied records).
 

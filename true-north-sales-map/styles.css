@@ -1,8 +1,8 @@
 :root{
-  --navy:#132B3A;
-  --navy-2:#0D202B;
-  --orange:#E5722A;
-  --orange-soft:#FFF0E7;
+  --navy:#0c1424;
+  --navy-2:#070b14;
+  --orange:#1e6bff;
+  --orange-soft:#e8f0ff;
   --slate:#3E4E59;
   --field:#F3F5F6;
   --white:#FFFFFF;
@@ -28,11 +28,13 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 /* BRAND / SHELL */
 .topbar{height:68px;background:linear-gradient(90deg,var(--navy-2),var(--navy));color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:1002;position:relative;box-shadow:0 4px 20px rgba(10,27,36,.28);border-bottom:3px solid var(--orange)}
 .brand{display:flex;gap:12px;align-items:center;min-width:0}
-.logoMark{width:38px;height:38px;border-radius:10px;display:block;object-fit:cover;flex:none}
-.logoMark.big{width:72px;height:72px;margin:0 0 8px;border-radius:16px}
+.logoFull{height:56px;width:auto;display:block;flex:none;object-fit:contain}
+.logoMark{display:none;width:36px;height:36px;object-fit:contain;flex:none}
+.brandWords{display:none}
+.signInLogo{display:block;width:min(320px,88%);height:auto;margin:0 auto 16px}
 .brandName{font-size:12px;font-weight:900;letter-spacing:2.2px;white-space:nowrap}.brandName span{font-weight:650;letter-spacing:1.1px;opacity:.72}
 .brandSub{font-size:8px;letter-spacing:1.7px;color:#b9c6cc;margin-top:2px;white-space:nowrap}
-.topRight{display:flex;align-items:center;gap:7px}.chip{border:1px solid rgba(255,255,255,.22);padding:7px 10px;border-radius:999px;font-size:9px;letter-spacing:1px}.chip.live{background:var(--orange);color:#fff;border-color:var(--orange)}.chip.local{background:#314852;color:#fff}.datasetCount{font-size:10px;color:#b6c3ca}.ghostBtn,.primaryBtn,.adminBtn,.userMenu button{border-radius:9px;padding:9px 11px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;cursor:pointer;font-weight:800;font-size:11px}.ghostBtn:hover,.adminBtn:hover{background:rgba(255,255,255,.07)}.primaryBtn{background:var(--orange);border-color:var(--orange);box-shadow:0 5px 16px rgba(229,114,42,.28)}.primaryBtn:hover{filter:brightness(1.04)}.primaryBtn kbd{border-color:rgba(19,43,58,.22);background:rgba(19,43,58,.1);color:#fff}.adminBtn{background:rgba(255,255,255,.08)}.userMenu{display:flex;gap:6px;align-items:center;font-size:10px}.userMenu button{padding:7px 8px}
+.topRight{display:flex;align-items:center;gap:7px}.chip{border:1px solid rgba(255,255,255,.22);padding:7px 10px;border-radius:999px;font-size:9px;letter-spacing:1px}.chip.live{background:var(--orange);color:#fff;border-color:var(--orange)}.chip.local{background:#314852;color:#fff}.datasetCount{font-size:10px;color:#b6c3ca}.ghostBtn,.primaryBtn,.adminBtn,.userMenu button{border-radius:9px;padding:9px 11px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;cursor:pointer;font-weight:800;font-size:11px}.ghostBtn:hover,.adminBtn:hover{background:rgba(255,255,255,.07)}.primaryBtn{background:var(--orange);border-color:var(--orange);box-shadow:0 5px 16px rgba(30,107,255,.28)}.primaryBtn:hover{filter:brightness(1.04)}.primaryBtn kbd{border-color:rgba(19,43,58,.22);background:rgba(19,43,58,.1);color:#fff}.adminBtn{background:rgba(255,255,255,.08)}.userMenu{display:flex;gap:6px;align-items:center;font-size:10px}.userMenu button{padding:7px 8px}
 .cloudNotice{position:fixed;top:71px;left:0;right:0;z-index:1000;background:#fff4cd;color:#66521d;border-bottom:1px solid #e4d69c;padding:8px 16px;font-size:11px}
 .quickLinkBtn{color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.28);border-radius:9px;padding:9px 11px;font-weight:800;font-size:11px;white-space:nowrap}
 .quickLinkBtn:hover{background:rgba(255,255,255,.07)}
@@ -115,7 +117,7 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 .doorStatus:active{transform:scale(.985)}
 .doorStatus:disabled{opacity:.55}
 .doorSheetFull{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;border:0;background:transparent;color:#4d6070;font-size:15px;font-weight:800;cursor:pointer}
-.doorSheetBook{display:flex;align-items:center;justify-content:center;min-height:56px;border-radius:14px;background:var(--orange);color:#fff;font-size:18px;font-weight:900;text-decoration:none;letter-spacing:.2px;box-shadow:0 8px 18px rgba(229,114,42,.35);touch-action:manipulation}
+.doorSheetBook{display:flex;align-items:center;justify-content:center;min-height:56px;border-radius:14px;background:var(--orange);color:#fff;font-size:18px;font-weight:900;text-decoration:none;letter-spacing:.2px;box-shadow:0 8px 18px rgba(30,107,255,.35);touch-action:manipulation}
 .doorSheetBook:hover{filter:brightness(1.04)}
 .doorSheetBook:active{transform:scale(.985)}
 .doorStatus:focus-visible,.doorSheetBook:focus-visible,.doorSheetClose:focus-visible,.doorSheetFull:focus-visible,#toastUndo:focus-visible,#toastNext:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
@@ -152,7 +154,9 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 @media(max-width:960px){
   .brandRibbon,.topRight>a.quickLinkBtn,.chip,.topRight .ghostBtn,.adminBtn,.brandSub{display:none!important}
   .topbar{height:48px;padding:0 10px}
-  .logoMark{width:32px;height:32px}
+  .logoFull{display:none}
+  .logoMark,.brandWords{display:block}
+  .logoMark{width:32px;height:32px;object-fit:contain}
   .brandName{font-size:11px;letter-spacing:1.2px}
   .brandSub{display:none}
   .cloudNotice{position:relative;top:auto;left:auto;right:auto}
