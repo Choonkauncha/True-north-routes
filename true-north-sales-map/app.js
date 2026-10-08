@@ -15,7 +15,7 @@ const state={
   filters:{q:'',status:'',rep:'',territory:'',source:'',mine:false},
   layerFlags:{pins:true,density:false,opportunity:true,roofAge:false,storms:false,territories:true},
   routeMode:'driving', busy:false, config:null, realtimeChannel:null, refreshTimer:null,
-  doorLeadId:null, doorSaving:false
+  doorLeadId:null, doorSaving:false, doorUndo:null
 };
 
 const $=id=>document.getElementById(id);
@@ -90,6 +90,9 @@ function bindStaticEvents(){
   $('doorSheetClose').onclick=closeDoorSheet;
   $('doorSheetScrim').onclick=closeDoorSheet;
   $('doorSheetFull').onclick=()=>{const id=state.doorLeadId; closeDoorSheet(); if(id) openLead(id);};
+  $('toastUndo').onclick=undoDoorStatus;
+  $('toastNext').onclick=()=>openNextHouse(state.doorUndo?.id);
+  bindDoorSwipe();
   const onDoorMedia=()=>{if(!state.map)return; closeDoorSheet(); refreshMapLayers();};
   if(doorSheetMedia.addEventListener) doorSheetMedia.addEventListener('change',onDoorMedia);
   else doorSheetMedia.addListener(onDoorMedia);
@@ -359,6 +362,7 @@ async function quickStatus(id,status,continueNext=false){
 
 function openDoorSheet(id){
   const l=state.leads.find(x=>x.id===id); if(!l)return;
+  dismissDoorToast();
   state.doorLeadId=id;
   state.doorSaving=false;
   state.map?.closePopup();
@@ -375,15 +379,21 @@ function openDoorSheet(id){
   $('doorSheetActions').innerHTML=DOOR_STATUSES.map(status=>`<button type="button" class="doorStatus doorStatus-${statusClass(status)}${s===status?' isCurrent':''}" data-door-status="${esc(status)}" aria-pressed="${s===status?'true':'false'}"><span class="doorStatusDot" aria-hidden="true"></span><span>${esc(status)}</span></button>`).join('');
   $('doorSheetActions').querySelectorAll('[data-door-status]').forEach(btn=>{btn.onclick=()=>applyDoorStatus(l.id,btn.dataset.doorStatus);});
   const sheet=$('doorSheet');
+  const card=$('doorSheetCard');
+  card.style.transform='';
+  card.style.transition='';
   clearTimeout(openDoorSheet._t);
   sheet.classList.remove('hidden');
   sheet.setAttribute('aria-hidden','false');
   sheet.getBoundingClientRect();
   sheet.classList.add('open');
-  $('doorSheetClose').focus();
+  requestAnimationFrame(()=>panPinAboveSheet(l));
 }
 function closeDoorSheet(){
   const sheet=$('doorSheet'); if(!sheet||sheet.classList.contains('hidden'))return;
+  const card=$('doorSheetCard');
+  card.style.transform='';
+  card.style.transition='';
   sheet.classList.remove('open');
   sheet.setAttribute('aria-hidden','true');
   state.doorLeadId=null;
@@ -391,10 +401,95 @@ function closeDoorSheet(){
   clearTimeout(openDoorSheet._t);
   openDoorSheet._t=setTimeout(()=>{if(!sheet.classList.contains('open'))sheet.classList.add('hidden');},240);
 }
+function panPinAboveSheet(l){
+  if(!state.map||!isCoords(l))return;
+  const card=$('doorSheetCard');
+  const mapRect=state.map.getContainer().getBoundingClientRect();
+  const cardTop=window.innerHeight-(card?.offsetHeight||Math.round(window.innerHeight*0.5));
+  let bandBottom=Math.min(mapRect.bottom, cardTop)-18;
+  const panel=document.querySelector('.sidePanel');
+  if(panel){
+    const pr=panel.getBoundingClientRect();
+    if(getComputedStyle(panel).display!=='none'&&pr.height>40&&pr.width>mapRect.width*0.7&&pr.top<bandBottom)bandBottom=Math.min(bandBottom, pr.top-12);
+  }
+  const bandTop=mapRect.top+48;
+  if(bandBottom<bandTop+28)bandBottom=cardTop-18;
+  const targetY=bandTop+Math.max(0, bandBottom-bandTop)*0.55;
+  const pin=state.map.latLngToContainerPoint([Number(l.lat),Number(l.lng)]);
+  const dy=(mapRect.top+pin.y)-targetY;
+  if(Math.abs(dy)>8)state.map.panBy([0,dy],{animate:true,duration:.28});
+}
+function bindDoorSwipe(){
+  const card=$('doorSheetCard');
+  let startY=null, dragging=false;
+  card.addEventListener('pointerdown',e=>{
+    if(e.button>0)return;
+    if(!e.target.closest('.doorSheetHead')||e.target.closest('button'))return;
+    startY=e.clientY; dragging=true;
+    card.style.transition='none';
+    card.setPointerCapture?.(e.pointerId);
+  });
+  card.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    const dy=Math.max(0,e.clientY-startY);
+    card.style.transform=`translateY(${dy}px)`;
+  });
+  const end=e=>{
+    if(!dragging)return;
+    const dy=e.clientY-startY;
+    dragging=false; startY=null;
+    if(dy>70){
+      card.style.transition='transform .2s ease';
+      card.style.transform='translateY(110%)';
+      const sheet=$('doorSheet');
+      sheet.classList.remove('open');
+      sheet.setAttribute('aria-hidden','true');
+      state.doorLeadId=null;
+      state.doorSaving=false;
+      clearTimeout(openDoorSheet._t);
+      openDoorSheet._t=setTimeout(()=>{card.style.transition='';card.style.transform='';if(!sheet.classList.contains('open'))sheet.classList.add('hidden');},220);
+      return;
+    }
+    card.style.transition='';
+    card.style.transform='';
+  };
+  card.addEventListener('pointerup',end);
+  card.addEventListener('pointercancel',end);
+}
+function nearestUnknocked(from){
+  if(!from||!isCoords(from))return null;
+  let best=null, bestD=Infinity;
+  for(const l of state.leads){
+    if(l.id===from.id||!isCoords(l)||leadStatus(l)!=='New')continue;
+    const d=haversine(Number(from.lat),Number(from.lng),Number(l.lat),Number(l.lng));
+    if(d<bestD){best=l; bestD=d;}
+  }
+  return best;
+}
+function openNextHouse(fromId){
+  const from=state.leads.find(x=>x.id===fromId);
+  const next=nearestUnknocked(from);
+  dismissDoorToast();
+  if(!next){toast('No un-knocked houses left nearby.');return;}
+  state.map?.setView([Number(next.lat),Number(next.lng)],18,{animate:false});
+  openDoorSheet(next.id);
+}
+async function undoDoorStatus(){
+  const pending=state.doorUndo; if(!pending)return;
+  state.doorUndo=null;
+  $('toastActions').classList.add('hidden');
+  const l=state.leads.find(x=>x.id===pending.id);
+  if(!l||leadStatus(l)!==pending.to){toast('That door already changed.');return;}
+  try{await persistLeadPatch(l,{status:pending.from});}
+  catch{return;}
+  renderAll();
+  toast(`Restored · ${pending.from}`);
+}
 async function applyDoorStatus(id,status){
   const l=state.leads.find(x=>x.id===id); if(!l||state.doorSaving)return;
   if(!DOOR_STATUSES.includes(status))return;
-  if(leadStatus(l)===status){renderAll();closeDoorSheet();toast(`Already ${status} · ${l.address}`);return;}
+  const previous=leadStatus(l);
+  if(previous===status){renderAll();closeDoorSheet();toast(`Already ${status} · ${l.address}`);return;}
   state.doorSaving=true;
   const buttons=[...$('doorSheetActions').querySelectorAll('button')];
   buttons.forEach(b=>{b.disabled=true;});
@@ -406,7 +501,22 @@ async function applyDoorStatus(id,status){
   state.doorSaving=false;
   renderAll();
   closeDoorSheet();
-  toast(`${status} · ${l.address}`);
+  toastDoorResult(l, previous, status);
+}
+function toastDoorResult(lead, fromStatus, toStatus){
+  const el=$('toast'); if(!el)return;
+  $('toastText').textContent=`${toStatus} · ${lead.address}`;
+  $('toastActions').classList.remove('hidden');
+  state.doorUndo={id:lead.id, from:fromStatus, to:toStatus};
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>{el.classList.remove('show'); $('toastActions').classList.add('hidden'); state.doorUndo=null;},5000);
+}
+function dismissDoorToast(){
+  clearTimeout(toast._t);
+  $('toast')?.classList.remove('show');
+  $('toastActions')?.classList.add('hidden');
+  state.doorUndo=null;
 }
 
 async function persistLeadPatch(l,patch){
@@ -617,7 +727,20 @@ async function loadStorms(showAlert=true){
   }catch(e){if(showAlert)alert(`Storm layer unavailable: ${e.message}`);else console.warn(e)}
 }
 
-function locate(){if(!navigator.geolocation){alert('Browser location is unavailable.');return}navigator.geolocation.getCurrentPosition(pos=>{state.currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};if(state.userMarker)state.userMarker.remove();state.userMarker=L.marker([pos.coords.latitude,pos.coords.longitude]).addTo(state.map).bindPopup('You are here').openPopup();state.map.setView([pos.coords.latitude,pos.coords.longitude],15);renderWorkList()},()=>alert('Location permission was not granted.'))}
+function locate(){
+  if(document.visibilityState==='hidden')return;
+  if(!navigator.geolocation){alert('Browser location is unavailable.');return}
+  const token=++locate._seq;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    if(document.visibilityState==='hidden'||token!==locate._seq||!state.map)return;
+    state.currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    if(state.userMarker)state.userMarker.remove();
+    state.userMarker=L.marker([pos.coords.latitude,pos.coords.longitude]).addTo(state.map).bindPopup('You are here').openPopup();
+    state.map.setView([pos.coords.latitude,pos.coords.longitude],16);
+    renderWorkList();
+  },()=>alert('Location permission was not granted.'),{enableHighAccuracy:true,maximumAge:0,timeout:10000});
+}
+locate._seq=0;
 
 function updateSelectedBadge(){const n=state.selected.size;$('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n;$('routeTray').classList.toggle('hidden',n===0)}
 
@@ -629,8 +752,14 @@ function exportLeads(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='true-north-sales-map-export.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
-function toast(message){
-  const el=$('toast'); if(!el)return; el.textContent=message; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),2600);
+function toast(message, ms=2600){
+  const el=$('toast'); if(!el)return;
+  $('toastText').textContent=message;
+  $('toastActions').classList.add('hidden');
+  state.doorUndo=null;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>el.classList.remove('show'), ms);
 }
 
 function startRealtime(){

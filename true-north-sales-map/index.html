@@ -49,25 +49,31 @@
 <div id="drawer" class="drawer hidden"><div class="drawerCard"><button class="closeBtn" id="closeDrawer" aria-label="Close lead">×</button><div id="drawerContent"></div></div></div>
 <div id="doorSheet" class="doorSheet hidden" role="dialog" aria-modal="true" aria-labelledby="doorSheetAddress" aria-hidden="true">
   <button type="button" class="doorSheetScrim" id="doorSheetScrim" aria-label="Close door sheet"></button>
-  <div class="doorSheetCard">
-    <div class="doorSheetBody">
-      <div class="doorSheetGrab" aria-hidden="true"></div>
+  <div class="doorSheetCard" id="doorSheetCard">
+    <div class="doorSheetHead">
+      <div class="doorSheetGrab" id="doorSheetGrab" aria-hidden="true"></div>
       <button type="button" class="doorSheetClose" id="doorSheetClose" aria-label="Close">×</button>
       <div class="eyebrow">THIS DOOR</div>
       <h2 id="doorSheetAddress"></h2>
       <p id="doorSheetName" class="doorSheetName"></p>
       <p id="doorSheetPlace" class="doorSheetPlace"></p>
       <div class="doorSheetNow"><span>Current status</span><span id="doorSheetStatus" class="status"></span></div>
-      <div id="doorSheetActions" class="doorSheetActions" role="group" aria-label="Door status"></div>
-      <button type="button" id="doorSheetFull" class="doorSheetFull">Full record</button>
     </div>
     <div class="doorSheetFooter">
+      <div id="doorSheetActions" class="doorSheetActions" role="group" aria-label="Door status"></div>
+      <button type="button" id="doorSheetFull" class="doorSheetFull">Full record</button>
       <a id="doorSheetBook" class="doorSheetBook" href="/setter.html">Book Inspection</a>
     </div>
   </div>
 </div>
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
-<div id="mobileBar" class="mobileBar"><button id="mobileNext">Next</button><button id="mobileRoute">Route <span id="mobileRouteCount">0</span></button><button id="mobileLocate">Locate</button></div>
+<div id="toast" class="toast" role="status" aria-live="polite">
+  <p id="toastText"></p>
+  <div id="toastActions" class="toastActions hidden">
+    <button type="button" id="toastUndo">Undo</button>
+    <button type="button" id="toastNext">Next house</button>
+  </div>
+</div>
+<div id="mobileBar" class="mobileBar"><button id="mobileNext">Next</button><button id="mobileRoute">Route <span id="mobileRouteCount">0</span></button><button id="mobileLocate">Locate me</button></div>
 
 <div id="routePanel" class="modalOverlay hidden"><div class="modalCard routeCard"><button class="closeBtn" id="closeRoute">×</button><div class="eyebrow">ROUTE BUILDER</div><h2>Turn selected houses into a route.</h2><p class="muted">The optimizer orders all mapped selections. Google Maps opens in navigation-sized blocks after the route is built.</p><div class="routeControls"><label>Travel mode<select id="routeMode"><option value="driving">Drive</option><option value="walking">Walk</option></select></label><label>Max stops<input id="routeCount" type="range" min="5" max="80" value="25"><span id="routeCountValue">25</span></label></div><div class="routeSummary"><span><b id="selectedCountRoute">0</b> selected</span><span id="routeDistance"></span><span id="routeWarning"></span></div><div id="routeStops" class="routeStops"></div><div class="modalActions"><button id="optimizeRouteBtn" class="darkBtn">Optimize route</button><button id="openGoogleRouteBtn" class="outlineBtn">Open in Google Maps</button></div></div></div>
 
