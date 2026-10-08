@@ -1,6 +1,7 @@
 .tnFieldOps{display:inline-flex;align-items:center;gap:8px;transition:opacity .2s ease,transform .2s ease,visibility 0s linear}
-/* Invalid when --list-sheet-peek is unset, so the phone bar keeps today's bottom. */
-:root{--tn-list-bottom:calc(var(--list-sheet-peek) + env(safe-area-inset-bottom, 0px) + 8px)}
+/* Invalid when --list-sheet-peek is unset, so the phone bar keeps today's bottom.
+   The peek value is already a distance from the screen bottom, with no safe-area inset. */
+:root{--tn-list-bottom:calc(var(--list-sheet-peek) + 8px)}
 .tnClockBtn,.tnMsgBtn,.tnShiftsLink{
   min-height:44px;min-width:44px;border-radius:12px;padding:8px 14px;border:0;cursor:pointer;
   font-weight:800;font-size:15px;text-decoration:none;position:relative;line-height:1.1;
@@ -105,23 +106,21 @@ body:has(#toast.show .toastActions:not(.hidden):not([hidden])) .tnFieldOps{
   :root{--tn-clock-bottom:calc(10px + env(safe-area-inset-bottom))}
   body:has(#mobileBar){--tn-clock-bottom:62px}
   .tnFieldOps{
-    position:fixed;z-index:1600;left:8px;right:8px;display:flex;gap:8px;
+    position:fixed;z-index:1660;left:8px;right:8px;display:flex;gap:8px;
     bottom:var(--tn-list-bottom, var(--tn-clock-bottom));
     transition:opacity .2s ease,transform .2s ease,bottom .2s ease,visibility 0s linear
   }
+  html.tn-chrome-stack .tnFieldOps{bottom:var(--tn-chrome-bottom)}
   html.tn-list-half .tnFieldOps,html.tn-list-full .tnFieldOps{
     bottom:var(--tn-list-half-bottom, var(--tn-list-bottom, var(--tn-clock-bottom)))
   }
-  body:has(.tnFieldOps) .mapLegend,body:has(.tnFieldOps) .routeTray{
-    bottom:calc(var(--tn-list-bottom, var(--tn-clock-bottom)) + 70px)
-  }
-  html.tn-list-half .mapLegend,html.tn-list-half .routeTray{bottom:calc(var(--tn-list-half-bottom) + 70px)}
   .tnClockBtn{flex:1;min-height:56px;font-size:18px;border-radius:14px}
   .tnMsgBtn,.tnShiftsLink{min-height:56px;min-width:108px;padding:8px 14px;font-size:16px;border-radius:14px;background:#132B3A;color:#fff;border:0;box-shadow:0 8px 18px rgba(19,43,58,.28)}
   .tnShiftLayout{grid-template-columns:1fr}
   .tnShiftMap{height:68vh}
   .tnPhoneHide{display:none!important}
   .tnToast{bottom:calc(var(--tn-list-bottom, var(--tn-clock-bottom)) + 70px)}
+  html.tn-chrome-stack .tnToast{bottom:calc(var(--tn-chrome-bottom) + 70px)}
   html.tn-list-half .tnToast,html.tn-list-full .tnToast{
     bottom:calc(var(--tn-list-half-bottom, var(--tn-list-bottom, var(--tn-clock-bottom))) + 70px)
   }

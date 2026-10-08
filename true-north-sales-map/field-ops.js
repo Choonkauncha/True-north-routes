@@ -209,59 +209,92 @@ function syncSheetClass() {
   }
 }
 
+function setRootVar(name, value) {
+  const style = document.documentElement.style;
+  if (!value) {
+    if (style.getPropertyValue(name)) style.removeProperty(name);
+    return;
+  }
+  if (style.getPropertyValue(name) !== value) style.setProperty(name, value);
+}
+
+function elementShown(el) {
+  if (!el || el.hidden || el.classList.contains('hidden')) return false;
+  const style = getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  const box = el.getBoundingClientRect();
+  return box.width > 0 && box.height > 0;
+}
+
+function tallestShownTop(selector) {
+  let top = null;
+  document.querySelectorAll(selector).forEach(el => {
+    if (!elementShown(el)) return;
+    const edge = el.getBoundingClientRect().top;
+    if (top === null || edge < top) top = edge;
+  });
+  return top;
+}
+
 function syncListSheet() {
   const root = document.documentElement;
   const sheet = document.getElementById('listSheet');
   const phone = window.matchMedia('(max-width: 700px)').matches;
-  if (!sheet || !phone) {
-    root.classList.remove('tn-list-half', 'tn-list-full');
-    root.style.removeProperty('--tn-list-half-bottom');
+  if (!phone) {
+    root.classList.remove('tn-list-half', 'tn-list-full', 'tn-chrome-stack');
+    setRootVar('--tn-list-half-bottom', '');
+    setRootVar('--tn-chrome-bottom', '');
     return;
   }
-  if (sheet.classList.contains('sheet-full')) {
+  if (sheet?.classList.contains('sheet-full')) {
     root.classList.add('tn-list-full');
-    root.classList.remove('tn-list-half');
+    root.classList.remove('tn-list-half', 'tn-chrome-stack');
+    setRootVar('--tn-chrome-bottom', '');
     return;
   }
   root.classList.remove('tn-list-full');
-  if (!sheet.classList.contains('sheet-half')) {
-    root.classList.remove('tn-list-half');
-    root.style.removeProperty('--tn-list-half-bottom');
+  if (sheet?.classList.contains('sheet-half')) {
+    const top = sheet.getBoundingClientRect().top;
+    const room = window.innerHeight - top;
+    root.classList.remove('tn-chrome-stack');
+    setRootVar('--tn-chrome-bottom', '');
+    if (room < 48) return;
+    if (top < 72) {
+      root.classList.remove('tn-list-half');
+      root.classList.add('tn-list-full');
+      return;
+    }
+    setRootVar('--tn-list-half-bottom', `${Math.round(room + 8)}px`);
+    root.classList.add('tn-list-half');
     return;
   }
-  const top = sheet.getBoundingClientRect().top;
-  const room = window.innerHeight - top;
-  if (room < 48) return;
-  if (top < 72) {
-    root.classList.remove('tn-list-half');
-    root.classList.add('tn-list-full');
+  root.classList.remove('tn-list-half');
+  setRootVar('--tn-list-half-bottom', '');
+  const chromeTop = tallestShownTop('.mapLegend, .routeTray');
+  if (chromeTop === null) {
+    root.classList.remove('tn-chrome-stack');
+    setRootVar('--tn-chrome-bottom', '');
     return;
   }
-  root.style.setProperty('--tn-list-half-bottom', `${Math.round(room + 8)}px`);
-  root.classList.add('tn-list-half');
+  setRootVar('--tn-chrome-bottom', `${Math.round(window.innerHeight - chromeTop + 8)}px`);
+  root.classList.add('tn-chrome-stack');
 }
 
 function watchListSheet() {
-  let observed = null;
-  let resizeObserver = null;
+  const seen = new WeakSet();
+  const resizeObserver = new ResizeObserver(syncListSheet);
+  const watchNode = node => {
+    if (!node || seen.has(node)) return;
+    seen.add(node);
+    resizeObserver.observe(node);
+    new MutationObserver(syncListSheet).observe(node, {
+      attributes: true,
+      attributeFilter: ['class', 'style', 'hidden']
+    });
+  };
   const attach = () => {
-    const sheet = document.getElementById('listSheet');
-    if (!sheet) {
-      observed = null;
-      resizeObserver?.disconnect();
-      resizeObserver = null;
-      syncListSheet();
-      return;
-    }
-    if (sheet === observed) {
-      syncListSheet();
-      return;
-    }
-    observed = sheet;
-    resizeObserver?.disconnect();
-    resizeObserver = new ResizeObserver(syncListSheet);
-    resizeObserver.observe(sheet);
-    new MutationObserver(syncListSheet).observe(sheet, { attributes: true, attributeFilter: ['class'] });
+    watchNode(document.getElementById('listSheet'));
+    document.querySelectorAll('.mapLegend, .routeTray').forEach(watchNode);
     syncListSheet();
   };
   attach();
@@ -269,10 +302,19 @@ function watchListSheet() {
     const hit = mutations.some(mutation => {
       if (mutation.type === 'attributes' && mutation.target?.id === 'listSheet') return true;
       const nodes = [...mutation.addedNodes, ...mutation.removedNodes];
-      return nodes.some(node => node.nodeType === 1 && (node.id === 'listSheet' || node.querySelector?.('#listSheet')));
+      return nodes.some(node => node.nodeType === 1 && (
+        node.id === 'listSheet'
+        || node.classList?.contains('mapLegend')
+        || node.classList?.contains('routeTray')
+        || node.querySelector?.('#listSheet, .mapLegend, .routeTray')
+      ));
     });
     if (hit) attach();
   }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['id'] });
+  new MutationObserver(syncListSheet).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['style']
+  });
   window.addEventListener('resize', syncListSheet);
 }
 
