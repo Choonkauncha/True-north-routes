@@ -1,4 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import './field-ops.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -652,7 +653,10 @@ async function persistLeadPatch(l,patch){
     const payload={...normalized,updated_at:nowISO(),updated_by:state.currentRep.id};
     const {error}=await state.supabase.from('leads').update(payload).eq('id',l.id);
     if(error){alert(error.message);throw error;}
-    if(normalized.status&&previous!==normalized.status)await logActivity(l.id,'status_changed',{from_status:previous,to_status:normalized.status});
+    if(normalized.status&&previous!==normalized.status){
+      await logActivity(l.id,'status_changed',{from_status:previous,to_status:normalized.status});
+      window.TrueNorthField?.captureDoorStatus?.({leadId:l.id,status:normalized.status});
+    }
   }else{
     const meta=JSON.parse(localStorage.getItem('tnrc2:leadsMeta')||'{}'); meta[l.id]={status:l.status,owner:leadOwnerName(l),notes:l.notes||''}; localStorage.setItem('tnrc2:leadsMeta',JSON.stringify(meta)); saveLocal(l,meta[l.id]);
     if(normalized.status&&previous!==normalized.status)localAppendActivity({lead_id:l.id,actor_id:'local',action:'status_changed',metadata:{from_status:previous,to_status:normalized.status},created_at:nowISO()});
@@ -773,6 +777,7 @@ async function saveAppointmentFromForm(e){e.preventDefault();
     await logActivity(l.id,'appointment_booked',{scheduled_at:data.scheduled_at,salesperson_id:data.salesperson_id});
     const {error}=await state.supabase.from('leads').update({status:'Appointment',updated_at:nowISO(),updated_by:state.currentRep.id}).eq('id',l.id);if(error){alert(error.message);return}
     l.status='Appointment';
+    window.TrueNorthField?.captureDoorStatus?.({leadId:l.id,status:'Appointment'});
   }else{
     const id=$('appId').value||`local-${Date.now()}`;const rec={...data,id,salesperson_name:state.reps.find(r=>r.id===data.salesperson_id)?.name||''};const idx=state.appointments.findIndex(a=>a.id===id);if(idx>=0)state.appointments[idx]=rec;else state.appointments.push(rec);localStorage.setItem('tnrc2:appointments',JSON.stringify(state.appointments));l.status='Appointment';localAppendActivity({lead_id:l.id,actor_id:'local',action:'appointment_booked',metadata:{scheduled_at:data.scheduled_at},created_at:nowISO()});
   }

@@ -3,7 +3,8 @@
   "rewrites": [
     {"source":"/homeowner","destination":"/homeowner.html"},
     {"source":"/setter","destination":"/setter.html"},
-    {"source":"/admin","destination":"/admin.html"}
+    {"source":"/admin","destination":"/admin.html"},
+    {"source":"/shifts","destination":"/shifts.html"}
   ],
   "headers": [
     {"source":"/data/(.*)","headers":[{"key":"Cache-Control","value":"public, max-age=86400, stale-while-revalidate=604800"}]},
