@@ -9,6 +9,8 @@ import { readLeadCache, writeLeadCache } from './lib/lead-store.js';
 import { LEAD_OVERLAY_COLUMNS, LEAD_OVERLAY_OR, STATIC_LEAD_SOURCES, mergeLeadOverlay, pageRanges } from './lib/lead-sync.js';
 import { STREET_ZOOM, clusterLeads, pinDiff, sampleHeat } from './lib/pin-layer.js';
 import { HAIL_MILES, WARNING_COLORS, housesInStorm, readStormCache, reportMarkerText, writeStormCache } from './lib/storm-maps.js';
+import { readSavedLayers, resolveLayers, writeSavedLayers } from './lib/map-layers.js';
+import { bindAreaDraw } from './area-draw.js';
 import { roleLabel } from './lib/field-rules.js';
 import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/account-rules.js';
 
@@ -28,7 +30,7 @@ const state={
   stormPack:null, stormHouseIds:null, stormToken:0, radarLayers:[], radarTimer:null, radarSignature:'', warningLayer:null, warningSignature:'', reportLayer:null, reportSignature:'',
   routeLine:null, userMarker:null, routeStops:[], currentLocation:null,
   filters:{q:'',status:'',rep:'',territory:'',source:'',mine:false},
-  layerFlags:{pins:true,density:false,opportunity:true,roofAge:false,radar:false,warnings:true,reports:true,territories:true},
+  layerFlags:{pins:true,density:false,opportunity:true,roofAge:false,radar:false,warnings:false,reports:false,territories:false},
   routeMode:'driving', busy:false, config:null, realtimeChannel:null, refreshTimer:null,
   doorLeadId:null, doorSaving:false, doorUndo:null,
   homeArea:true, didFit:false, listSnap:'sheet-collapsed', pinBannerDismissed:false,
@@ -41,6 +43,7 @@ const state={
 };
 
 const $=id=>document.getElementById(id);
+let areaDraw=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=n=>Number(n||0).toLocaleString();
 const nowISO=()=>new Date().toISOString();
@@ -55,6 +58,7 @@ let cloudToken='';
 let cloudFlight=null;
 let weatherApiPromise;
 function weatherApi(){ weatherApiPromise ||= import('./weather-widget.js'); return weatherApiPromise; }
+function closeWeather(options){ weatherApi().then(mod=>mod.setWeatherOpen(false, options)).catch(()=>{}); }
 function deferFieldTools(){
   if(state.toolsDeferred) return;
   state.toolsDeferred=true;
@@ -116,9 +120,10 @@ function bindStaticEvents(){
   $('focusBtn').onclick=toggleMapFocus; $('fitBtn').onclick=fitFilteredLeads;
   $('closeDrawer').onclick=closeDrawer;
   $('closeAdmin').onclick=()=>$('adminModal').classList.add('hidden');
-  $('tabWork').onclick=()=>switchTab('work');
-  $('tabHandoffs').onclick=()=>switchTab('handoffs');
-  $('tabTeam').onclick=()=>switchTab('team');
+  $('tabHandoffs').onclick=()=>switchTab('handoffs',{toggle:true});
+  $('tabTeam').onclick=()=>switchTab('team',{toggle:true});
+  $('filterBtn').onclick=()=>setFilterOpen($('filterPanel').hidden);
+  $('mapInfoToggle').onclick=()=>setInfoOpen($('mapInfoPanel').hidden);
   $('adminBtn').onclick=(e)=>{ if(canOpenManagement({email:state.user?.email, rep:state.currentRep, adminEmails:state.config?.adminEmails})) return; e.preventDefault(); };
   $('postSignInContinue')?.addEventListener('click', ()=>$('postSignIn').classList.add('hidden'));
   $('locateBtn').onclick=locate;
@@ -144,14 +149,46 @@ function bindStaticEvents(){
   document.addEventListener('click',e=>{
     if(!$('layerMenu').contains(e.target)&&e.target!==$('layerBtn'))$('layerMenu').classList.remove('open');
     if(!$('mapLegend').contains(e.target)&&e.target!==$('legendKey')){$('mapLegend').classList.remove('isOpen');$('legendKey').setAttribute('aria-expanded','false');}
+    if($('filterPanel')&&!$('filterPanel').hidden&&!$('filterPanel').contains(e.target)&&e.target!==$('filterBtn')&&!$('filterBtn').contains(e.target))setFilterOpen(false);
+    if($('mapInfoPanel')&&!$('mapInfoPanel').hidden&&!$('mapInfo').contains(e.target))setInfoOpen(false);
   });
+  document.addEventListener('tn-close-popovers',e=>{
+    if(e.detail!=='filters')setFilterOpen(false);
+    if(e.detail!=='info')setInfoOpen(false);
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Escape')return;
+    setFilterOpen(false);
+    setInfoOpen(false);
+  });
+  const savedLayers=readSavedLayers(localStorage);
+  const layers=resolveLayers(savedLayers);
   document.querySelectorAll('[data-layer]').forEach(el=>{
-    state.layerFlags[el.dataset.layer]=el.checked;
+    const id=el.dataset.layer;
+    if(Object.prototype.hasOwnProperty.call(layers,id))el.checked=layers[id];
+    state.layerFlags[id]=!!el.checked;
     el.addEventListener('change',()=>{
-      state.layerFlags[el.dataset.layer]=el.checked;
-      if(el.dataset.layer==='radar'||el.dataset.layer==='warnings'||el.dataset.layer==='reports')syncStormOverlays();
+      state.layerFlags[id]=el.checked;
+      try{writeSavedLayers(localStorage,state.layerFlags);}catch{}
+      if(id==='radar'||id==='warnings'||id==='reports')syncStormOverlays();
       else refreshMapLayers();
     });
+  });
+  areaDraw=bindAreaDraw({
+    getMap:()=>state.map,
+    getLeads:()=>state.filtered,
+    scoreLead,
+    getStart:()=>state.currentLocation,
+    toast,
+    onDrawing(on){
+      if(!on)return;
+      setFilterOpen(false);
+      setInfoOpen(false);
+      closeWeather({persist:false});
+      $('layerMenu')?.classList.remove('open');
+      if(useDoorSheet())setListSheet('sheet-collapsed');
+    },
+    onRoute:applyAreaRoute
   });
   $('stormHousesBtn').onclick=housesInStormArea;
   $('routeMode').addEventListener('change',e=>setRouteMode(e.target.value));
@@ -751,6 +788,7 @@ function renderNow(fit=true){
     renderHandoffs();
     renderTeam();
     updateListSummary();
+    updateFilterBadge();
   });
 }
 
@@ -1075,6 +1113,7 @@ function setHomeArea(on){
   $('allOhioBtn').setAttribute('aria-pressed',!state.homeArea?'true':'false');
   fitMapToScope(true);
   updateListSummary();
+  updateFilterBadge();
 }
 function canManagePins(){return ['admin','manager'].includes(state.currentRep?.role);}
 function updatePinBanner(){
@@ -1090,13 +1129,66 @@ function updatePinBanner(){
     if(canvas&&overlay)el.style.top=`${Math.round(overlay.bottom-canvas.top+8)}px`;
   }else el.style.top='';
 }
+function compactCount(n){
+  const value=Number(n)||0;
+  if(value<1000)return String(value);
+  if(value<10000)return `${(value/1000).toFixed(1).replace(/\.0$/,'')}k`;
+  return `${Math.round(value/1000)}k`;
+}
 function updateListSummary(){
-  const el=$('listSheetSummary'); if(!el)return;
   const n=state.filtered.length;
   const ranked=state.listRows&&state.listRows.length===state.filtered.length?state.listRows:state.filtered;
   const next=state.homeArea?(ranked.find(l=>isHomeLead(l)&&scoreLead(l)>-100)||ranked.find(l=>!isCoords(l))||ranked[0]):ranked.find(l=>scoreLead(l)>-100)||ranked[0];
   const label=`${fmt(n)} house${n===1?'':'s'}`;
-  el.textContent=next?.address?`${label} · Next: ${next.address}`:label;
+  const nextLabel=next?.address?`Next: ${next.address}`:'';
+  const count=$('mapInfoCount'); if(count)count.textContent=label;
+  const nextEl=$('mapInfoNext'); if(nextEl)nextEl.textContent=nextLabel;
+  const badge=$('mapInfoBadge');
+  if(badge){badge.hidden=false;badge.textContent=compactCount(n);}
+  const toggle=$('mapInfoToggle');
+  if(toggle)toggle.setAttribute('aria-label',nextLabel?`${label}. ${nextLabel}`:label);
+}
+function activeFilterCount(){
+  let n=0;
+  if(!state.homeArea)n++;
+  if($('territoryFilter')?.value)n++;
+  if($('repFilter')?.value)n++;
+  if($('statusFilter')?.value)n++;
+  if($('sourceFilter')?.value)n++;
+  if($('mineToggle')?.checked)n++;
+  return n;
+}
+function updateFilterBadge(){
+  const badge=$('filterBadge');
+  const btn=$('filterBtn');
+  if(!badge||!btn)return;
+  const n=activeFilterCount();
+  badge.hidden=n===0;
+  badge.textContent=String(n);
+  btn.setAttribute('aria-label',n?`Filters, ${n} active`:'Filters');
+}
+function setFilterOpen(open){
+  const panel=$('filterPanel');
+  const btn=$('filterBtn');
+  if(!panel||!btn)return;
+  const on=!!open;
+  panel.hidden=!on;
+  btn.setAttribute('aria-expanded',on?'true':'false');
+  if(!on)return;
+  setInfoOpen(false);
+  closeWeather();
+  $('layerMenu')?.classList.remove('open');
+  $('mapLegend')?.classList.remove('isOpen');
+  $('legendKey')?.setAttribute('aria-expanded','false');
+}
+function setInfoOpen(open){
+  const panel=$('mapInfoPanel');
+  const btn=$('mapInfoToggle');
+  if(!panel||!btn)return;
+  const on=!!open;
+  panel.hidden=!on;
+  btn.setAttribute('aria-expanded',on?'true':'false');
+  if(on){setFilterOpen(false);closeWeather();}
 }
 function setListSheet(snap){
   const sheet=$('listSheet'); if(!sheet)return;
@@ -1116,10 +1208,20 @@ function setListSheet(snap){
 }
 function publishListPeek(){
   const root=document.documentElement;
-  if(!useDoorSheet()){root.style.setProperty('--list-sheet-peek','0px');return;}
+  if(!useDoorSheet()){root.style.setProperty('--list-sheet-peek','0px');liftMapChrome();return;}
   const h=Math.round($('listSheetGrab')?.getBoundingClientRect().height||52);
   const bottom=getComputedStyle(root).getPropertyValue('--list-sheet-bottom').trim()||'78px';
   root.style.setProperty('--list-sheet-peek',`calc(${h}px + ${bottom})`);
+  liftMapChrome();
+}
+function liftMapChrome(){
+  const tray=$('routeTray');
+  let height=0;
+  if(tray){
+    const style=getComputedStyle(tray);
+    if(style.display!=='none')height=Math.round(tray.getBoundingClientRect().height);
+  }
+  document.documentElement.style.setProperty('--route-tray-space',`${height+8}px`);
 }
 function syncListMode(){setListSheet(useDoorSheet()?(state.listSnap||'sheet-collapsed'):'sheet-collapsed');syncListOverlay();}
 function listOverlayOpen(){return $('doorSheet')?.classList.contains('open')||($('toast')?.classList.contains('show')&&!$('toastActions')?.classList.contains('hidden'));}
@@ -1423,6 +1525,7 @@ async function fetchRoadRoute(start,stops){
     $('routeDistance').textContent=`${summary} · road-network optimized`;
     $('routeTrayStats').textContent=summary;
   }catch(e){state.routeGeometry=null;drawRoutePreview();$('routeDistance').textContent=`Road router unavailable · ≈ ${fmtDistance(routeHaversineDistance(start,stops))}`;$('routeTrayStats').textContent=`≈ ${fmtDistance(routeHaversineDistance(start,stops))} straight line`;console.warn(e)}
+  liftMapChrome();
 }
 function routeHaversineDistance(start,stops){let total=0,cur=start;for(const p of stops){total+=haversine(cur.lat,cur.lng,p.lat,p.lng);cur=p}return total}
 function fmtDistance(miles){const n=Number(miles||0);return n<10?`${n.toFixed(1)} mi`:`${Math.round(n)} mi`}
@@ -1492,7 +1595,18 @@ async function copyCurrentHandoff(){
   try{await navigator.clipboard.writeText(text);$('copyHandoffBtn').textContent='Copied';setTimeout(()=>$('copyHandoffBtn').textContent='Copy handoff',1200)}catch{alert(text)}
 }
 
-function switchTab(tab){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));$('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');['workPanel','handoffPanel','teamPanel'].forEach(id=>$(id).classList.add('hidden'));$(tab==='work'?'workPanel':tab==='handoffs'?'handoffPanel':'teamPanel').classList.remove('hidden')}
+function switchTab(tab,{toggle=false}={}){
+  const btn=tab==='handoffs'||tab==='team'?$('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)):null;
+  const panel=tab==='handoffs'?$('handoffPanel'):tab==='team'?$('teamPanel'):null;
+  const wasOpen=!!btn?.classList.contains('active');
+  document.querySelectorAll('.mapInfoTabs .tab').forEach(x=>x.classList.remove('active'));
+  $('handoffPanel')?.classList.add('hidden');
+  $('teamPanel')?.classList.add('hidden');
+  if(!panel||(toggle&&wasOpen))return;
+  setInfoOpen(true);
+  btn?.classList.add('active');
+  panel.classList.remove('hidden');
+}
 
 function openAdmin(){
   $('adminModal').classList.remove('hidden');
@@ -1668,6 +1782,7 @@ async function loadStorms(){
   const box=document.querySelector('[data-layer="warnings"]');
   if(box)box.checked=true;
   state.layerFlags.warnings=true;
+  try{writeSavedLayers(localStorage,state.layerFlags);}catch{}
   await ensureStormMaps(true);
   const count=state.stormPack?.warnings?.length||0;
   toast(count?`Showing ${fmt(count)} warning areas.`:'No active warning areas right now.');
@@ -1713,6 +1828,7 @@ function updateSelectedBadge(){
   $('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n;
   updateRouteTraySummary();
   if(shouldExpandRouteTray(prev,n))setRouteTrayCollapsed(false);
+  else liftMapChrome();
 }
 function readRouteTrayCollapsed(){
   let saved=null;
@@ -1735,6 +1851,26 @@ function setRouteTrayCollapsed(collapsed,{persist=true}={}){
   if(btn)btn.setAttribute('aria-expanded',on?'false':'true');
   if(persist){try{localStorage.setItem(ROUTE_TRAY_KEY,on?'1':'0');}catch{}}
   updateRouteTraySummary();
+  liftMapChrome();
+}
+function applyAreaRoute(result){
+  const stops=result?.stops||[];
+  state.selected.clear();
+  stops.forEach(lead=>state.selected.add(lead.id));
+  state.routeStops=stops.slice();
+  const note=result?.capped
+    ?`Route stop limit is ${ROUTE_STOP_LIMIT}. Queued ${fmt(stops.length)} houses; ${fmt(result.leftOut)} more in the area stayed off this route.`
+    :(stops.length?`${fmt(stops.length)} houses inside the drawn area are on this route.`:'No actionable houses inside that area.');
+  $('routeTrayNote').textContent=note;
+  $('routeWarning').textContent=result?.capped?note:'';
+  toast(note);
+  updateSelectedBadge();
+  refreshSelectedMarkers();
+  renderWorkList();
+  setRouteTrayCollapsed(false);
+  if(!stops.length){state.routeGeometry=null;drawRoutePreview(false);return;}
+  const start=state.currentLocation||{lat:Number(stops[0].lat),lng:Number(stops[0].lng)};
+  fetchRoadRoute(start,stops);
 }
 function openRouteFromChrome(){
   setRouteTrayCollapsed(false);
@@ -1772,6 +1908,7 @@ function selectVisibleForRoute(){
 }
 function clearRoute(){
   endNavigation('');
+  areaDraw?.clearArea();
   state.selected.clear();state.stormHouseIds=null;state.routeStops=[];state.routeGeometry=null;
   $('routeWarning').textContent='';$('routeDistance').textContent='';$('routeTrayStats').textContent='';
   $('routeStops').innerHTML='<div class="empty">No route yet.</div>';

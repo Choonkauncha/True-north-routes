@@ -25,53 +25,69 @@
 <section class="mapShell">
   <div class="mapCanvas"><div id="map"></div>
     <div id="mapLoader" class="mapLoader" role="status" aria-live="polite" aria-busy="true"><p class="mapLoaderSr">Loading the map</p><div class="bootMark"><img class="bootEmblem" src="/brand/logo-emblem.webp" alt="" width="256" height="259"><svg class="bootOutline" viewBox="0 0 256 259" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><path class="bootOutlineTrack" pathLength="100" d="M99.7 0.7 C98.3 2 99 11.7 100.5 13 C101.6 13.9 102 16.4 102 22.5 C102 28.6 101.6 31.1 100.5 32 C99.5 32.8 99 35.1 99 39.1 L99 45 L106.1 45 C112.3 45 113.1 45.2 112.6 46.7 C112.3 47.7 111.6 50.6 110.9 53.2 C109.9 57.5 109.4 58.1 106.1 59 C101.2 60.4 101 60.3 98.9 57.6 C96.6 54.6 91 52.6 86.7 53.3 C84.7 53.5 82.5 53 80.5 51.9 C78.9 50.8 76.9 50 76.1 50 C75.4 50 73.5 48.9 71.8 47.5 C70.2 46.1 68.2 45 67.4 45 C66.6 45 63.5 43.6 60.4 41.9 C55.7 39.2 54.2 38.8 50.2 39.3 C47.6 39.6 37.9 40.8 28.5 41.9 C19.2 43 8.9 44.2 5.8 44.6 L0 45.3 L0 152.1 L0 259 L128 259 L256 259 L256 145.9 L256 32.9 L253.3 34.3 C251.7 35.1 245.8 38.1 240 41 C231.6 45.2 227.9 47.8 221.5 54 C212.5 62.8 208.4 64.4 203.9 60.9 C202.6 59.9 201 59 200.4 59 C199.8 59 197.2 57.9 194.6 56.5 C189 53.5 187.5 53.4 183.5 55.9 C181.8 56.9 178.7 58.3 176.5 59 C174.3 59.7 169.3 62.2 165.4 64.6 C156.7 70 156 70 150.2 64.9 C147.6 62.6 143.5 60 141.1 59.1 C137 57.6 136.5 57.1 135.3 52.5 C133.4 45.1 133.4 45.1 139.8 44.8 L145.5 44.5 L145.8 29.5 C146 17.8 146.4 14.2 147.6 12.9 C148.7 11.7 149 9.6 148.8 5.9 L148.5 0.5 L135.8 0.2 C126.2 0 123 0.2 123 1.2 C123 2.1 122.7 2.1 121.8 1.2 C120.5 -0.1 100.9 -0.6 99.7 0.7 Z"/><path class="bootOutlineTravel" pathLength="100" d="M99.7 0.7 C98.3 2 99 11.7 100.5 13 C101.6 13.9 102 16.4 102 22.5 C102 28.6 101.6 31.1 100.5 32 C99.5 32.8 99 35.1 99 39.1 L99 45 L106.1 45 C112.3 45 113.1 45.2 112.6 46.7 C112.3 47.7 111.6 50.6 110.9 53.2 C109.9 57.5 109.4 58.1 106.1 59 C101.2 60.4 101 60.3 98.9 57.6 C96.6 54.6 91 52.6 86.7 53.3 C84.7 53.5 82.5 53 80.5 51.9 C78.9 50.8 76.9 50 76.1 50 C75.4 50 73.5 48.9 71.8 47.5 C70.2 46.1 68.2 45 67.4 45 C66.6 45 63.5 43.6 60.4 41.9 C55.7 39.2 54.2 38.8 50.2 39.3 C47.6 39.6 37.9 40.8 28.5 41.9 C19.2 43 8.9 44.2 5.8 44.6 L0 45.3 L0 152.1 L0 259 L128 259 L256 259 L256 145.9 L256 32.9 L253.3 34.3 C251.7 35.1 245.8 38.1 240 41 C231.6 45.2 227.9 47.8 221.5 54 C212.5 62.8 208.4 64.4 203.9 60.9 C202.6 59.9 201 59 200.4 59 C199.8 59 197.2 57.9 194.6 56.5 C189 53.5 187.5 53.4 183.5 55.9 C181.8 56.9 178.7 58.3 176.5 59 C174.3 59.7 169.3 62.2 165.4 64.6 C156.7 70 156 70 150.2 64.9 C147.6 62.6 143.5 60 141.1 59.1 C137 57.6 136.5 57.1 135.3 52.5 C133.4 45.1 133.4 45.1 139.8 44.8 L145.5 44.5 L145.8 29.5 C146 17.8 146.4 14.2 147.6 12.9 C148.7 11.7 149 9.6 148.8 5.9 L148.5 0.5 L135.8 0.2 C126.2 0 123 0.2 123 1.2 C123 2.1 122.7 2.1 121.8 1.2 C120.5 -0.1 100.9 -0.6 99.7 0.7 Z"/></svg></div><div class="bootTrack" aria-hidden="true"><span id="bootBar"></span></div><p id="bootText">Loading homes…</p><p id="mapLoaderFact" aria-hidden="true">Most asphalt shingles are rated for about 20 to 30 years. Three-tab shingles usually sit at the shorter end of that range.</p></div>
-    <div class="mapTopOverlay"><div class="mapSearch"><span>⌕</span><input id="search" aria-label="Search leads" placeholder="Search house, owner, street, ZIP, record…"><div class="searchHint"><kbd>/</kbd></div></div><div class="mapTools"><div class="mapScope" role="group" aria-label="Map area"><button type="button" id="homeAreaBtn" class="isOn" aria-pressed="true">Home area</button><button type="button" id="allOhioBtn" aria-pressed="false">All Ohio</button></div><div class="mapToolBtns"><button type="button" id="legendKey" class="mapControl" aria-expanded="false" aria-controls="mapLegend">Key</button><button id="fitBtn" class="mapControl">Fit leads</button><button id="layerBtn" class="mapControl">Layers ▾</button></div></div><div id="layerMenu" class="layerMenu">
+    <div class="mapTopOverlay"><div class="mapSearch"><span>⌕</span><input id="search" aria-label="Search leads" placeholder="Search house, owner, street, ZIP, record…"><div class="searchHint"><kbd>/</kbd></div></div><div class="mapTools"><div class="mapToolBtns"><button type="button" id="filterBtn" class="mapControl mapIconBtn" aria-expanded="false" aria-controls="filterPanel" aria-label="Filters"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span id="filterBadge" class="countBadge" hidden>0</span></button><button type="button" id="legendKey" class="mapControl" aria-expanded="false" aria-controls="mapLegend">Key</button><button id="fitBtn" class="mapControl">Fit leads</button><button id="layerBtn" class="mapControl">Layers ▾</button></div></div><div id="filterPanel" class="filterPanel" hidden><div class="mapScope" role="group" aria-label="Map area"><button type="button" id="homeAreaBtn" class="isOn" aria-pressed="true">Home area</button><button type="button" id="allOhioBtn" aria-pressed="false">All Ohio</button></div><div class="filterBar">
+      <select id="territoryFilter" aria-label="Territory"><option value="">All territories</option></select><select id="repFilter" aria-label="Rep"><option value="">All reps</option></select>
+      <select id="statusFilter" aria-label="Status"><option value="">All statuses</option><option>New</option><option>Knocked</option><option>No Answer</option><option>Interested</option><option>Appointment</option><option>Not Interested</option><option>Do Not Knock</option></select>
+      <select id="sourceFilter" aria-label="Source"><option value="">All sources</option></select>
+      <label class="mine"><input id="mineToggle" type="checkbox"> My territory</label><button id="clearBtn" class="iconBtn" type="button">Reset</button>
+    </div></div><div id="layerMenu" class="layerMenu">
       <label><input type="checkbox" data-layer="pins" checked> House pins</label>
-      <label><input type="checkbox" data-layer="territories" checked> Territory ownership</label>
+      <label><input type="checkbox" data-layer="territories"> Territory ownership</label>
       <label><input type="checkbox" data-layer="opportunity" checked> Opportunity heat</label>
       <label><input type="checkbox" data-layer="density"> Lead density</label>
       <label><input type="checkbox" data-layer="roofAge"> Roof-age proxy</label>
       <label><input type="checkbox" data-layer="radar"> Live radar</label>
-      <label><input type="checkbox" data-layer="warnings" checked> Warning areas</label>
-      <label><input type="checkbox" data-layer="reports" checked> Storm reports</label>
+      <label><input type="checkbox" data-layer="warnings"> Warning areas</label>
+      <label><input type="checkbox" data-layer="reports"> Storm reports</label>
     </div></div>
     <div class="mapHud"><div class="hudTitle">FIELD BOARD <span>INSPECT HONESTLY · DOCUMENT CLEARLY · EARN THE JOB</span></div><div id="stats" class="stats"></div><div class="hudProgress"><div><b id="todayWorked">0</b><span>worked today</span></div><div><b id="todayAppts">0</b><span>appointments</span></div><div><b id="highPriorityCount">0</b><span>high priority</span></div></div></div>
     <div class="mapLegend" id="mapLegend"><span><i class="legendPin pinNew"></i>New</span><span><i class="legendPin pinKnocked"></i>Knocked</span><span><i class="legendPin pinNoAnswer"></i>No answer</span><span><i class="legendPin pinInterested"></i>Interested</span><span><i class="legendPin pinNot"></i>Not interested</span><span><i class="legendPin pinDnk"></i>Do not knock</span><span><i class="legendPin pinAppt"></i>Appointment</span><span><i class="legendPin pinSelected"></i>Selected</span></div>
-    <div id="weatherStack" class="weatherStack hidden">
-      <div id="weatherAlert" class="weatherAlert" hidden></div>
-      <section id="weatherWidget" class="weatherWidget" aria-label="Weather">
-        <div class="weatherTop"><b id="weatherTemp"></b><div><span id="weatherPlace"></span><span id="weatherNow"></span></div></div>
-        <p id="weatherMeta" class="weatherMeta"></p>
-        <p id="weatherRange" class="weatherRange"></p>
-        <div id="weatherHours" class="weatherHours"></div>
-      </section>
+    <div id="mapInfo" class="mapInfo">
+      <button type="button" id="mapInfoToggle" class="mapIconBtn" aria-expanded="false" aria-controls="mapInfoPanel" aria-label="Houses summary"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="8" r="1.3" fill="currentColor"/><path d="M12 11.2v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span id="mapInfoBadge" class="countBadge" hidden>0</span></button>
+      <div id="mapInfoPanel" class="mapInfoPanel" hidden>
+        <p id="mapInfoCount" class="mapInfoCount">Houses</p>
+        <p id="mapInfoNext" class="mapInfoNext"></p>
+        <span id="workCount" class="srOnly">0</span>
+        <div class="tabs mapInfoTabs" role="group" aria-label="Handoffs and team"><button type="button" id="tabHandoffs" class="tab" aria-controls="handoffPanel">Handoffs <span id="handoffCount">0</span></button><button type="button" id="tabTeam" class="tab" aria-controls="teamPanel">Team <span id="teamCount">0</span></button></div>
+        <section id="handoffPanel" class="tabPanel hidden"><div class="panelIntro"><b>Sales handoff queue</b><span>Booked appointments stay visible to the whole team.</span></div><div id="handoffList" class="scrollList"></div></section>
+        <section id="teamPanel" class="tabPanel hidden"><div class="panelIntro"><b>7-day leaderboard</b><span>Based on recorded field activity.</span></div><div id="teamList" class="scrollList"></div></section>
+      </div>
     </div>
+    <div id="weatherStack" class="weatherStack hidden">
+      <button type="button" id="weatherToggle" class="weatherToggle" aria-expanded="false" aria-controls="weatherPopover" aria-label="Show weather"><svg class="stormIcon" viewBox="0 0 64 64" aria-hidden="true"><path fill="#0c1424" d="M24 42h24.5c5.2 0 9.5-3.8 9.5-8.6 0-4.4-3.4-8-7.9-8.5-.6-6.2-5.8-11-12.1-11-5.4 0-10 3.4-11.5 8.2-5.4.5-9.5 4.8-9.5 10.2C17 38.2 20.2 42 24 42z"/><path fill="#1e6bff" d="M34 30l-8 13h7l-4 13 15-17h-8l5-9z"/><g fill="#1e6bff"><ellipse cx="18" cy="50" rx="2.1" ry="3.4"/><ellipse cx="25" cy="56" rx="2.1" ry="3.4"/><ellipse cx="46" cy="50" rx="2.1" ry="3.4"/><ellipse cx="53" cy="56" rx="2.1" ry="3.4"/></g></svg><span id="weatherBadge" class="weatherBadge" hidden></span></button>
+      <div id="weatherPopover" class="weatherPopover" hidden>
+        <div id="weatherAlert" class="weatherAlert" hidden></div>
+        <section id="weatherWidget" class="weatherWidget" aria-label="Weather">
+          <div class="weatherTop"><b id="weatherTemp"></b><div><span id="weatherPlace"></span><span id="weatherNow"></span></div></div>
+          <p id="weatherMeta" class="weatherMeta"></p>
+          <p id="weatherRange" class="weatherRange"></p>
+          <div id="weatherHours" class="weatherHours"></div>
+        </section>
+      </div>
+    </div>
+    <div id="drawHud" class="drawHud" hidden>
+      <p id="drawHudText">Drag around the houses</p>
+      <button type="button" id="drawClear">Clear</button>
+      <button type="button" id="drawCancel">Cancel</button>
+    </div>
+    <div id="drawCatcher" class="drawCatcher" hidden></div>
     <div id="pinBanner" class="pinBanner hidden" role="status">
       <p id="pinBannerText"></p>
       <button type="button" id="pinBannerAction" class="hidden">Open Admin</button>
       <button type="button" id="pinBannerDismiss" aria-label="Dismiss">×</button>
     </div>
   </div>
-  <aside class="sidePanel sheet-collapsed" id="listSheet">
-    <button type="button" id="listSheetGrab" class="listSheetGrab" aria-controls="listSheet" aria-expanded="false">
+  <aside class="sidePanel sheet-collapsed" id="listSheet" aria-label="Auto-prioritized route">
+    <button type="button" id="listSheetGrab" class="listSheetGrab" aria-controls="listSheet" aria-expanded="false" aria-label="Auto-prioritized route">
       <span class="listSheetHandle" aria-hidden="true"></span>
-      <span id="listSheetSummary" class="listSheetSummary">Houses</span>
+      <span id="listSheetSummary" class="listSheetSummary">Auto-prioritized route</span>
     </button>
     <div class="listSheetBody">
-    <div class="filterBar">
-      <select id="territoryFilter"><option value="">All territories</option></select><select id="repFilter"><option value="">All reps</option></select>
-      <select id="statusFilter"><option value="">All statuses</option><option>New</option><option>Knocked</option><option>No Answer</option><option>Interested</option><option>Appointment</option><option>Not Interested</option><option>Do Not Knock</option></select>
-      <select id="sourceFilter"><option value="">All sources</option></select>
-      <label class="mine"><input id="mineToggle" type="checkbox"> My territory</label><button id="clearBtn" class="iconBtn">Reset</button>
-    </div>
-    <div class="tabs"><button id="tabWork" class="tab active">Work <span id="workCount">0</span></button><button id="tabHandoffs" class="tab">Handoffs <span id="handoffCount">0</span></button><button id="tabTeam" class="tab">Team <span id="teamCount">0</span></button></div>
-    <section id="workPanel" class="tabPanel"><div class="nextCard"><div><div class="eyebrow">AUTO-PRIORITIZED</div><strong>Next best house</strong><p>Uses lead status, source priority, property age, verified roof age, territory ownership, and distance.</p></div><button id="nextCardBtn">Go →</button></div><div id="workList" class="scrollList"><div class="skeletonRow"></div><div class="skeletonRow"></div><div class="skeletonRow"></div><div class="skeletonRow"></div></div></section>
-    <section id="handoffPanel" class="tabPanel hidden"><div class="panelIntro"><b>Sales handoff queue</b><span>Booked appointments stay visible to the whole team.</span></div><div id="handoffList" class="scrollList"></div></section>
-    <section id="teamPanel" class="tabPanel hidden"><div class="panelIntro"><b>7-day leaderboard</b><span>Based on recorded field activity.</span></div><div id="teamList" class="scrollList"></div></section>
+    <section id="workPanel" class="tabPanel"><div class="nextCard"><div><div class="eyebrow">AUTO-PRIORITIZED</div><strong>Next best house</strong><p>Uses lead status, source priority, property age, verified roof age, territory ownership, and distance.</p></div><div class="nextCardActions"><button type="button" id="nextCardBtn">Go →</button><button type="button" id="drawAreaBtn">Draw area</button></div></div><div id="workList" class="scrollList"><div class="skeletonRow"></div><div class="skeletonRow"></div><div class="skeletonRow"></div><div class="skeletonRow"></div></div></section>
     </div>
 </aside>
-<div id="routeTray" class="routeTray"><button type="button" id="routeTrayToggle" class="routeTrayToggle" aria-expanded="true" aria-controls="routeTrayBody"><span id="routeTrayCompact">Route · 0 houses · Drive</span><span class="routeTrayChevron" aria-hidden="true"></span></button><div id="routeTrayBody" class="routeTrayBody"><div class="routeTrayCopy"><strong><span id="routeTrayCount">0</span> houses queued</strong><span id="routeTrayStats"></span><span id="routeTrayNote">Select homes, then build an optimized route.</span></div><div class="routeModeToggle" role="group" aria-label="Travel mode"><button type="button" id="trayDrive" class="isOn" aria-pressed="true">Drive</button><button type="button" id="trayWalk" aria-pressed="false">Walk</button></div><div class="routeTrayActions"><button type="button" id="selectVisibleBtn">Select visible</button><button type="button" id="clearRouteBtn">Clear route</button><button type="button" id="stormHousesBtn">Houses in storm area</button><button type="button" id="routeTrayBtn">Build route</button><button type="button" id="startRouteBtn">Start route</button><button type="button" id="navChoiceBtn" class="hidden">Change nav app</button></div></div></div>
-<div id="navBar" class="navBar hidden" data-mode="Drive"><div class="navBarCopy"><span id="navMode" class="navMode">Drive</span><strong id="navTitle">Next stop</strong><span id="navMeta"></span></div><div class="navBarActions"><button type="button" id="navRecenter">Recenter</button><button type="button" id="navGoogleLeg">Google Maps</button><button type="button" id="navAppleLeg" class="hidden">Apple Maps</button><button type="button" id="navNextStop">Next stop</button><button type="button" id="navEnd">End</button></div></div>
+<div id="routeTray" class="routeTray"><button type="button" id="routeTrayToggle" class="routeTrayToggle" aria-expanded="true" aria-controls="routeTrayBody"><span id="routeTrayCompact">Route · 0 houses · Drive</span><span class="routeTrayChevron" aria-hidden="true"></span></button><div id="routeTrayBody" class="routeTrayBody"><div class="routeTrayCopy"><strong><span id="routeTrayCount">0</span> houses queued</strong><span id="routeTrayStats"></span><span id="routeTrayNote">Select homes, then build an optimized route.</span></div><div class="routeModeToggle" role="group" aria-label="Travel mode"><button type="button" id="trayDrive" class="isOn" aria-pressed="true">Drive</button><button type="button" id="trayWalk" aria-pressed="false">Walk</button></div><div class="routeTrayActions"><button type="button" id="selectVisibleBtn">Select visible</button><button type="button" id="clearRouteBtn">Clear route</button><button type="button" id="drawAreaTrayBtn">Draw area</button><button type="button" id="clearAreaBtn" class="hidden">Clear area</button><button type="button" id="stormHousesBtn">Houses in storm area</button><button type="button" id="routeTrayBtn">Build route</button><button type="button" id="startRouteBtn">Start route</button><button type="button" id="navChoiceBtn" class="hidden">Change nav app</button></div></div></div>
+<div id="navBar" class="navBar hidden" data-mode="Drive"><div class="navBarCopy"><span id="navMode" class="navMode">Drive</span><strong id="navTitle">Next stop</strong><span id="navMeta"></span></div><div class="navBarActions"><button type="button" id="navRecenter">Re-center</button><button type="button" id="navGoogleLeg">Google Maps</button><button type="button" id="navAppleLeg" class="hidden">Apple Maps</button><button type="button" id="navNextStop">Next stop</button><button type="button" id="navEnd">End</button></div></div>
 </section>
 </div>
 

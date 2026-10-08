@@ -305,3 +305,64 @@ html.isNavigating .navBarCopy span{color:#c5d4e8;font-weight:650}
   .navBarActions{grid-template-columns:1fr 1fr}
   .navBarActions button{font-size:13px;padding:8px 6px}
 }
+
+/* Collapsible map chrome: weather, house summary, filters */
+.mapTopOverlay{flex-wrap:wrap}
+.mapSearch{min-width:0;max-width:100%}
+#filterBtn{position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;min-width:44px;height:44px;min-height:44px;padding:0;color:var(--navy)}
+#filterBtn svg,.mapIconBtn svg{width:22px;height:22px;display:block}
+.mapIconBtn,.weatherToggle{position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:1px solid #d7dfe3;border-radius:50%;background:#fff;color:var(--navy);box-shadow:var(--shadow-soft);cursor:pointer}
+.mapIconBtn:focus-visible,.weatherToggle:focus-visible,#filterBtn:focus-visible,#drawAreaBtn:focus-visible,#drawAreaTrayBtn:focus-visible,#drawCancel:focus-visible,#drawClear:focus-visible,#clearAreaBtn:focus-visible{outline:3px solid #1e6bff;outline-offset:2px}
+.countBadge:not([hidden]),.weatherBadge:not([hidden]){position:absolute;display:grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#1e6bff;color:#fff;font-size:10px;font-weight:800;line-height:1}
+.countBadge{top:-4px;right:-4px}
+.weatherBadge{top:auto;bottom:-6px;left:50%;right:auto;transform:translateX(-50%);background:#0c1424}
+.filterPanel,.mapInfoPanel,.weatherPopover{box-sizing:border-box;max-width:calc(100vw - 16px)}
+.filterPanel{position:absolute;z-index:5;top:calc(100% + 8px);left:0;width:min(420px,100%);background:#fff;border:1px solid #d9e0e3;border-radius:14px;padding:10px;box-shadow:var(--shadow);display:grid;gap:8px}
+.filterPanel[hidden],.mapInfoPanel[hidden],.weatherPopover[hidden],.drawHud[hidden],.drawCatcher[hidden]{display:none!important}
+.filterPanel .mapScope{width:100%;height:44px}
+.filterPanel .mapScope button{flex:1;min-height:44px;font-size:15px}
+.filterPanel .filterBar{padding:0;border:0;background:transparent}
+.filterPanel .filterBar select,.filterPanel .iconBtn,.filterPanel .mine{min-height:44px;font-size:16px}
+.filterPanel .mine{padding:0 4px}
+.mapHud{top:132px}
+.mapInfo{position:absolute;z-index:680;top:78px;left:14px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none}
+.mapInfo>*{pointer-events:auto}
+.mapInfoPanel{width:min(340px,calc(100vw - 24px));background:#fff;border:1px solid #d9e0e3;border-radius:14px;padding:12px;box-shadow:var(--shadow);max-height:min(42dvh,360px);overflow:auto}
+.mapInfoCount{margin:0;color:var(--navy);font-size:16px;font-weight:800}
+.mapInfoNext{margin:4px 0 0;color:#3E4E59;font-size:14px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.mapInfoTabs{margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mapInfoTabs .tab{min-height:44px;font-size:14px}
+.mapInfoPanel .scrollList{max-height:220px}
+.mapInfoPanel .panelIntro b{font-size:14px}
+.mapInfoPanel .panelIntro span{font-size:13px}
+.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.weatherStack{top:78px;right:14px;left:auto;width:min(300px,calc(100% - 28px));display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
+.weatherToggle{border-color:#0c1424;background:#fff}
+.weatherToggle .stormIcon{width:30px;height:30px}
+.weatherStack .weatherToggle,.weatherPopover,.weatherWidget,.weatherAlert{pointer-events:auto}
+.weatherPopover{width:100%}
+.nextCardActions{display:flex;flex-direction:column;gap:6px;flex:none}
+.nextCardActions button{min-height:44px;min-width:108px}
+#drawAreaBtn{background:#fff;color:var(--navy);border:1px solid #c5d0d6;border-radius:8px;font-weight:900;font-size:14px;cursor:pointer}
+.routeTray #drawAreaTrayBtn,.routeTray #clearAreaBtn{background:transparent;border:1px solid rgba(255,255,255,.4)}
+.drawHud{position:absolute;z-index:980;top:8px;left:8px;right:8px;display:flex;align-items:center;gap:8px;min-height:52px;padding:6px 8px 6px 14px;border-radius:14px;background:rgba(12,20,36,.96);color:#fff;box-shadow:var(--shadow)}
+.drawHud p{margin:0;flex:1;min-width:0;font-size:15px;font-weight:800}
+.drawHud button{min-height:44px;min-width:76px;border-radius:10px;border:1px solid rgba(255,255,255,.45);background:transparent;color:#fff;font-weight:800;font-size:15px;cursor:pointer}
+#drawCancel{background:#1e6bff;border-color:#1e6bff}
+.drawCatcher{position:absolute;z-index:840;inset:0;touch-action:none;cursor:crosshair;background:transparent}
+body.is-drawing{touch-action:none;overscroll-behavior:none}
+body.is-drawing #routeTray,body.is-drawing #listSheet,body.is-drawing #mobileBar,body.is-drawing .mapTopOverlay,body.is-drawing .mapInfo,body.is-drawing .weatherStack,body.is-drawing .mapHud,body.is-drawing .mapLegend,body.is-drawing .pinBanner{display:none!important}
+@media(max-width:960px){
+  .mapToolBtns{margin-left:0;width:100%;justify-content:flex-end}
+  #filterBtn{margin-right:auto}
+  .mapTopOverlay #layerBtn,#legendKey,#fitBtn,#filterBtn{min-height:44px;height:44px}
+  .mapInfo,.weatherStack{top:112px}
+  .weatherStack{right:8px;left:auto;width:min(300px,calc(100% - 16px))}
+  .mapInfo{left:8px}
+  .mapCanvas .leaflet-bottom{bottom:calc(var(--list-sheet-peek) + var(--route-tray-space, 52px))}
+  .nextCardActions{flex-direction:column}
+}
+@media(prefers-reduced-motion:reduce){
+  .mapControl:hover,.iconBtn:hover{transform:none}
+  .weatherPopover,.mapInfoPanel,.filterPanel,.drawHud,.countBadge,.weatherBadge{transition:none}
+}
