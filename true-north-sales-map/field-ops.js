@@ -211,8 +211,14 @@ function managementAllowed() {
   return Boolean(admin && !admin.classList.contains('hidden'));
 }
 
+function syncHeaderManagement() {
+  const allowed = managementAllowed() || Boolean(state.status?.isAdmin);
+  document.querySelectorAll('a.tnManageLink').forEach((link) => link.classList.toggle('hidden', !allowed));
+}
+
 function syncMoreManagement() {
   const menu = document.getElementById('tnMoreMenu');
+  syncHeaderManagement();
   if (!menu) return;
   const existing = document.getElementById('tnMoreAdmin');
   if (!managementAllowed()) {
@@ -413,6 +419,7 @@ function mountWidget() {
 }
 
 function renderWidget() {
+  syncHeaderManagement();
   const status = state.status;
   const root = document.getElementById('tnFieldOps');
   if (!status || !root) return;

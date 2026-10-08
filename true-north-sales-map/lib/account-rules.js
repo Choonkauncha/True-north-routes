@@ -52,3 +52,42 @@ export function roleLabel(role) {
     salesperson: 'Sales rep'
   }[role] || role;
 }
+
+/** Profile shortcuts. Each one opens /admin already signed in. */
+export const MANAGEMENT_LINKS = Object.freeze([
+  { href: '/admin#accounts', label: 'Accounts', hint: 'Create a setter or sales rep login' },
+  { href: '/admin#team', label: 'Team & roles', hint: 'See who is on the team' },
+  { href: '/admin#files', label: 'Documents', hint: 'Paperwork by property' },
+  { href: '/admin#messages', label: 'Messages from the field', hint: 'Reply to setters and sales reps' },
+  { href: '/admin#builder', label: 'Form library', hint: 'Upload and assign forms' }
+]);
+
+/**
+ * Travis and Spencer stay admin even when the reps row is missing.
+ * That matches the reps_bootstrap_admin trigger. An existing row keeps its
+ * name and id; the role is still admin.
+ */
+export function managementProfile({ email, rep, userId, name } = {}) {
+  const normalized = normalizeEmail(email || rep?.email);
+  if (BOOTSTRAP_ADMIN_EMAILS.includes(normalized)) {
+    return {
+      ...(rep || {}),
+      id: rep?.id || null,
+      user_id: rep?.user_id || userId || null,
+      email: normalized,
+      name: rep?.name || String(name || '').trim() || normalized.split('@')[0],
+      role: 'admin',
+      active: true
+    };
+  }
+  return rep || null;
+}
+
+/** Allow-list first, then admin or manager. An empty list allows every management role. */
+export function canOpenManagement({ email, rep, adminEmails } = {}) {
+  const list = Array.isArray(adminEmails) ? adminEmails.map(normalizeEmail).filter(Boolean) : [];
+  const normalized = normalizeEmail(email || rep?.email);
+  if (list.length && !list.includes(normalized)) return false;
+  const profile = managementProfile({ email: normalized, rep, name: rep?.name });
+  return profile?.role === 'admin' || profile?.role === 'manager';
+}

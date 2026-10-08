@@ -105,6 +105,7 @@ body:has(#toast.show .toastActions:not(.hidden):not([hidden])) .tnFieldOps{
   .tnMoreMenu:not([hidden]){display:block;position:fixed;top:64px;right:8px;z-index:1800;min-width:210px;background:#fff;border-radius:14px;box-shadow:0 16px 40px rgba(19,43,58,.28);overflow:hidden}
   .tnMoreMenu a,.tnMoreMenu button{display:flex;align-items:center;width:100%;min-height:48px;padding:0 16px;border:0;border-bottom:1px solid #E6EBEE;background:#fff;color:#0c1424;font-weight:800;font-size:16px;text-align:left;text-decoration:none;cursor:pointer}
   .tnMoreMenu a:last-child,.tnMoreMenu button:last-child{border-bottom:0}
+  #tnMoreAdmin{background:#0c1424;color:#fff}
   :root{--tn-clock-bottom:calc(10px + env(safe-area-inset-bottom))}
   body:has(#mobileBar){--tn-clock-bottom:62px}
   .tnFieldOps{

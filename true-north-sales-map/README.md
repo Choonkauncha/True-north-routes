@@ -28,7 +28,7 @@ Map-first canvassing operations for Vercel. The supplied dataset contains **17,2
 
 The live project is `https://ztdnpbrhiudklfqzgcbd.supabase.co`. Paste one file, create the first admin in the Auth dashboard, then set the Vercel env vars. Do not put a password in git.
 
-1. Supabase → SQL Editor → New query. Paste the whole file `supabase/setup_all.sql` and run it once. It is idempotent and already ordered: `schema.sql`, then Cam’s `supabase/migrations/20261008_access_clockin.sql`, then `supabase/forms_photos.sql`, then `supabase/accounts.sql` (audit log, role guard, and the first-admin trigger), then `supabase/migrations/20261008_role_form_library.sql`. Regenerate it with `node scripts/build-setup-sql.mjs` if one of those files changes. If the live project already ran the older setup, run only `supabase/migrations/20261008_role_form_library.sql`. Do not apply it from the app.
+1. Supabase → SQL Editor → New query. Paste the whole file `supabase/setup_all.sql` and run it once. It is idempotent and already ordered: `schema.sql`, then Cam’s `supabase/migrations/20261008_access_clockin.sql`, then `supabase/forms_photos.sql`, then `supabase/accounts.sql` (audit log, role guard, and the first-admin trigger), then `supabase/migrations/20261008_role_form_library.sql`, then `supabase/migrations/20261008_document_review.sql`. Regenerate it with `node scripts/build-setup-sql.mjs` if one of those files changes. If the live project already ran the older setup, run `supabase/migrations/20261008_role_form_library.sql` and then `supabase/migrations/20261008_document_review.sql`. Do not apply either file from the app.
 2. Supabase → Authentication → Add user. Create a user with email `travisbishopmackie@gmail.com` or `truenorthrestorationss@gmail.com` and a password you choose. The `reps_bootstrap_admin` trigger inserts an active `public.reps` row with role `admin`. If that Auth user already existed before the SQL ran, the same script’s backfill insert attaches the admin row. Either order works.
 3. Authentication → URL Configuration. Set Site URL to the Vercel app origin, and add that origin, `http://localhost:4173`, and `<origin>/reset-password` to Redirect URLs. “Open as this user” sends a one-time magic link back to `/`. Forgot password sends the reset link to `/reset-password`.
 4. Vercel project Root Directory is `true-north-sales-map`. Environment variables:
@@ -37,7 +37,7 @@ The live project is `https://ztdnpbrhiudklfqzgcbd.supabase.co`. Paste one file, 
    - `SUPABASE_SECRET_KEY` — server-only secret. Used by `/api/accounts` and `/api/homeowner-signup`. Never send it to the browser. `SUPABASE_SERVICE_ROLE_KEY` is the fallback name the account API reads when `SUPABASE_SECRET_KEY` is unset.
    - `ADMIN_EMAILS` — optional. Defaults to `truenorthrestorationss@gmail.com,travisbishopmackie@gmail.com`. This is the sign-in allow-list returned by `/api/config`. The SQL trigger uses those same two addresses and does not read this variable.
 5. Redeploy. Environment-variable changes apply to new deployments.
-6. Open `/admin`, sign in as that admin, and use **Accounts** to create appointment setter, sales rep, and manager logins. Each person opens **My account** (map → More on a phone, or the header link) and changes the initial password.
+6. Open `/admin`, sign in as that admin, and use **Accounts** to create appointment setter, sales rep, and manager logins. The same Accounts action is on the Management dashboard in My account and in the map’s command center. Each person opens **My account** (map → More on a phone, or the header link) and changes the initial password.
 
 ## Cloud setup
 
@@ -129,7 +129,9 @@ Cloud mode requires the Vercel environment variables. Without them, the app load
 - `/admin.html` or `/admin` — gated management dashboard for approved admin/manager users.
 
 ### Admin access
-Admin access is enforced by Supabase Auth plus an allow-list returned by `/api/config`, and then checked against an active `public.reps` profile with role `admin` or `manager`. The two approved email addresses are the default `ADMIN_EMAILS` and the bootstrap trigger. **Do not put the password in source control.** Add the first Auth user in the Supabase dashboard; the trigger writes the admin `reps` row.
+Admin access is enforced by Supabase Auth plus an allow-list returned by `/api/config`, and then checked against an active `public.reps` profile with role `admin` or `manager`. The two approved email addresses are the default `ADMIN_EMAILS` and the bootstrap trigger. If either address is signed in and the `reps` row is missing, the app still treats that login as admin, the same way `reps_bootstrap_admin` does. Removing an address from `ADMIN_EMAILS` still blocks the Management screens. **Do not put the password in source control.** Add the first Auth user in the Supabase dashboard; the trigger writes the admin `reps` row.
+
+Signed-in admins and managers see **Management** on the map header (desktop), at the top of the phone More menu, on My account as a **Management dashboard** card, and on the screen right after they sign in. Setters and sales reps do not. The card links open `/admin` already signed in: Accounts (`/admin#accounts`), Team & roles, Documents, Messages from the field, and Form library. The in-map command center also links to Accounts.
 
 ### Homeowner form
 The public form submits through `POST /api/homeowner-signup`. The Vercel function writes a lead + homeowner intake + activity record using the server-only `SUPABASE_SECRET_KEY`, so the public browser never receives the secret key and does not need direct write access to the shared CRM tables.
@@ -144,14 +146,14 @@ Appointment setters sign in, record the homeowner and property information, capt
 
 ## Photos and forms
 
-Sales reps and admin/managers can attach photos to a house and add a note on each photo. Appointment setters do not get the photo bank. Reps and setters fill only the forms assigned to their role or to them by name. Two starter agreements ship as drafts for sales reps: **Closing / Deal Agreement** and **Contingency Agreement**. They are placeholders. Replace the wording with True North’s own agreements before a homeowner signs anything. An admin can also upload a PDF or image under **Files & Forms** and assign it to all setters, all sales reps, or specific people.
+Sales reps and admin/managers can attach photos to a house and add a note on each photo. Appointment setters do not get the photo bank. Reps and setters fill only the forms assigned to their role or to them by name. Two starter agreements ship as drafts for sales reps: **Closing / Deal Agreement** and **Contingency Agreement**. They are placeholders. Replace the wording with True North’s own agreements before a homeowner signs anything. An admin can also upload a PDF or image under **Documents** and assign it to all setters, all sales reps, or specific people. **Documents** on `/admin` groups intakes, forms, and roof photos by property. Search covers the homeowner, address, person, and form name. Filters cover document type, person, and new or reviewed. Each property opens one timeline, split into Today, This week, and Older.
 
 ### Setup
 
 1. On a fresh project, paste `supabase/setup_all.sql` once. It already includes this step.
-2. If the base schema and Cam’s clock-in migration are already applied, run `supabase/forms_photos.sql` after that migration. It creates `lead_photos`, `form_templates`, and `form_submissions`, turns on row-level security, and creates two private Storage buckets: `lead-photos` and `form-assets`. Then run `supabase/migrations/20261008_role_form_library.sql` so uploaded forms, per-person assignments, and photo-note edits are enforced in the database.
+2. If the base schema and Cam’s clock-in migration are already applied, run `supabase/forms_photos.sql` after that migration. It creates `lead_photos`, `form_templates`, and `form_submissions`, turns on row-level security, and creates two private Storage buckets: `lead-photos` and `form-assets`. Then run `supabase/migrations/20261008_role_form_library.sql` so uploaded forms, per-person assignments, and photo-note edits are enforced in the database. Then run `supabase/migrations/20261008_document_review.sql` so management can mark a document reviewed. Do not apply either file from the app.
 3. The browser uses the publishable key. Signed URLs stay private. Creating logins needs the server secret (see One-time setup).
-4. Sign in on the field map, open a house, and use **Add Photo** or **Fill Form**. Add Photo opens the phone camera. Sales reps can also open `/rep`. Admins manage everything under **Files & Forms** on `/admin` (also at `/files`).
+4. Sign in on the field map, open a house, and use **Add Photo** or **Fill Form**. Add Photo opens the phone camera. Sales reps can also open `/rep`. Admins open **Documents** on `/admin` (also at `/files`). Paperwork is grouped by property with no manual filing.
 
 ### Who can see photos
 

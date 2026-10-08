@@ -5,6 +5,7 @@ import { PASSWORD_UPDATED } from './lib/password-reset.js';
 import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } from './lib/route-picks.js';
 import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
 import { roleLabel } from './lib/field-rules.js';
+import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/account-rules.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -26,7 +27,8 @@ const state={
   doorLeadId:null, doorSaving:false, doorUndo:null,
   homeArea:true, didFit:false, listSnap:'sheet-collapsed', pinBannerDismissed:false,
   listShown:180, listFilterKey:'',
-  navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[]
+  navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[],
+  pendingPostSignIn:false
 };
 
 const $=id=>document.getElementById(id);
@@ -77,7 +79,8 @@ function bindStaticEvents(){
   $('tabWork').onclick=()=>switchTab('work');
   $('tabHandoffs').onclick=()=>switchTab('handoffs');
   $('tabTeam').onclick=()=>switchTab('team');
-  $('adminBtn').onclick=(e)=>{ if(state.currentRep?.role==='admin'||state.currentRep?.role==='manager') return; e.preventDefault(); };
+  $('adminBtn').onclick=(e)=>{ if(canOpenManagement({email:state.user?.email, rep:state.currentRep, adminEmails:state.config?.adminEmails})) return; e.preventDefault(); };
+  $('postSignInContinue')?.addEventListener('click', ()=>$('postSignIn').classList.add('hidden'));
   $('locateBtn').onclick=locate;
   $('clearBtn').onclick=()=>{['search','statusFilter','repFilter','territoryFilter','sourceFilter'].forEach(id=>$(id).value='');$('mineToggle').checked=false;syncFilters();renderAll()};
   $('search').addEventListener('input',debounce(()=>{syncFilters();renderAll()},120));
@@ -169,15 +172,22 @@ async function enterCloud(session){
   $('cloudNotice').classList.add('hidden');
   try{
     await loadCloudData();
-    const adminAllowed=!state.config?.adminEmails?.length || state.config.adminEmails.includes(String(session.user.email||'').toLowerCase()); $('adminBtn').classList.toggle('hidden',!(adminAllowed && (state.currentRep?.role==='admin'||state.currentRep?.role==='manager')));
+    const open=canOpenManagement({email:session.user.email, rep:state.currentRep, adminEmails:state.config?.adminEmails});
+    $('adminBtn').classList.toggle('hidden', !open);
+    if(state.pendingPostSignIn){state.pendingPostSignIn=false; if(open) showPostSignIn();}
     initMapOnce(); buildFilters(); renderAll(); startRealtime();
-  }catch(e){console.error(e);enterLocal(`Cloud connection failed: ${e.message}`)}
+  }catch(e){console.error(e);state.pendingPostSignIn=false;enterLocal(`Cloud connection failed: ${e.message}`)}
 }
 
 async function loadCloudData(){
   const sb=state.supabase;
   state.reps=await fetchAll(()=>sb.from('reps').select('id,user_id,name,role,active').eq('active',true).order('name'));
-  state.currentRep=state.reps.find(r=>r.user_id===state.user.id)||null;
+  state.currentRep=managementProfile({
+    email:state.user?.email,
+    rep:state.reps.find(r=>r.user_id===state.user.id)||null,
+    userId:state.user?.id,
+    name:state.user?.user_metadata?.name||''
+  });
   if(!state.currentRep) throw new Error('Your Supabase account is signed in, but no active rep profile exists yet. Add the user to public.reps.');
   state.territories=await fetchAll(()=>sb.from('territories').select('*').order('name'));
   state.leads=(await fetchAll(()=>sb.from('leads').select('*').order('city').order('address'))).map(normalizeLead);
@@ -202,9 +212,17 @@ function showLogin(){
 }
 function hideLogin(){ $('loginModal').classList.add('hidden'); $('appShell').classList.remove('blurred'); }
 async function login(e){e.preventDefault();if(!state.supabase){return}
+  state.pendingPostSignIn=true;
   $('loginError').textContent='Signing in…';
   const {error}=await state.supabase.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});
-  if(error)$('loginError').textContent=error.message;
+  if(error){state.pendingPostSignIn=false;$('loginError').textContent=error.message}
+}
+function showPostSignIn(){
+  const panel=$('postSignIn'); if(!panel) return;
+  const who=state.currentRep?.name||state.user?.email||'';
+  $('postSignInWho').textContent=who?`${who} is signed in. Management is part of this profile.`:'You are signed in. Management is part of this profile.';
+  $('postSignInLinks').innerHTML=MANAGEMENT_LINKS.map(link=>`<a class="postSignInLink" href="${esc(link.href)}"><b>${esc(link.label)}</b><span>${esc(link.hint||'')}</span></a>`).join('');
+  panel.classList.remove('hidden');
 }
 function showFatal(e){$('workList').innerHTML=`<div class="empty"><b>Could not load command center.</b><br>${esc(e.message)}</div>`}
 
@@ -845,6 +863,11 @@ function switchTab(tab){document.querySelectorAll('.tab').forEach(x=>x.classList
 
 function openAdmin(){
   $('adminModal').classList.remove('hidden');
+  const accounts=$('adminAccountsLink');
+  if(accounts){
+    accounts.href='/admin#accounts';
+    accounts.classList.toggle('hidden', !canOpenManagement({email:state.user?.email, rep:state.currentRep, adminEmails:state.config?.adminEmails}));
+  }
   $('adminCloudStatus').textContent=state.mode==='cloud'?`Connected as ${state.currentRep?.name||state.user?.email}`:'Local device mode';
   $('adminLeadCount').textContent=fmt(state.leads.length); $('adminMappedCount').textContent=fmt(state.leads.filter(isCoords).length); $('adminTerritoryCount').textContent=fmt(state.territories.length);
   renderTerritoryAdmin();

@@ -1,5 +1,6 @@
 import { STARTER_TEMPLATES, formatAddress, normalizeAddressKey } from './logic.js';
 import { cleanPhotoNote } from '../lib/role-access.js';
+import { managementProfile } from '../lib/account-rules.js';
 
 const DB_NAME = 'tn-files-local';
 const PENDING_ID = 'incoming';
@@ -84,7 +85,12 @@ export async function bootFiles() {
 export async function attachSession(ctx, session) {
   ctx.session = session;
   const result = await ctx.sb.from('reps').select('*').eq('user_id', session.user.id).eq('active', true).maybeSingle();
-  ctx.rep = result.data || null;
+  ctx.rep = managementProfile({
+    email: session.user.email,
+    rep: result.data,
+    userId: session.user.id,
+    name: session.user.user_metadata?.name || ''
+  });
   return ctx;
 }
 
@@ -264,15 +270,49 @@ export async function listPhotos(ctx) {
     const rows = await idbAll('photos');
     return rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).map((row) => ({ ...row, url: photoRecordUrl(row), uploader_name: row.uploader_name || 'This phone' }));
   }
-  const { data, error } = await ctx.sb.from('lead_photos').select('id,lead_id,uploaded_by,storage_path,address_snapshot,caption,created_at,uploader:reps!lead_photos_uploaded_by_fkey(id,name,role)').order('created_at', { ascending: false }).limit(500);
-  if (error) throw error;
-  const photos = data || [];
+  const withReview = 'id,lead_id,uploaded_by,storage_path,address_snapshot,caption,created_at,reviewed_at,uploader:reps!lead_photos_uploaded_by_fkey(id,name,role)';
+  const withoutReview = 'id,lead_id,uploaded_by,storage_path,address_snapshot,caption,created_at,uploader:reps!lead_photos_uploaded_by_fkey(id,name,role)';
+  let result = await ctx.sb.from('lead_photos').select(withReview).order('created_at', { ascending: false }).limit(500);
+  if (result.error && /reviewed_at/i.test(result.error.message)) {
+    result = await ctx.sb.from('lead_photos').select(withoutReview).order('created_at', { ascending: false }).limit(500);
+  }
+  if (result.error) throw result.error;
+  const photos = result.data || [];
   await Promise.all(photos.map(async (photo) => {
-    const signed = await ctx.sb.storage.from('lead-photos').createSignedUrl(photo.storage_path, 60 * 60);
-    photo.url = signed.data?.signedUrl || '';
+    try {
+      const signed = await ctx.sb.storage.from('lead-photos').createSignedUrl(photo.storage_path, 60 * 60);
+      photo.url = signed.data?.signedUrl || '';
+    } catch { photo.url = ''; }
     photo.uploader_name = photo.uploader?.name || '';
+    if (!('reviewed_at' in photo)) photo.reviewed_at = null;
   }));
   return photos;
+}
+
+export async function listIntakes(ctx) {
+  if (ctx.mode === 'local') return [];
+  const columns = 'id,lead_id,first_name,last_name,address,city,state,zip,source,notes,concern,created_by,created_at,reviewed_at';
+  let result = await ctx.sb.from('homeowner_intakes').select(columns).order('created_at', { ascending: false }).limit(500);
+  if (result.error && /reviewed_at/i.test(result.error.message)) {
+    result = await ctx.sb.from('homeowner_intakes').select(columns.replace(',reviewed_at', '')).order('created_at', { ascending: false }).limit(500);
+  }
+  if (result.error) throw result.error;
+  return (result.data || []).map((row) => ({ ...row, reviewed_at: row.reviewed_at || null }));
+}
+
+export async function setDocumentReviewed(ctx, doc, reviewed) {
+  const reviewed_at = reviewed ? new Date().toISOString() : null;
+  if (ctx.mode === 'local') {
+    const storeName = doc.source === 'photo' ? 'photos' : 'submissions';
+    if (doc.source === 'intake') return reviewed_at;
+    const row = await idbGet(storeName, doc.sourceId);
+    if (row) await idbPut(storeName, { ...row, reviewed_at });
+    return reviewed_at;
+  }
+  const table = doc.source === 'photo' ? 'lead_photos' : doc.source === 'intake' ? 'homeowner_intakes' : 'form_submissions';
+  const { error } = await ctx.sb.from(table).update({ reviewed_at }).eq('id', doc.sourceId);
+  if (error) throw error;
+  return reviewed_at;
 }
 
 export async function savePhoto(ctx, { lead, blob, caption }) {
@@ -439,6 +479,9 @@ export function groupPhotosByAddress(photos) {
 
 export function plainError(error) {
   const message = String(error?.message || error || 'Something went wrong.');
+  if (/reviewed_at/i.test(message)) {
+    return 'Run supabase/migrations/20261008_document_review.sql in the Supabase SQL editor, then try again.';
+  }
   if (/form_assignments|storage_path|attachment_path|schema cache|column .* does not exist/i.test(message)) {
     return 'Run supabase/migrations/20261008_role_form_library.sql in the Supabase SQL editor, then try again.';
   }

@@ -35,6 +35,10 @@
   display:block;width:100%;text-align:left;background:#fff;border:1px solid #DCE3E7;border-radius:14px;
   padding:14px;color:#17252D;box-shadow:0 8px 24px rgba(19,43,58,.05)
 }
+.tnManageCard{border:2px solid #0c1424;margin:0 0 16px}
+.tnManageCard .eyebrow{color:#1e6bff;font-size:12px;font-weight:800;letter-spacing:.08em;margin-bottom:6px}
+.tnManageCard .tnStack{margin-top:12px}
+.tnManageCard .tnStack a:first-child{background:#1e6bff;border-color:#1e6bff;color:#fff}
 .tnCard b{display:block;color:#0c1424;font-size:16px}
 .tnCard span,.tnMeta{display:block;color:#5c6d76;font-size:14px;margin-top:4px;line-height:1.35}
 .tnInput,.tnSelect,.tnArea{
@@ -77,8 +81,23 @@
 .tnGallery .tnPhotoCard > button.tnTap{aspect-ratio:auto;min-height:44px;padding:8px 12px;background:#fff;border:1px solid #D4DEE2;color:#0c1424;font-weight:800}
 .tnPreview{width:100%;border-radius:14px;display:block;max-height:360px;object-fit:contain;background:#0c1424}
 .tnSeg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px}
+.tnSeg.tnSegTwo{grid-template-columns:1fr 1fr}
+.tnSeg.tnSegStatus{grid-template-columns:1fr 1fr 1fr;margin:0}
 .tnSeg button{min-height:48px;border-radius:12px;border:1px solid #d5dee3;background:#fff;font-weight:800;font-size:14px;color:#0c1424}
 .tnSeg button.on{background:#0c1424;color:#fff;border-color:#0c1424}
+.tnChips{display:flex;gap:8px;overflow-x:auto;max-width:100%;padding:2px 0 10px}
+.tnChip{flex:0 0 auto;min-height:44px;padding:0 12px;border-radius:999px;border:1px solid #d5dee3;background:#fff;color:#0c1424;font-weight:800}
+.tnChip.on{background:#0c1424;color:#fff;border-color:#0c1424}
+.tnDocFilters{display:grid;gap:8px;margin-bottom:14px}
+.tnDocSection{margin:0 0 18px}
+.tnDocSection h2{margin:0 0 8px;font-size:13px;letter-spacing:.8px;text-transform:uppercase;color:#5c6d76}
+.tnPropertyGrid{display:grid;gap:10px}
+.tnProperty{width:100%;cursor:pointer}
+.tnTimeline{display:grid;gap:10px;border-left:3px solid #d5dee3;margin-left:6px;padding-left:12px}
+.tnDocItem img{width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:8px}
+.tnDocActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tnDocActions .tnTap{flex:1 1 140px}
+#tnFilesRoot{min-width:0;max-width:100%}
 .tnFilters{display:grid;gap:8px;margin-bottom:12px}
 .tnFieldCard{border:1px solid #DCE3E7;border-radius:14px;padding:12px;background:#fff;margin-bottom:10px}
 .tnFieldCard header{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
@@ -97,6 +116,8 @@
 @media(min-width:720px){
   .tnFilters{grid-template-columns:1.4fr 1fr 1fr 1fr}
   .tnGallery{grid-template-columns:repeat(3,1fr)}
+  .tnDocFilters{grid-template-columns:1fr 1fr;align-items:end}
+  .tnPropertyGrid{grid-template-columns:1fr 1fr}
 }
 @media print{
   .tnHeader,.tnNoPrint{display:none!important}
