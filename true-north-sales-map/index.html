@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head>
+<head><link rel="icon" href="/brand/favicon.png" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>True North — Roofing Canvasser Command Center</title>
 <link rel="preconnect" href="https://unpkg.com"><link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -8,15 +8,16 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="">
 <link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tn-files.css">
 </head>
 <body>
 <div id="appShell">
 <header class="topbar">
-  <div class="brand"><div class="logoMark" aria-label="True North compass mark"><span class="compassNorth">N</span><span class="compassNeedle"></span><span class="compassCenter"></span></div><div><div class="brandName">TRUE NORTH <span>RESTORATIONS</span></div><div class="brandSub">FIELD COMMAND CENTER · KNOX COUNTY, OHIO</div></div></div>
-  <div class="topRight"><span id="connection" class="chip">STARTING…</span><button id="locateBtn" class="ghostBtn">My location</button><span id="datasetCount" class="datasetCount"></span><button id="focusBtn" class="ghostBtn">Focus map</button><a href="/setter.html" class="quickLinkBtn">Setter intake</a><a href="/homeowner.html" class="quickLinkBtn">Homeowner form</a><button id="nextBtn" class="ghostBtn">Next house <kbd>N</kbd></button><button id="routeBtn" class="primaryBtn">Route <span id="selectedCount">0</span> <kbd>R</kbd></button><a id="adminBtn" href="/admin.html" class="adminBtn hidden">Management</a><div id="userMenu" class="userMenu hidden"><span id="userIdentity"></span><button id="logoutBtn">Sign out</button></div></div>
+  <div class="brand"><img class="logoMark" src="/brand/logo-header.png" alt="" width="38" height="38"><div><div class="brandName">TRUE NORTH <span>RESTORATIONS</span></div><div class="brandSub">FIELD COMMAND CENTER · KNOX COUNTY, OHIO</div></div></div>
+  <div class="topRight"><span id="connection" class="chip">STARTING…</span><button id="locateBtn" class="ghostBtn">My location</button><span id="datasetCount" class="datasetCount"></span><button id="focusBtn" class="ghostBtn">Focus map</button><a href="/account.html" class="quickLinkBtn">My account</a><a href="/setter.html" class="quickLinkBtn">Setter intake</a><a href="/homeowner.html" class="quickLinkBtn">Homeowner form</a><button id="nextBtn" class="ghostBtn">Next house <kbd>N</kbd></button><button id="routeBtn" class="primaryBtn">Route <span id="selectedCount">0</span> <kbd>R</kbd></button><a id="adminBtn" href="/admin.html" class="adminBtn hidden">Management</a><div id="userMenu" class="userMenu hidden"><span id="userIdentity"></span><button id="logoutBtn">Sign out</button></div></div>
 </header>
 <div id="cloudNotice" class="cloudNotice hidden"></div>
-<div class="brandRibbon"><div><b>TRUE NORTH FIELD OS</b><span>Trust first · Work the system · No lead sleeps.</span></div><div class="ribbonActions"><a href="/setter.html">Appointment Setter Intake</a><a href="/homeowner.html">Homeowner Inspection Sign-Up</a></div></div>
+<div class="brandRibbon"><div><b>TRUE NORTH FIELD OS</b><span>Trust first · Work the system · No lead sleeps.</span></div><div class="ribbonActions"><a href="/setter.html">Appointment Setter Intake</a><a href="/rep.html">Sales photos & forms</a><a href="/homeowner.html">Homeowner Inspection Sign-Up</a></div></div>
 <section class="mapShell">
   <div class="mapCanvas"><div id="map"></div>
     <div class="mapTopOverlay"><div class="mapSearch"><span>⌕</span><input id="search" aria-label="Search leads" placeholder="Search house, owner, street, ZIP, record…"><div class="searchHint"><kbd>/</kbd></div></div><div class="mapTools"><div class="mapScope" role="group" aria-label="Map area"><button type="button" id="homeAreaBtn" class="isOn" aria-pressed="true">Home area</button><button type="button" id="allOhioBtn" aria-pressed="false">All Ohio</button></div><div class="mapToolBtns"><button type="button" id="legendKey" class="mapControl" aria-expanded="false" aria-controls="mapLegend">Key</button><button id="fitBtn" class="mapControl">Fit leads</button><button id="layerBtn" class="mapControl">Layers ▾</button></div></div><div id="layerMenu" class="layerMenu">
@@ -92,9 +93,10 @@
 
 <div id="adminModal" class="modalOverlay hidden"><div class="modalCard adminCard"><button class="closeBtn" id="closeAdmin">×</button><div class="eyebrow">ADMIN / MANAGER</div><h2>Command center setup</h2><p id="adminCloudStatus" class="muted"></p><div class="adminMetrics"><div><b id="adminLeadCount">0</b><span>leads</span></div><div><b id="adminMappedCount">0</b><span>mapped</span></div><div><b id="adminTerritoryCount">0</b><span>territories</span></div></div><div class="adminActions"><button id="adminImportBtn">Initialize cloud data</button><button id="adminTerritoryBtn">Initialize territories</button><button id="adminGeocodeBtn">Geocode missing house pins</button><button id="adminStormBtn">Load active storm alerts</button><button id="adminExportBtn">Export lead state</button></div><div class="progressWrap"><div id="adminProgress" class="progressBar"></div></div><small id="adminProgressLabel">Ready</small><div class="adminSection"><div class="sectionTitle">Territory ownership</div><div id="territoryAdmin" class="territoryAdmin"></div></div></div></div>
 
-<div id="loginModal" class="modalOverlay hidden"><div class="modalCard loginCard"><div class="logoMark big"><span class="compassNorth">N</span><span class="compassNeedle"></span><span class="compassCenter"></span></div><div class="eyebrow">TRUE NORTH RESTORATIONS</div><h2>Field command center</h2><p class="muted">Sign in for shared live lead status, rep ownership, appointments, and team metrics.</p><form id="loginForm"><label>Email<input id="loginEmail" type="email" autocomplete="email" required></label><label>Password<input id="loginPassword" type="password" autocomplete="current-password" required></label><button type="submit" class="darkBtn">Sign in</button></form><div id="loginError" class="error"></div><button id="localModeBtn" class="textBtn">Use local test mode</button></div></div>
+<div id="loginModal" class="modalOverlay hidden"><div class="modalCard loginCard"><img class="logoMark big" src="/brand/logo-mark.png" alt="True North Restorations" width="72" height="72"><div class="eyebrow">TRUE NORTH RESTORATIONS</div><h2>Field command center</h2><p class="muted">Sign in for shared live lead status, rep ownership, appointments, and team metrics.</p><form id="loginForm"><label>Email<input id="loginEmail" type="email" autocomplete="email" required></label><label>Password<input id="loginPassword" type="password" autocomplete="current-password" required></label><button type="submit" class="darkBtn">Sign in</button></form><div id="loginError" class="error"></div><button id="localModeBtn" class="textBtn">Use local test mode</button></div></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin=""></script>
 <script type="module" src="/app.js"></script>
+<script type="module" src="/tn-files/sheet-actions.js"></script>
 </body></html>

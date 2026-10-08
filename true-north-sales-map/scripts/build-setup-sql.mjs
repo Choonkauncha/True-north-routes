@@ -1,0 +1,29 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const parts = [
+  ['supabase/schema.sql', '1. Base schema'],
+  ['supabase/migrations/20261008_access_clockin.sql', '2. Clock-in, location, and messages'],
+  ['supabase/forms_photos.sql', '3. Photos and forms'],
+  ['supabase/accounts.sql', '4. Accounts, audit, and first admin']
+];
+
+export function buildSetupSql(root) {
+  const banner = `-- True North setup, in order, safe to run again.
+-- Paste this whole file into the Supabase SQL Editor once on a fresh project.
+-- It is schema.sql, then the clock-in migration, then forms_photos.sql, then accounts.sql.
+`;
+  const body = parts.map(([path, title]) => {
+    const sql = readFileSync(join(root, path), 'utf8').trim();
+    return `-- =============================================================================\n-- ${title} (${path})\n-- =============================================================================\n\n${sql}\n`;
+  }).join('\n');
+  return `${banner}\n${body}`;
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+  const target = join(root, 'supabase/setup_all.sql');
+  writeFileSync(target, buildSetupSql(root));
+  console.log('wrote', target);
+}

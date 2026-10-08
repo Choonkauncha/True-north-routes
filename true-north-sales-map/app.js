@@ -669,7 +669,7 @@ function openLead(id){
   const appt=state.appointments.find(a=>a.lead_id===id&&a.stage!=='Cancelled');
   const notes=l.notes||localSaved(l).notes||'';
   const reps=state.reps.slice().sort((a,b)=>a.name.localeCompare(b.name));
-  $('drawerContent').innerHTML=`<div class="drawerTop"><div><div class="eyebrow">FIELD RECORD</div><h2>${esc(l.name||'Property lead')}</h2><div class="drawerAddr">${esc(l.address)}<br>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</div></div><span class="bigScore">${scoreLead(l)}</span></div>
+  $('drawerContent').innerHTML=`<div class="drawerTop" data-lead-id="${esc(l.id)}"><div><div class="eyebrow">FIELD RECORD</div><h2>${esc(l.name||'Property lead')}</h2><div class="drawerAddr">${esc(l.address)}<br>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</div></div><span class="bigScore">${scoreLead(l)}</span></div>
     <div class="detailGrid"><div><small>Source</small><b>${esc(l.source)}</b></div><div><small>Priority</small><b>${esc(l.priority||'Standard')}</b></div><div><small>Built</small><b>${esc(l.year_built??l.yearBuilt??'Unknown')}</b></div><div><small>Mapped</small><b>${isCoords(l)?'Exact geocode':'Needs geocode'}</b></div></div>
     <div class="drawerActions"><button id="drawerMaps" class="darkBtn">Open Google Maps</button><button id="drawerDir" class="outlineBtn">Directions</button></div>
     <div class="fieldActions"><button data-qstatus="Knocked">Knocked</button><button data-qstatus="No Answer">No answer</button><button data-qstatus="Interested">Interested</button><button data-qstatus="Not Interested">Not interested</button></div>

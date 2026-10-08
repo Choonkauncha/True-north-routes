@@ -4,7 +4,13 @@
     {"source":"/homeowner","destination":"/homeowner.html"},
     {"source":"/setter","destination":"/setter.html"},
     {"source":"/admin","destination":"/admin.html"},
-    {"source":"/shifts","destination":"/shifts.html"}
+    {"source":"/shifts","destination":"/shifts.html"},
+    {"source":"/rep","destination":"/rep.html"},
+    {"source":"/photo","destination":"/photo.html"},
+    {"source":"/forms","destination":"/forms.html"},
+    {"source":"/files","destination":"/files.html"},
+    {"source":"/form-print","destination":"/form-print.html"},
+    {"source":"/account","destination":"/account.html"}
   ],
   "headers": [
     {"source":"/data/(.*)","headers":[{"key":"Cache-Control","value":"public, max-age=86400, stale-while-revalidate=604800"}]},
