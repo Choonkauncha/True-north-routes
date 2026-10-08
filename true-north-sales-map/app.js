@@ -1,6 +1,8 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
+const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
+const doorSheetMedia=window.matchMedia('(max-width: 960px)');
 const APPOINTMENT_STAGES=['Scheduled','Confirmed','Completed','No-show','Cancelled'];
 const ROLE_OPTIONS=['admin','manager','canvasser','salesperson'];
 const LOCAL_KEY='tnrc2:local';
@@ -12,7 +14,8 @@ const state={
   routeLine:null, userMarker:null, routeStops:[], currentLocation:null,
   filters:{q:'',status:'',rep:'',territory:'',source:'',mine:false},
   layerFlags:{pins:true,density:false,opportunity:true,roofAge:false,storms:false,territories:true},
-  routeMode:'driving', busy:false, config:null, realtimeChannel:null, refreshTimer:null
+  routeMode:'driving', busy:false, config:null, realtimeChannel:null, refreshTimer:null,
+  doorLeadId:null, doorSaving:false
 };
 
 const $=id=>document.getElementById(id);
@@ -84,6 +87,12 @@ function bindStaticEvents(){
   $('closeAppointment').onclick=()=>$('appointmentModal').classList.add('hidden');
   $('appStage').addEventListener('change',()=>{});
   $('copyHandoffBtn').onclick=copyCurrentHandoff;
+  $('doorSheetClose').onclick=closeDoorSheet;
+  $('doorSheetScrim').onclick=closeDoorSheet;
+  $('doorSheetFull').onclick=()=>{const id=state.doorLeadId; closeDoorSheet(); if(id) openLead(id);};
+  const onDoorMedia=()=>{if(!state.map)return; closeDoorSheet(); refreshMapLayers();};
+  if(doorSheetMedia.addEventListener) doorSheetMedia.addEventListener('change',onDoorMedia);
+  else doorSheetMedia.addListener(onDoorMedia);
 }
 
 function enterLocal(message){
@@ -274,15 +283,26 @@ function refreshMapLayers(){
   if(state.layerFlags.storms && !state.stormLayer)loadStorms(false);
   if(state.routeStops?.length)drawRoutePreview();
 }
+function useDoorSheet(){return doorSheetMedia.matches;}
+function pinIconFor(l){
+  const selected=state.selected.has(l.id), s=leadStatus(l);
+  const phone=useDoorSheet();
+  const size=phone?44:18;
+  return L.divIcon({className:phone?'pinWrap pinHit':'pinWrap',html:`<span class="housePin ${selected?'selectedPin':''} status-${statusClass(s)}">${selected?'◆':'●'}</span>`,iconSize:[size,size],iconAnchor:[size/2,size/2]});
+}
 function drawLeadPins(){
   const group=state.markerLayer;
   const candidates=state.filtered.filter(isCoords);
+  const phone=useDoorSheet();
   candidates.forEach(l=>{
-    const selected=state.selected.has(l.id), s=leadStatus(l);
-    const icon=L.divIcon({className:'pinWrap',html:`<span class="housePin ${selected?'selectedPin':''} status-${statusClass(s)}">${selected?'◆':'●'}</span>`,iconSize:[18,18],iconAnchor:[9,9]});
-    const m=L.marker([l.lat,l.lng],{icon,title:l.address});
-    m.bindPopup(`<div class="pinPopup"><b>${esc(l.name||'Property lead')}</b><div>${esc(l.address)}, ${esc(l.city)}</div><div class="popupLine"><span class="miniBadge">${esc(s)}</span><b>${scoreLead(l)} pts</b></div><button data-popup-lead="${esc(l.id)}">Open lead</button></div>`);
-    m.on('popupopen',()=>setTimeout(()=>document.querySelector(`[data-popup-lead="${CSS.escape(l.id)}"]`)?.addEventListener('click',()=>openLead(l.id)),0));
+    const s=leadStatus(l);
+    const m=L.marker([l.lat,l.lng],{icon:pinIconFor(l),title:l.address,keyboard:true});
+    if(phone){
+      m.on('click',e=>{L.DomEvent.stop(e);openDoorSheet(l.id);});
+    }else{
+      m.bindPopup(`<div class="pinPopup"><b>${esc(l.name||'Property lead')}</b><div>${esc(l.address)}, ${esc(l.city)}</div><div class="popupLine"><span class="miniBadge">${esc(s)}</span><b>${scoreLead(l)} pts</b></div><button data-popup-lead="${esc(l.id)}">Open lead</button></div>`);
+      m.on('popupopen',()=>setTimeout(()=>document.querySelector(`[data-popup-lead="${CSS.escape(l.id)}"]`)?.addEventListener('click',()=>openLead(l.id)),0));
+    }
     group.addLayer(m);
   });
 }
@@ -337,6 +357,58 @@ async function quickStatus(id,status,continueNext=false){
   if(continueNext){closeDrawer();setTimeout(nextBest,150);}
 }
 
+function openDoorSheet(id){
+  const l=state.leads.find(x=>x.id===id); if(!l)return;
+  state.doorLeadId=id;
+  state.doorSaving=false;
+  state.map?.closePopup();
+  const s=leadStatus(l);
+  $('doorSheetAddress').textContent=l.address||'Property lead';
+  const nameEl=$('doorSheetName');
+  nameEl.textContent=l.name||'';
+  nameEl.classList.toggle('hidden',!l.name);
+  $('doorSheetPlace').textContent=[l.city,l.state,l.zip].filter(Boolean).join(', ');
+  const badge=$('doorSheetStatus');
+  badge.textContent=s;
+  badge.className=`status ${statusClass(s)}`;
+  $('doorSheetBook').href=`/setter.html?lead=${encodeURIComponent(l.id)}`;
+  $('doorSheetActions').innerHTML=DOOR_STATUSES.map(status=>`<button type="button" class="doorStatus doorStatus-${statusClass(status)}${s===status?' isCurrent':''}" data-door-status="${esc(status)}" aria-pressed="${s===status?'true':'false'}"><span class="doorStatusDot" aria-hidden="true"></span><span>${esc(status)}</span></button>`).join('');
+  $('doorSheetActions').querySelectorAll('[data-door-status]').forEach(btn=>{btn.onclick=()=>applyDoorStatus(l.id,btn.dataset.doorStatus);});
+  const sheet=$('doorSheet');
+  clearTimeout(openDoorSheet._t);
+  sheet.classList.remove('hidden');
+  sheet.setAttribute('aria-hidden','false');
+  sheet.getBoundingClientRect();
+  sheet.classList.add('open');
+  $('doorSheetClose').focus();
+}
+function closeDoorSheet(){
+  const sheet=$('doorSheet'); if(!sheet||sheet.classList.contains('hidden'))return;
+  sheet.classList.remove('open');
+  sheet.setAttribute('aria-hidden','true');
+  state.doorLeadId=null;
+  state.doorSaving=false;
+  clearTimeout(openDoorSheet._t);
+  openDoorSheet._t=setTimeout(()=>{if(!sheet.classList.contains('open'))sheet.classList.add('hidden');},240);
+}
+async function applyDoorStatus(id,status){
+  const l=state.leads.find(x=>x.id===id); if(!l||state.doorSaving)return;
+  if(!DOOR_STATUSES.includes(status))return;
+  if(leadStatus(l)===status){renderAll();closeDoorSheet();toast(`Already ${status} · ${l.address}`);return;}
+  state.doorSaving=true;
+  const buttons=[...$('doorSheetActions').querySelectorAll('button')];
+  buttons.forEach(b=>{b.disabled=true;});
+  const tapped=buttons.find(b=>b.dataset.doorStatus===status);
+  const label=tapped?.querySelector('span:last-child');
+  if(label) label.textContent='Saving…';
+  try{await persistLeadPatch(l,{status});}
+  catch{state.doorSaving=false;buttons.forEach(b=>{b.disabled=false;});if(label) label.textContent=status;return;}
+  state.doorSaving=false;
+  renderAll();
+  closeDoorSheet();
+  toast(`${status} · ${l.address}`);
+}
+
 async function persistLeadPatch(l,patch){
   const previous=leadStatus(l);
   const normalized={...patch};
@@ -375,7 +447,8 @@ function openLead(id){
     <button id="saveLeadBtn" class="saveBtn">Save field result</button>
     <div class="drawerSection"><div class="sectionTitle">Appointment handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">Edit handoff</button></div>`:`<button id="bookApptBtn" class="outlineBtn">Book / hand off this lead</button>`}</div>`;
   $('drawer').classList.remove('hidden');
-  $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l); $('drawerSetter').onclick=()=>{location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`};
+  $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l);
+  if($('drawerSetter')) $('drawerSetter').onclick=()=>{location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;};
   $('drawer').querySelectorAll('[data-qstatus]').forEach(btn=>btn.onclick=()=>quickStatus(l.id,btn.dataset.qstatus,true));
   $('saveLeadBtn').onclick=()=>saveLead(l);
   $('bookApptBtn')?.addEventListener('click',()=>openAppointmentForm(l));
@@ -587,7 +660,7 @@ document.addEventListener('keydown',e=>{
   else if(e.key.toLowerCase()==='n') nextBest();
   else if(e.key.toLowerCase()==='r') openRoutePanel();
   else if(e.key.toLowerCase()==='l') locate();
-  else if(e.key==='Escape'){closeDrawer();closeRoutePanel();$('adminModal').classList.add('hidden');$('appointmentModal').classList.add('hidden');}
+  else if(e.key==='Escape'){closeDoorSheet();closeDrawer();closeRoutePanel();$('adminModal').classList.add('hidden');$('appointmentModal').classList.add('hidden');}
 });
 
 boot();

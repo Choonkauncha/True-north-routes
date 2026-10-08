@@ -28,7 +28,7 @@
       <label><input type="checkbox" data-layer="storms"> Active storm alerts</label>
     </div></div>
     <div class="mapHud"><div class="hudTitle">FIELD BOARD <span>INSPECT HONESTLY · DOCUMENT CLEARLY · EARN THE JOB</span></div><div id="stats" class="stats"></div><div class="hudProgress"><div><b id="todayWorked">0</b><span>worked today</span></div><div><b id="todayAppts">0</b><span>appointments</span></div><div><b id="highPriorityCount">0</b><span>high priority</span></div></div></div>
-    <div class="mapLegend"><span><i class="legendPin pinNew"></i>Opportunity</span><span><i class="legendPin pinAppt"></i>Appointment</span><span><i class="legendPin pinInterested"></i>Interested</span><span><i class="legendPin pinSelected"></i>Selected</span></div>
+    <div class="mapLegend"><span><i class="legendPin pinNew"></i>New</span><span><i class="legendPin pinKnocked"></i>Knocked</span><span><i class="legendPin pinNoAnswer"></i>No answer</span><span><i class="legendPin pinInterested"></i>Interested</span><span><i class="legendPin pinNot"></i>Not interested</span><span><i class="legendPin pinDnk"></i>Do not knock</span><span><i class="legendPin pinAppt"></i>Appointment</span><span><i class="legendPin pinSelected"></i>Selected</span></div>
   </div>
   <aside class="sidePanel">
     <div class="filterBar">
@@ -47,6 +47,25 @@
 </div>
 
 <div id="drawer" class="drawer hidden"><div class="drawerCard"><button class="closeBtn" id="closeDrawer" aria-label="Close lead">×</button><div id="drawerContent"></div></div></div>
+<div id="doorSheet" class="doorSheet hidden" role="dialog" aria-modal="true" aria-labelledby="doorSheetAddress" aria-hidden="true">
+  <button type="button" class="doorSheetScrim" id="doorSheetScrim" aria-label="Close door sheet"></button>
+  <div class="doorSheetCard">
+    <div class="doorSheetBody">
+      <div class="doorSheetGrab" aria-hidden="true"></div>
+      <button type="button" class="doorSheetClose" id="doorSheetClose" aria-label="Close">×</button>
+      <div class="eyebrow">THIS DOOR</div>
+      <h2 id="doorSheetAddress"></h2>
+      <p id="doorSheetName" class="doorSheetName"></p>
+      <p id="doorSheetPlace" class="doorSheetPlace"></p>
+      <div class="doorSheetNow"><span>Current status</span><span id="doorSheetStatus" class="status"></span></div>
+      <div id="doorSheetActions" class="doorSheetActions" role="group" aria-label="Door status"></div>
+      <button type="button" id="doorSheetFull" class="doorSheetFull">Full record</button>
+    </div>
+    <div class="doorSheetFooter">
+      <a id="doorSheetBook" class="doorSheetBook" href="/setter.html">Book Inspection</a>
+    </div>
+  </div>
+</div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <div id="mobileBar" class="mobileBar"><button id="mobileNext">Next</button><button id="mobileRoute">Route <span id="mobileRouteCount">0</span></button><button id="mobileLocate">Locate</button></div>
 
