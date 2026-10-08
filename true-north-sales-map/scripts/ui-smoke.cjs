@@ -636,6 +636,19 @@ const server = http.createServer(async (req, res) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(origin + "/");
   await page.locator("#workList .leadRow").first().waitFor();
+  await page.waitForFunction(() => document.documentElement.dataset.tnPins === "1");
+  const autoPins = await page.evaluate(() => document.querySelectorAll(".pinCluster, .leaflet-interactive").length);
+  assert.ok(autoPins > 0, "lead pins render on load without opening Layers");
+  assert.equal(await page.locator('[data-layer="pins"]').isChecked(), true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#tnMore").click();
+  const moreOnScreen = await page.evaluate(() => {
+    const rect = document.getElementById("tnMoreMenu").getBoundingClientRect();
+    return !document.getElementById("tnMoreMenu").hidden && rect.top >= 0 && rect.bottom <= innerHeight && rect.height > 80;
+  });
+  assert.equal(moreOnScreen, true, "More menu is on the phone screen");
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1440, height: 900 });
   if (await page.locator("#postSignInContinue").isVisible())
     await page.locator("#postSignInContinue").click();
   await page.locator("#routeBtn").click();

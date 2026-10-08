@@ -251,7 +251,7 @@ function bindStaticEvents(){
   $('closeReceipt')?.addEventListener('click',()=>$('receiptModal')?.classList.add('hidden'));
   $('doorSheetClose').onclick=closeDoorSheet;
   $('doorSheetScrim').onclick=closeDoorSheet;
-  $('doorSheetFull').onclick=()=>{const id=state.doorLeadId; closeDoorSheet(); if(id) openLead(id);};
+  $('doorSheetFull').onclick=()=>{const id=state.doorLeadId; closeDoorSheet(); if(id) openLead(id,{full:true});};
   $('toastUndo').onclick=undoDoorStatus;
   $('toastNext').onclick=()=>openNextHouse(state.doorUndo?.id);
   $('homeAreaBtn').onclick=()=>setHomeArea(true);
@@ -732,6 +732,7 @@ function hideLogin(){
   document.documentElement.classList.remove('tn-signed-out');
   $('loginModal')?.classList.add('hidden');
   $('appShell')?.classList.remove('blurred');
+  if($('loginError')) $('loginError').textContent='';
   revealMapLoader();
 }
 async function login(e){e.preventDefault();if(!state.supabase){return}
@@ -876,7 +877,7 @@ function renderNow(fit=true){
   if(fit && !state.didFit){
     state.didFit=true;
     state.awaitingFirstFit=true;
-    setTimeout(()=>{publishListPeek();fitMapToScope(false);state.awaitingFirstFit=false;settleMapLoader(state.mapLoaderGen);},80);
+    setTimeout(()=>{publishListPeek();fitMapToScope(false);state.awaitingFirstFit=false;if(state.layerFlags.pins) syncPins();settleMapLoader(state.mapLoaderGen);},80);
   }
   settleMapLoader(state.mapLoaderGen);
   const token=++state.listSortToken;
@@ -1573,7 +1574,8 @@ async function persistLeadPatch(l,patch){
   }
 }
 
-function openLead(id){
+function openLead(id, options={}){
+  if(useDoorSheet() && !options.full){openDoorSheet(id);return;}
   const l=state.leads.find(x=>x.id===id);if(!l)return;
   state.active=id;
   const appt=state.appointments.find(a=>a.lead_id===id&&a.stage!=='Cancelled');
