@@ -22,7 +22,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=n=>Number(n||0).toLocaleString();
 const nowISO=()=>new Date().toISOString();
-const isCoords=l=>Number.isFinite(Number(l?.lat))&&Number.isFinite(Number(l?.lng));
+const isCoords=l=>{const lat=Number(l?.lat),lng=Number(l?.lng);return l?.lat!=null&&l?.lng!=null&&Number.isFinite(lat)&&Number.isFinite(lng);};
 const leadStatus=l=>l.status||localSaved(l).status||'New';
 const leadOwnerName=l=>l.assignedRepName||(state.reps.find(r=>r.id===l.assignedRepId)?.name)||localSaved(l).owner||'';
 const localSaved=l=>JSON.parse(localStorage.getItem(`tnrc2:lead:${l.id}`)||'{}');
@@ -288,7 +288,7 @@ function pinIconFor(l){
   const selected=state.selected.has(l.id), s=leadStatus(l);
   const phone=useDoorSheet();
   const size=phone?44:18;
-  return L.divIcon({className:phone?'pinWrap pinHit':'pinWrap',html:`<span class="housePin ${selected?'selectedPin':''} status-${statusClass(s)}">${selected?'◆':'●'}</span>`,iconSize:[size,size],iconAnchor:[size/2,size/2]});
+  return L.divIcon({className:phone?'pinWrap pinHit':'pinWrap',html:`<span class="housePin${selected?' selectedPin':''} status-${statusClass(s)}">${selected?'◆':'●'}</span>`,iconSize:[size,size],iconAnchor:[size/2,size/2]});
 }
 function drawLeadPins(){
   const group=state.markerLayer;

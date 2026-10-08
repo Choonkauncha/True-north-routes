@@ -37,7 +37,8 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 .cloudNotice{position:fixed;top:68px;left:0;right:0;z-index:1000;background:#fff4cd;color:#66521d;border-bottom:1px solid #e4d69c;padding:8px 16px;font-size:11px}
 
 /* MAP FIRST */
-.mapShell{height:calc(100% - 68px);display:grid;grid-template-columns:minmax(0,1fr) 420px;min-height:0;position:relative}.mapCanvas{position:relative;min-width:0}.mapCanvas #map{height:100%;width:100%;background:#d8e0e3}.mapCanvas .leaflet-tile-pane{filter:saturate(.68) contrast(.98) brightness(1.02)}
+#appShell{height:100%;min-height:0;display:flex;flex-direction:column}
+.mapShell{flex:1;height:auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 420px;grid-template-rows:minmax(0,1fr);position:relative;overflow:hidden}.mapCanvas{position:relative;min-width:0;min-height:0}.mapCanvas #map{height:100%;width:100%;background:#d8e0e3}.mapCanvas .leaflet-tile-pane{filter:saturate(.68) contrast(.98) brightness(1.02)}
 .mapTopOverlay{position:absolute;top:14px;left:14px;right:14px;z-index:700;display:flex;gap:8px;align-items:flex-start}.mapSearch{width:min(540px,63vw);display:flex;gap:8px;align-items:center;background:rgba(255,255,255,.97);border:1px solid #d9e0e3;border-radius:12px;padding:0 11px;box-shadow:var(--shadow-soft);backdrop-filter:blur(10px)}.mapSearch>span{font-size:20px;color:#77868f}.mapSearch input{width:100%;padding:12px 0;border:0;outline:0;background:transparent;font-size:13px;color:var(--ink)}.searchHint kbd{border-color:#d8e0e3;background:#f4f7f8;color:#6b7a83}.mapControl,.iconBtn{border:1px solid #d7dfe3;background:rgba(255,255,255,.97);border-radius:10px;padding:10px 12px;cursor:pointer;box-shadow:var(--shadow-soft);color:var(--slate);font-weight:800;font-size:10px}.mapControl:hover,.iconBtn:hover{border-color:#c1ccd1;transform:translateY(-1px)}.layerMenu{display:none;position:absolute;top:50px;right:0;background:#fff;border:1px solid #d5dfe4;border-radius:12px;padding:11px;width:228px;box-shadow:var(--shadow);overflow:hidden}.layerMenu.open{display:grid;gap:8px}.layerMenu label{font-size:11px;display:flex;gap:8px;align-items:center;padding:3px 2px}.layerMenu label:hover{background:#f5f7f8;border-radius:7px}.layerMenu input{accent-color:var(--orange)}
 .mapHud{position:absolute;top:82px;left:14px;z-index:650;background:rgba(255,255,255,.96);padding:11px 12px;border-radius:12px;box-shadow:var(--shadow-soft);min-width:335px;border:1px solid #d9e0e3}.hudTitle{font-size:9px;letter-spacing:1.4px;font-weight:900;color:var(--navy);display:flex;justify-content:space-between;gap:12px}.hudTitle span{font-weight:700;letter-spacing:.9px;color:#8a979e;font-size:7px}.stats{display:flex;gap:10px;margin-top:7px}.stat{min-width:72px}.stat b{display:block;font-size:19px;color:var(--navy)}.stat span{display:block;text-transform:uppercase;letter-spacing:.9px;font-size:7px;color:#7c8991}.hudProgress{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #e8edef}.hudProgress div{display:flex;align-items:baseline;gap:5px}.hudProgress b{font-size:11px;color:var(--slate)}.hudProgress span{font-size:7px;color:#89969d;text-transform:uppercase;letter-spacing:.65px}
 .mapLegend{position:absolute;left:14px;bottom:16px;z-index:650;background:rgba(255,255,255,.96);border:1px solid #d7dfe3;border-radius:10px;padding:8px 10px;display:flex;gap:10px;font-size:9px;box-shadow:var(--shadow-soft)}.legendPin{width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:4px}.pinNew{background:var(--orange)}.pinKnocked{background:#3E4E59}.pinNoAnswer{background:#A66B19}.pinInterested{background:#467c9e}.pinNot{background:#8c5e54}.pinDnk{background:#A44835}.pinAppt{background:var(--green)}.pinSelected{background:#c54f32}
@@ -63,6 +64,7 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 @media(min-width:1200px){.sidePanel{width:440px}.mapShell{grid-template-columns:minmax(0,1fr) 440px}}
 
 /* DOOR SHEET — phone-first status logging from a map pin */
+.mapShell{height:auto;flex:1;min-height:0}
 .mapLegend{flex-wrap:wrap;max-width:min(540px,calc(100vw - 28px));row-gap:4px}
 .housePin.status-new{color:var(--orange)}
 .housePin.status-knocked{color:#3E4E59}
@@ -76,9 +78,9 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 .doorSheet{position:fixed;inset:0;z-index:1700;display:flex;align-items:flex-end;justify-content:center}
 .doorSheetScrim{position:absolute;inset:0;border:0;margin:0;padding:0;background:rgba(8,22,29,.46);cursor:pointer;opacity:0;transition:opacity .2s ease}
 .doorSheet.open .doorSheetScrim{opacity:1}
-.doorSheetCard{position:relative;z-index:1;width:min(480px,100%);max-height:min(88dvh,740px);display:flex;flex-direction:column;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -16px 44px rgba(13,32,43,.32);transform:translateY(105%);transition:transform .22s ease}
+.doorSheetCard{position:relative;z-index:1;width:min(480px,100%);max-height:min(88dvh,740px);display:flex;flex-direction:column;overflow:hidden;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -16px 44px rgba(13,32,43,.32);transform:translateY(105%);transition:transform .22s ease}
 .doorSheet.open .doorSheetCard{transform:translateY(0)}
-.doorSheetBody{position:relative;overflow:auto;padding:0 16px 8px;-webkit-overflow-scrolling:touch}
+.doorSheetBody{position:relative;overflow:auto;min-height:0;flex:1 1 auto;padding:0 16px 8px;-webkit-overflow-scrolling:touch}
 .doorSheetGrab{width:42px;height:4px;border-radius:999px;background:#d3dde2;margin:10px auto 6px}
 .doorSheetClose{position:absolute;top:6px;right:8px;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:#5c6c75;font-size:28px;line-height:1;cursor:pointer}
 .doorSheetClose:hover{background:#f3f6f7}
@@ -99,10 +101,11 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 .doorStatus:active{transform:scale(.985)}
 .doorStatus:disabled{opacity:.55}
 .doorSheetFull{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;margin-top:4px;border:0;background:transparent;color:#4d6070;font-size:15px;font-weight:800;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.doorSheetFooter{padding:10px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #e6ecef;background:#fff}
+.doorSheetFooter{flex:none;padding:10px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #e6ecef;background:#fff}
 .doorSheetBook{display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:14px;background:var(--orange);color:#fff;font-size:17px;font-weight:900;text-decoration:none;letter-spacing:.2px;box-shadow:0 8px 18px rgba(229,114,42,.3);touch-action:manipulation}
 .doorSheetBook:hover{filter:brightness(1.04)}
 .doorSheetBook:active{transform:scale(.985)}
 .doorStatus:focus-visible,.doorSheetBook:focus-visible,.doorSheetClose:focus-visible,.doorSheetFull:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.doorSheetScrim,.doorSheetCard{transition:none}}
+.toast{z-index:1650}
 @media(max-width:700px){.mapLegend{max-width:calc(100vw - 16px)}}
