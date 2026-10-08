@@ -131,6 +131,62 @@ export function snapToRoute(point, line, maxMeters = SNAP_METERS) {
   };
 }
 
+/** Walk stays at street level. Drive is a wider view and eases out a little at speed. */
+export const WALK_ZOOM = 18;
+export const WALK_ZOOM_MOVING = 17.5;
+export const DRIVE_ZOOM = 16;
+export const DRIVE_ZOOM_CRUISE = 15.75;
+export const DRIVE_ZOOM_FAST = 15.5;
+
+export function navZoomFor(mode, speedMps = 0) {
+  const walking = mode === 'walking' || mode === 'foot';
+  const speed = Number(speedMps);
+  const pace = Number.isFinite(speed) && speed > 0 ? speed : 0;
+  if (walking) return pace >= 2.2 ? WALK_ZOOM_MOVING : WALK_ZOOM;
+  if (pace >= 18) return DRIVE_ZOOM_FAST;
+  if (pace >= 11) return DRIVE_ZOOM_CRUISE;
+  return DRIVE_ZOOM;
+}
+
+export function navLookaheadPixels(mode, heading) {
+  if (!Number.isFinite(Number(heading))) return 0;
+  return mode === 'walking' || mode === 'foot' ? 112 : 148;
+}
+
+/** Shift the camera forward along heading so the marker sits lower and the road ahead fills the view. */
+export function offsetCameraPoint(projected, heading, pixels) {
+  const rad = (Number(heading) || 0) * Math.PI / 180;
+  const shift = Number(pixels) || 0;
+  return {
+    x: projected.x + Math.sin(rad) * shift,
+    y: projected.y - Math.cos(rad) * shift
+  };
+}
+
+/** Split a routed line into the dim traveled part and the forward path. */
+export function splitRoute(line, alongMeters) {
+  if (!line || line.length < 2) return { traveled: [], ahead: line ? line.slice() : [] };
+  const cut = Math.max(0, Number(alongMeters) || 0);
+  let along = 0;
+  const traveled = [line[0]];
+  for (let i = 1; i < line.length; i++) {
+    const a = line[i - 1];
+    const b = line[i];
+    const seg = metersBetween(a, b);
+    if (along + seg <= cut + 0.01) {
+      traveled.push(b);
+      along += seg;
+      continue;
+    }
+    const t = seg > 0 ? Math.min(1, Math.max(0, (cut - along) / seg)) : 0;
+    const mid = { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
+    if (t > 0.02) traveled.push(mid);
+    return { traveled, ahead: [mid, b, ...line.slice(i + 1)] };
+  }
+  const last = line[line.length - 1];
+  return { traveled, ahead: [last] };
+}
+
 export function createGpsFilter({
   maxAccuracy = MAX_ACCURACY_METERS,
   deadbandMeters = 3.5,

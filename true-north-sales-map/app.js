@@ -3,7 +3,7 @@ import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } 
 import { ROUTE_TRAY_KEY, routeTrayCollapsedByDefault, routeTraySummary, shouldExpandRouteTray } from './lib/route-tray.js';
 import { MAP_FACTS } from './lib/map-facts.js';
 import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
-import { acquireScreenWakeLock, activeStep, createGpsFilter, createInterpolator, createReadoutThrottle, createRerouteGate, lineLatLngs, maneuverText, normalizeSteps, releaseScreenWakeLock, snapToRoute } from './lib/nav-motion.js';
+import { acquireScreenWakeLock, activeStep, createGpsFilter, createInterpolator, createReadoutThrottle, createRerouteGate, lineLatLngs, maneuverText, navLookaheadPixels, navZoomFor, normalizeSteps, offsetCameraPoint, releaseScreenWakeLock, snapToRoute, splitRoute } from './lib/nav-motion.js';
 import { createArrayCursor, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, normalizeStamp, parseJsonArraySlice, planLeadSync, takeCompleteObjects } from './lib/lead-cache.js';
 import { readLeadCache, writeLeadCache } from './lib/lead-store.js';
 import { LEAD_OVERLAY_COLUMNS, LEAD_OVERLAY_OR, STATIC_LEAD_SOURCES, mergeLeadOverlay, pageRanges } from './lib/lead-sync.js';
@@ -1438,10 +1438,10 @@ function nearestNeighbor2Opt(leads,start){
 function drawRoutePreview(fit=true){
   if(state.routeLine){state.map.removeLayer(state.routeLine);state.routeLine=null}
   if(!state.routeStops?.length||!state.map)return;
+  if(state.navigating){drawNavOverlay();return}
   if(state.routeGeometry)state.routeLine=L.geoJSON(state.routeGeometry,{style:{color:'#203a29',weight:5,opacity:.78}}).addTo(state.map);
   else{const coords=state.routeStops.map(l=>[Number(l.lat),Number(l.lng)]);state.routeLine=L.polyline(coords,{weight:5,opacity:.75,dashArray:'8 7'}).addTo(state.map);}
   if(fit){try{state.map.fitBounds(state.routeLine.getBounds().pad(.12));}catch{}}
-  if(state.navigating)drawNavOverlay();
 }
 function renderRouteStops(){
   $('routeStops').innerHTML=state.routeStops.map((l,i)=>`<div class="routeStop"><span>${i+1}</span><div><b>${esc(l.address)}</b><small>${esc(l.city)} · ${scoreLead(l)} pts</small></div><button data-route-lead="${esc(l.id)}">×</button></div>`).join('')||'<div class="empty">No route yet.</div>';
@@ -1833,12 +1833,19 @@ function beginInAppNav(){
   state.navigating=true;state.navIndex=0;state.navFollow=true;state.navPrompted='';state.navLegStop='';state.navLegFrom=null;state.navLegGeometry=null;
   state.navFilter=createGpsFilter();state.navInterp=createInterpolator();state.navGate=createRerouteGate();state.navTray=createReadoutThrottle();
   state.navLine=null;state.navSteps=[];state.navStepIndex=-1;state.navZoomed=false;state.navPanUntil=0;state.navPinKey='';state.navOffShown=false;
+  state.navRouted=false;state.navAlong=0;state.navAheadBucket=-1;state.navSpeed=0;state.navSpeedFix=null;state.navZoom=null;state.navZoomWant=null;
+  if(state.routeLine){state.map?.removeLayer(state.routeLine);state.routeLine=null}
   if(state.userMarker){state.userMarker.remove();state.userMarker=null}
-  $('navBar').classList.remove('hidden');
+  document.documentElement.classList.add('isNavigating');
+  const modeLabel=state.routeMode==='walking'?'Walk':'Drive';
+  const modeEl=$('navMode'); if(modeEl) modeEl.textContent=modeLabel;
+  const bar=$('navBar'); if(bar){bar.dataset.mode=modeLabel;bar.classList.remove('hidden')}
   $('routeTray').classList.add('isNavHidden');
   $('navAppleLeg').classList.toggle('hidden', !isAppleDevice(navigator.userAgent, navigator.maxTouchPoints));
   syncRecenterButton();
   writeNavText('Next stop', 'Waiting for location…');
+  showNavVisuals();
+  if(state.currentLocation) flyNavCamera(state.currentLocation, navZoomFor(state.routeMode, 0));
   startNavLoop();
   holdWakeLock();
   document.addEventListener('visibilitychange', onNavVisibility);
@@ -1851,8 +1858,11 @@ function endNavigation(message){
   document.removeEventListener('visibilitychange', onNavVisibility);
   releaseScreenWakeLock(state.navWake);state.navWake=null;
   clearNavLayers();
+  restoreNavZoomSnap();
+  document.documentElement.classList.remove('isNavigating');
   $('navBar')?.classList.add('hidden');
   $('routeTray')?.classList.remove('isNavHidden');
+  if(state.routeStops?.length) drawRoutePreview(false);
   if(message)toast(message);
 }
 function onNavVisibility(){if(document.visibilityState==='visible'&&state.navigating)holdWakeLock()}
@@ -1875,6 +1885,7 @@ function onNavPosition(pos){
   const snap=snapToRoute(filtered, state.navLine, 22);
   const display={lat:snap.snapped?snap.lat:filtered.lat,lng:snap.snapped?snap.lng:filtered.lng,heading:filtered.heading,accuracy:filtered.accuracy,interval:filtered.interval};
   state.currentLocation=display;
+  noteNavSpeed(filtered, now);
   state.navInterp.setTarget(display, now, reducedMotion());
   if(state.navLegStop!==stop.id){state.navLegStop=stop.id;state.navLine=null;loadNavLeg(display, stop)}
   else publishProgress(stop, display, snap, false);
@@ -1886,16 +1897,17 @@ function onNavPosition(pos){
     toast(`You're within ${ARRIVAL_METERS} m. Mark this door, and the route moves to the next stop.`);
   }else if(state.navPrompted===stop.id&&meters>ARRIVAL_METERS+25)state.navPrompted='';
   maybeNavZoom(display);
+  maybeEaseNavZoom(display);
 }
 let navLegToken=0;
 async function loadNavLeg(here, stop){
   const token=++navLegToken;
   const meters=metersBetween(here, stop);
   state.navLegMeters=meters;state.navLegSeconds=etaSeconds(meters, state.routeMode);
-  if(!state.navLine?.length) state.navLine=[{lat:here.lat,lng:here.lng},{lat:Number(stop.lat),lng:Number(stop.lng)}];
+  state.navRouted=false;state.navLine=null;state.navAheadBucket=-1;
   showNavVisuals();
-  state.navLegLine.setLatLngs(state.navLine.map(point=>[point.lat, point.lng]));
-  if(isCoords(stop)) state.navStopRing.setLatLng([Number(stop.lat), Number(stop.lng)]);
+  paintAhead(0, true);
+  if(isCoords(stop)) placeNavStop(stop);
   publishProgress(stop, here, snapToRoute(here, state.navLine, 22), true);
   try{
     const r=await fetch('/api/route',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:osrmProfile(state.routeMode),service:'route',steps:true,coordinates:[{lat:here.lat,lng:here.lng},{lat:Number(stop.lat),lng:Number(stop.lng)}]})});
@@ -1903,14 +1915,15 @@ async function loadNavLeg(here, stop){
     if(!r.ok||token!==navLegToken||!state.navigating)return;
     const line=lineLatLngs(data.geometry);
     if(line.length>=2){
-      state.navLine=line;state.navLegGeometry=data.geometry;
+      state.navLine=line;state.navLegGeometry=data.geometry;state.navRouted=true;state.navAheadBucket=-1;
       state.navLegMeters=Number(data.distance)||meters;
       state.navLegSeconds=Number(data.duration)||state.navLegSeconds;
       state.navSteps=normalizeSteps(data.steps);state.navStepIndex=-1;
-      state.navLegLine.setLatLngs(line.map(point=>[point.lat, point.lng]));
-      publishProgress(stop, here, snapToRoute(here, line, 22), true);
+      const snap=snapToRoute(here, line, 22);
+      paintAhead(snap.snapped?snap.along:0, true);
+      publishProgress(stop, here, snap, true);
     }
-  }catch{/* keep the straight fallback already on the map */}
+  }catch{/* leave the forward line off until a road route arrives */}
 }
 function publishProgress(stop, place, snap, immediate){
   const total=snap?.total>1?snap.total:(state.navLegMeters||metersBetween(place, stop));
@@ -1942,21 +1955,56 @@ function showNavVisuals(){
     pane.style.pointerEvents='none';
   }
   if(!state.navRenderer) state.navRenderer=L.canvas({pane:'navPane'});
+  const lineOpts=(color, weight, opacity)=>({pane:'navPane', renderer:state.navRenderer, interactive:false, color, weight, opacity, lineCap:'round', lineJoin:'round'});
   if(!state.navArrow){
-    const icon=L.divIcon({className:'navArrowIcon', html:'<div class="navArrow"></div>', iconSize:[28,28], iconAnchor:[14,14]});
+    const icon=L.divIcon({className:'navArrowIcon', html:'<div class="navArrow"></div>', iconSize:[34,34], iconAnchor:[17,17]});
     state.navArrow=L.marker([HOME_BASE.lat, HOME_BASE.lng], {icon, interactive:false, keyboard:false, pane:'navPane', zIndexOffset:2000});
   }
-  if(!state.navAccuracy) state.navAccuracy=L.circle([HOME_BASE.lat, HOME_BASE.lng], {radius:18, pane:'navPane', renderer:state.navRenderer, interactive:false, color:'#1e6bff', weight:1, fillColor:'#1e6bff', fillOpacity:.15});
-  if(!state.navLegLine) state.navLegLine=L.polyline([], {pane:'navPane', renderer:state.navRenderer, interactive:false, color:'#1e6bff', weight:6, opacity:.92, lineCap:'round', lineJoin:'round'});
-  if(!state.navStopRing) state.navStopRing=L.circleMarker([HOME_BASE.lat, HOME_BASE.lng], {pane:'navPane', renderer:state.navRenderer, interactive:false, radius:14, color:'#1e6bff', weight:3, fillColor:'#1e6bff', fillOpacity:.12});
+  if(!state.navAccuracy) state.navAccuracy=L.circle([HOME_BASE.lat, HOME_BASE.lng], {radius:18, pane:'navPane', renderer:state.navRenderer, interactive:false, color:'#1e6bff', weight:1, fillColor:'#1e6bff', fillOpacity:.12});
+  if(!state.navCasing) state.navCasing=L.polyline([], lineOpts('#0c1424', 11, .55));
+  if(!state.navTraveled) state.navTraveled=L.polyline([], lineOpts('#8ea0b3', 5, .35));
+  if(!state.navLegLine) state.navLegLine=L.polyline([], lineOpts('#1e6bff', 6, .98));
+  if(!state.navStop){
+    const icon=L.divIcon({className:'navStopIcon', html:'<div class="navStop"><span>1</span></div>', iconSize:[34,34], iconAnchor:[17,17]});
+    state.navStop=L.marker([HOME_BASE.lat, HOME_BASE.lng], {icon, interactive:false, keyboard:false, pane:'navPane', zIndexOffset:1500});
+  }
   if(state.currentLocation){
     state.navArrow.setLatLng([state.currentLocation.lat, state.currentLocation.lng]);
     state.navAccuracy.setLatLng([state.currentLocation.lat, state.currentLocation.lng]);
   }
-  if(!state.map.hasLayer(state.navLegLine)) state.navLegLine.addTo(state.map);
-  if(!state.map.hasLayer(state.navAccuracy)) state.navAccuracy.addTo(state.map);
-  if(!state.map.hasLayer(state.navStopRing)) state.navStopRing.addTo(state.map);
-  if(!state.map.hasLayer(state.navArrow)) state.navArrow.addTo(state.map);
+  [state.navCasing, state.navTraveled, state.navLegLine, state.navAccuracy, state.navArrow].forEach(layer=>{
+    if(layer&&!state.map.hasLayer(layer)) layer.addTo(state.map);
+  });
+}
+function placeNavStop(stop){
+  if(!state.navStop||!isCoords(stop))return;
+  state.navStop.setLatLng([Number(stop.lat), Number(stop.lng)]);
+  if(!state.map.hasLayer(state.navStop)) state.navStop.addTo(state.map);
+  const label=String((state.navIndex||0)+1);
+  const el=state.navStop.getElement()?.querySelector('span');
+  if(el&&el.textContent!==label) el.textContent=label;
+}
+function paintAhead(along, force){
+  if(!state.navCasing||!state.navLegLine||!state.navTraveled)return;
+  if(!state.navRouted||!state.navLine||state.navLine.length<2){
+    if(force||state.navAheadBucket!==-2){
+      state.navAheadBucket=-2;
+      state.navCasing.setLatLngs([]);
+      state.navLegLine.setLatLngs([]);
+      state.navTraveled.setLatLngs([]);
+    }
+    return;
+  }
+  const bucket=Math.round((Number(along)||0)/14);
+  if(!force&&bucket===state.navAheadBucket)return;
+  state.navAheadBucket=bucket;
+  state.navAlong=Number(along)||0;
+  const parts=splitRoute(state.navLine, state.navAlong);
+  const ahead=parts.ahead.map(point=>[point.lat, point.lng]);
+  const traveled=parts.traveled.length>1?parts.traveled.map(point=>[point.lat, point.lng]):[];
+  state.navCasing.setLatLngs(ahead);
+  state.navLegLine.setLatLngs(ahead);
+  state.navTraveled.setLatLngs(traveled);
 }
 function paintNavFrame(sample){
   if(!sample||!state.navArrow)return;
@@ -1974,6 +2022,11 @@ function paintNavFrame(sample){
     const acc=Number(state.currentLocation?.accuracy);
     if(Number.isFinite(acc)) state.navAccuracy.setRadius(Math.max(8, Math.min(80, acc)));
   }
+  if(state.navRouted&&now-(state.navLinePaintAt||0)>220){
+    state.navLinePaintAt=now;
+    const snap=snapToRoute(sample, state.navLine, 80);
+    paintAhead(snap.along||0, false);
+  }
 }
 function startNavLoop(){
   cancelAnimationFrame(state.navFrame);
@@ -1987,29 +2040,79 @@ function startNavLoop(){
   };
   state.navFrame=requestAnimationFrame(loop);
 }
+function navCameraLatLng(sample, zoom){
+  const pixels=navLookaheadPixels(state.routeMode, sample.heading);
+  const projected=state.map.project([sample.lat, sample.lng], zoom);
+  const shifted=offsetCameraPoint(projected, sample.heading, pixels);
+  return state.map.unproject([shifted.x, shifted.y], zoom);
+}
+function engageNavZoomSnap(){
+  if(!state.map||state.navZoomSnap!=null)return;
+  state.navZoomSnap=state.map.options.zoomSnap??1;
+  state.map.options.zoomSnap=0.5;
+}
+function restoreNavZoomSnap(){
+  if(!state.map||state.navZoomSnap==null)return;
+  state.map.options.zoomSnap=state.navZoomSnap;
+  state.navZoomSnap=null;
+}
+function flyNavCamera(sample, zoom){
+  if(!state.map||!sample||!Number.isFinite(sample.lat)||!Number.isFinite(sample.lng))return;
+  engageNavZoomSnap();
+  const center=navCameraLatLng(sample, zoom);
+  state.navZoom=zoom;
+  state.navZoomed=true;
+  state.navZoomWant=zoom;
+  const animate=!reducedMotion();
+  const duration=animate?1.05:0;
+  const token=++state.navFlyToken;
+  state.navAutoMove=true;
+  state.navPanUntil=performance.now()+duration*1000+160;
+  const release=()=>{if(token===state.navFlyToken)state.navAutoMove=false};
+  state.map.once('moveend', release);
+  setTimeout(release, duration*1000+500);
+  if(animate) state.map.flyTo([center.lat, center.lng], zoom, {duration, easeLinearity:0.25});
+  else {state.map.setView([center.lat, center.lng], zoom, {animate:false}); release();}
+}
 function easeFollow(sample){
-  if(!state.map)return;
+  if(!state.map||!state.navZoomed)return;
   const now=performance.now();
   if(state.navPanUntil&&now<state.navPanUntil)return;
-  const center=state.map.getCenter();
-  if(metersBetween({lat:center.lat,lng:center.lng}, sample)<12)return;
+  const center=navCameraLatLng(sample, state.map.getZoom());
+  if(metersBetween({lat:state.map.getCenter().lat,lng:state.map.getCenter().lng}, center)<10)return;
   const animate=!reducedMotion();
   const duration=animate?0.85:0;
   state.navPanUntil=now+duration*1000+80;
-  state.map.panTo([sample.lat, sample.lng], {animate, duration, easeLinearity:0.22, noMoveStart:true});
+  state.map.panTo([center.lat, center.lng], {animate, duration, easeLinearity:0.22, noMoveStart:true});
+}
+function noteNavSpeed(fix, now){
+  if(state.navSpeedFix){
+    const dt=(now-(state.navSpeedAt||now))/1000;
+    if(dt>0.3&&dt<5){
+      const pace=metersBetween(state.navSpeedFix, fix)/dt;
+      state.navSpeed=state.navSpeed?state.navSpeed*0.65+pace*0.35:pace;
+    }
+  }
+  state.navSpeedFix=fix;
+  state.navSpeedAt=now;
 }
 function maybeNavZoom(sample){
   if(state.navZoomed||!state.navFollow||!state.map)return;
-  state.navZoomed=true;
-  if(state.map.getZoom()>=16)return;
-  state.navAutoMove=true;
-  state.navPanUntil=performance.now()+900;
-  state.map.setView([sample.lat, sample.lng], 17, {animate:!reducedMotion()});
-  state.navAutoMove=false;
+  flyNavCamera(sample, navZoomFor(state.routeMode, state.navSpeed||0));
+}
+function maybeEaseNavZoom(sample){
+  if(!state.navZoomed||!state.navFollow||!state.map)return;
+  const zoom=navZoomFor(state.routeMode, state.navSpeed||0);
+  if(Math.abs(zoom-(state.navZoom??zoom))<0.01){state.navZoomWant=zoom;return}
+  const now=performance.now();
+  if(state.navZoomWant!==zoom){state.navZoomWant=zoom;state.navZoomWantAt=now;return}
+  if(now-(state.navZoomWantAt||0)<4000)return;
+  if(state.navPanUntil&&now<state.navPanUntil)return;
+  flyNavCamera(sample, zoom);
 }
 function clearNavLayers(){
-  [state.navArrow,state.navAccuracy,state.navLegLine,state.navStopRing].forEach(layer=>{try{layer?.remove()}catch{}});
-  state.navArrow=null;state.navAccuracy=null;state.navLegLine=null;state.navStopRing=null;state.navRenderer=null;
+  [state.navArrow,state.navAccuracy,state.navCasing,state.navTraveled,state.navLegLine,state.navStop].forEach(layer=>{try{layer?.remove()}catch{}});
+  state.navArrow=null;state.navAccuracy=null;state.navCasing=null;state.navTraveled=null;state.navLegLine=null;state.navStop=null;state.navRenderer=null;
 }
 function drawNavOverlay(){
   if(!state.map||!state.navigating)return;
@@ -2017,8 +2120,8 @@ function drawNavOverlay(){
   const here=state.navDisplay||state.currentLocation;
   if(here) paintNavFrame({lat:here.lat,lng:here.lng,heading:here.heading||0});
   const stop=state.routeStops[state.navIndex];
-  if(stop&&isCoords(stop)) state.navStopRing.setLatLng([Number(stop.lat), Number(stop.lng)]);
-  if(state.navLine?.length) state.navLegLine.setLatLngs(state.navLine.map(point=>[point.lat, point.lng]));
+  if(stop) placeNavStop(stop);
+  if(state.navRouted) paintAhead(state.navAlong||0, true);
 }
 function syncRecenterButton(){
   const btn=$('navRecenter');if(!btn)return;
@@ -2031,10 +2134,7 @@ function recenterNav(){
   state.navFollow=true;syncRecenterButton();
   const here=state.navDisplay||state.currentLocation;
   if(!here||!state.map)return;
-  state.navAutoMove=true;
-  state.navPanUntil=performance.now()+900;
-  state.map.setView([here.lat, here.lng], Math.max(state.map.getZoom(),17), {animate:!reducedMotion()});
-  state.navAutoMove=false;
+  flyNavCamera(here, navZoomFor(state.routeMode, state.navSpeed||0));
 }
 function openExternalLeg(kind){
   const stop=state.routeStops[state.navIndex];
@@ -2044,7 +2144,7 @@ function openExternalLeg(kind){
 }
 function advanceNavStop(){
   if(!state.navigating)return;
-  state.navIndex+=1;state.navPrompted='';state.navLegStop='';state.navLegGeometry=null;state.navLine=null;state.navSteps=[];state.navStepIndex=-1;
+  state.navIndex+=1;state.navPrompted='';state.navLegStop='';state.navLegGeometry=null;state.navLine=null;state.navRouted=false;state.navAheadBucket=-1;state.navSteps=[];state.navStepIndex=-1;
   const stop=state.routeStops[state.navIndex];
   if(!stop){endNavigation('Route complete.');return}
   closeDoorSheet();
