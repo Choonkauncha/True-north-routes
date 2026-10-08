@@ -13,13 +13,14 @@ const parts = [
   ['supabase/migrations/20261008_library_admin_alerts.sql', '8. Management library, inspection folders, and live messages'],
   ['supabase/migrations/20261008_lead_map_boot.sql', '9. Compact field-map boot'],
   ['supabase/migrations/20261008_training_practice.sql', '10. Training and practice'],
-  ['supabase/migrations/20261008_must_change_password.sql', '11. Forced password change and admin privacy']
+  ['supabase/migrations/20261008_must_change_password.sql', '11. Forced password change and admin privacy'],
+  ['supabase/migrations/20261008_inspection_handoff.sql', '12. Unified inspection handoffs']
 ];
 
 export function buildSetupSql(root) {
   const banner = `-- True North setup, in order, safe to run again.
 -- Paste this whole file into the Supabase SQL Editor once on a fresh project.
--- It is schema.sql, then the clock-in migration, then forms_photos.sql, then accounts.sql, then the role form library migration, then the document review migration, then the document library migration, then the management library and live message migration, then the field-map boot migration, then the training migration, then the forced password change and admin privacy migration.
+-- It is schema.sql, then the clock-in migration, then forms_photos.sql, then accounts.sql, then the role form library migration, then the document review migration, then the document library migration, then the management library and live message migration, then the field-map boot migration, then the training migration, then the forced password change and admin privacy migration, then the unified inspection handoff migration.
 `;
   const body = parts.map(([path, title]) => {
     const sql = readFileSync(join(root, path), 'utf8').trim();

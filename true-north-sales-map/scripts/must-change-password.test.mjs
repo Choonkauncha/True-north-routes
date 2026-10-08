@@ -161,8 +161,9 @@ for (const [path, snippet] of Object.entries(pages)) {
   assert.ok(read(path).includes(snippet), path);
 }
 assert.equal(read('reset-password.html').includes('/admin'), false);
-assert.ok(read('setter.html').includes("manageLink.hidden=!office"));
-assert.ok(read('setter.html').includes("const office=rep.role==='admin'"));
+const inspectionForm = read('tn-files/inspection-form.js');
+assert.ok(inspectionForm.includes('manageLink.hidden = !office'));
+assert.ok(inspectionForm.includes("const office = rep.role === 'admin'"));
 assert.ok(read('field-ops.js').includes("state.status?.rep?.role === 'admin'"));
 assert.ok(read('field-ops.js').includes('link.hidden = !allowed'));
 assert.ok(read('admin.html').includes("decision=role&&role!=='admin'?'redirect':'wait'"));
