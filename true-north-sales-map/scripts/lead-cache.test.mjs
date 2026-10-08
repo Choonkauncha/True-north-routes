@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createArrayCursor, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, parseJsonArraySlice, planLeadSync } from '../lib/lead-cache.js';
+import { createArrayCursor, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, normalizeStamp, parseJsonArraySlice, planLeadSync, takeCompleteObjects } from '../lib/lead-cache.js';
 import { STREET_ZOOM, clusterLeads, pinDiff, sampleHeat } from '../lib/pin-layer.js';
 
 assert.equal(localStamp({ generated: '2026-10-08', totalRecords: 17232, mappedRecords: 17177 }), 'local:2026-10-08:17232:17177');
@@ -27,6 +27,16 @@ const secondEnd=nextObjectEnd(sample, cursor, 2);
 assert.deepEqual(parseJsonArraySlice(sample, firstEnd, secondEnd).map(row=>row.id), ['c']);
 assert.equal(parseJsonArraySlice(sample, secondEnd, sample.length).length, 0);
 assert.equal(nextObjectEnd('', createArrayCursor(), 1), 0);
+assert.equal(normalizeStamp('2026-10-08T15:00:00+00:00'), '2026-10-08T15:00:00.000Z');
+assert.equal(normalizeStamp('local:2026-10-08:1:1'), 'local:2026-10-08:1:1');
+
+const partial='[{"id":"a"},{"id":"b"';
+const streamCursor=createArrayCursor();
+const partialEnd=takeCompleteObjects(partial, streamCursor, 10);
+assert.deepEqual(parseJsonArraySlice(partial, 0, partialEnd).map(row=>row.id), ['a']);
+const rest=partial+'}]';
+const restEnd=takeCompleteObjects(rest, streamCursor, 10);
+assert.deepEqual(parseJsonArraySlice(rest, partialEnd, restEnd).map(row=>row.id), ['b']);
 
 assert.equal(STREET_ZOOM, 16);
 const diff = pinDiff(new Set(['a', 'b']), new Set(['b', 'c']));
@@ -53,9 +63,19 @@ assert.ok(app.includes('requestAnimationFrame'));
 assert.ok(app.includes('showMoreLeads'));
 assert.ok(html.includes('id="mapLoader"'));
 assert.ok(html.includes('id="bootText"'));
+assert.ok(html.includes('id="bootBar"'));
 assert.ok(html.includes('id="mapLoaderFact"'));
 assert.ok(html.includes('logo-emblem.webp'));
+assert.ok(html.includes('class="bootOutline"'));
+assert.ok(html.includes('viewBox="0 0 256 259"'));
+assert.ok(html.includes('pathLength="100"'));
+assert.equal(html.includes('mapLoaderSpin'), false);
+assert.equal(css.includes('bootSpin'), false);
+assert.equal(css.includes('tnMapSpin'), false);
+assert.ok(css.includes('bootOutlineTravel'));
+assert.ok(css.includes('#1e6bff'));
 assert.ok(css.includes('prefers-reduced-motion'));
+assert.ok(css.includes('stroke-dasharray:none'));
 assert.ok(css.includes('#0c1424') || css.includes('#0c1424'.replace('#', '')));
 
 console.log('lead-cache.test.mjs ok');
