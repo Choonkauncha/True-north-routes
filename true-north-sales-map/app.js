@@ -1089,7 +1089,7 @@ function nextBest(){
 
 function isHomeLead(l){return isCoords(l)&&haversine(HOME_BASE.lat,HOME_BASE.lng,Number(l.lat),Number(l.lng))<=HOME_MILES;}
 function fitMapToScope(animate=false){
-  if(!state.map)return;
+  if(!state.map||state.navigating)return;
   const mapped=state.filtered.filter(isCoords);
   const home=mapped.filter(isHomeLead);
   const use=state.homeArea&&home.length?home:mapped;
@@ -2127,7 +2127,7 @@ function beginInAppNav(){
   requestCompassPermission().then(status=>{ if(status==='denied') return; listenNavCompass(); });
   if(state.navWatch!=null)navigator.geolocation.clearWatch(state.navWatch);
   state.navigating=true;state.navPaused=false;state.navIndex=0;state.navFollow=true;state.navPrompted='';state.navLegStop='';state.navLegFrom=null;state.navLegGeometry=null;
-  state.navFilter=createGpsFilter();state.navInterp=createInterpolator();state.navGate=createRerouteGate();state.navTray=createReadoutThrottle();
+  state.navFilter=createGpsFilter({deadbandMeters:0.8,maxSpeed:55,maxGain:0.9,accuracyDeadband:0.08});state.navInterp=createInterpolator();state.navGate=createRerouteGate();state.navTray=createReadoutThrottle();
   state.navLine=null;state.navSteps=[];state.navStepIndex=-1;state.navZoomed=false;state.navPanUntil=0;state.navPinKey='';state.navOffShown=false;
   state.navRouted=false;state.navAlong=0;state.navAheadBucket=-1;state.navSpeed=0;state.navGpsSpeed=null;state.navGpsHeading=null;state.navCompass=null;state.navUp=null;state.navUpApplied=null;state.navBearingAt=0;state.navSpeedFix=null;state.navZoom=null;state.navZoomWant=null;
   if(state.routeLine){state.map?.removeLayer(state.routeLine);state.routeLine=null}
@@ -2396,7 +2396,8 @@ function easeFollow(sample){
   if(!state.map||!state.navZoomed||state.navPaused)return;
   const now=performance.now();
   if(state.navPanUntil&&now<state.navPanUntil)return;
-  const zoom=state.map.getZoom();
+  const zoom=state.navZoom??navZoomFor(state.routeMode, state.navSpeed||0);
+  if(Math.abs((state.map.getZoom()||0)-zoom)>0.4){flyNavCamera(sample, zoom);return}
   const center=navCameraLatLng(sample, zoom);
   if(metersBetween({lat:state.map.getCenter().lat,lng:state.map.getCenter().lng}, center)<0.4)return;
   state.navAutoMove=true;
@@ -2528,6 +2529,7 @@ document.addEventListener('keydown',e=>{
 });
 
 if(new URLSearchParams(location.search).get('navsim')==='1'){
+  window.__tnNavDebug=()=>({follow:state.navFollow,paused:!!state.navPaused,up:state.navUp,gpsH:state.navGpsHeading,gpsS:state.navGpsSpeed,lat:state.currentLocation?.lat,lng:state.currentLocation?.lng,along:state.navAlong,zoom:state.map?.getZoom?.(),speed:state.navSpeed});
   window.__tnNavSim=(detail={})=>{
     const wait=()=>{
       if(!state.map){setTimeout(wait, 40);return}

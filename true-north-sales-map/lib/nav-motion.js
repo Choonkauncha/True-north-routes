@@ -269,10 +269,14 @@ export function splitRoute(line, alongMeters) {
 export function createGpsFilter({
   maxAccuracy = MAX_ACCURACY_METERS,
   deadbandMeters = 3.5,
-  maxSpeed = 45
+  maxSpeed = 45,
+  maxGain = 0.62,
+  accuracyDeadband = 0.3
 } = {}) {
   let lat = null;
   let lng = null;
+  let rawLat = null;
+  let rawLng = null;
   let variance = 30 * 30;
   let heading = null;
   let lastAt = 0;
@@ -280,6 +284,8 @@ export function createGpsFilter({
     reset() {
       lat = null;
       lng = null;
+      rawLat = null;
+      rawLng = null;
       variance = 30 * 30;
       heading = null;
       lastAt = 0;
@@ -294,21 +300,28 @@ export function createGpsFilter({
       if (lat == null) {
         lat = nextLat;
         lng = nextLng;
+        rawLat = nextLat;
+        rawLng = nextLng;
         variance = acc * acc;
         heading = Number.isFinite(fix.heading) ? fix.heading : null;
         lastAt = now;
         return { lat, lng, heading, accuracy: acc, at: now, interval: 700 };
       }
       const dt = Math.max(0.05, (now - lastAt) / 1000);
+      const rawJump = metersBetween({ lat: rawLat, lng: rawLng }, { lat: nextLat, lng: nextLng });
       const jump = metersBetween({ lat, lng }, { lat: nextLat, lng: nextLng });
-      if (jump > Math.max(80, acc * 3) && jump / dt > maxSpeed) return null;
-      if (jump < Math.max(deadbandMeters, Math.min(8, acc * 0.3)) && dt < 2.2) return null;
+      // Judge teleports against the last raw fix. Smoothed lag must not turn a steady course into a reject.
+      if (rawJump > Math.max(80, acc * 3) && rawJump / dt > maxSpeed) return null;
+      const quiet = Math.max(deadbandMeters, Math.min(8, acc * accuracyDeadband));
+      if (jump < quiet && dt < 2.2) return null;
       variance += (2.2 * dt) ** 2;
-      const gain = Math.min(0.62, variance / (variance + acc * acc));
+      const gain = Math.min(maxGain, variance / (variance + acc * acc));
       const prev = { lat, lng };
       lat += gain * (nextLat - lat);
       lng += gain * (nextLng - lng);
       variance *= (1 - gain);
+      rawLat = nextLat;
+      rawLng = nextLng;
       let course = heading;
       if (jump > 4) course = bearingDegrees(prev, { lat, lng });
       if (Number.isFinite(fix.heading) && jump > 3) course = fix.heading;
