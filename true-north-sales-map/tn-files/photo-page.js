@@ -120,7 +120,7 @@ async function onSave() {
 
 async function renderSaved() {
   const query = new URLSearchParams({ lead: lead?.id || '', name: lead?.name || '', address: lead?.address || '', city: lead?.city || '', state: lead?.state || '', zip: lead?.zip || '' }).toString();
-  app.innerHTML = shell(`<div class="tnSuccess"><div class="mark"></div><h1 class="tnTitle">Photo saved</h1><p class="tnSub">${esc(formatAddress(lead) || 'This house')}</p></div><div class="tnStack"><label class="tnTap primary">Add another<input id="take" type="file" accept="image/*" capture="environment"></label><a class="tnTap dark" href="/forms.html?${esc(query)}">Fill Form</a></div><div id="gallery" class="tnGallery" style="margin-top:14px"></div>`);
+  app.innerHTML = shell(`<div class="tnSuccess"><img class="brandLogo" src="/brand/logo-header.png" alt="" width="40" height="40"><h1 class="tnTitle">Photo saved</h1><p class="tnSub">${esc(formatAddress(lead) || 'This house')}</p></div><div class="tnStack"><label class="tnTap primary">Add another<input id="take" type="file" accept="image/*" capture="environment"></label><a class="tnTap dark" href="/forms.html?${esc(query)}">Fill Form</a></div><div id="gallery" class="tnGallery" style="margin-top:14px"></div>`);
   document.getElementById('take').onchange = onPick;
   loadGallery();
 }

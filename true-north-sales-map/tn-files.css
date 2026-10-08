@@ -75,7 +75,7 @@
 .tnIconBtns{display:flex;gap:6px}
 .tnIconBtns button{min-width:44px;min-height:44px;border-radius:10px;border:1px solid #d5dee3;background:#fff;font-weight:800}
 .tnSuccess{text-align:center;padding:28px 8px}
-.tnSuccess .mark{margin:0 auto 12px}
+.tnSuccess .brandLogo{width:64px;height:64px;margin:0 auto 12px}
 .tnSuccess h1{font-size:32px}
 .tnLightbox{position:fixed;inset:0;background:rgba(8,22,29,.88);z-index:50;display:flex;flex-direction:column;padding:16px}
 .tnLightbox img{width:100%;height:100%;object-fit:contain}
