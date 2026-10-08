@@ -1,6 +1,7 @@
 import { bootFiles, signIn, searchLeads, listPhotos, groupPhotosByAddress } from './store.js';
 import { esc, bindSignOut, signInCard, actionRow } from './ui.js';
 import { canUsePhotoBank } from './logic.js';
+import { fieldHomeLinks, roleLabel } from '../lib/role-access.js';
 
 const app = document.getElementById('app');
 let ctx;
@@ -21,14 +22,23 @@ function renderSignIn() {
   };
 }
 
+function homeLinks(role) {
+  return fieldHomeLinks(role).map((item) => {
+    if (item.id === 'photos') return '';
+    if (item.action === 'message') return `<a class="tnTap" href="/?open=messages">${esc(item.label)}</a>`;
+    return `<a class="tnTap${item.id === 'inspection' ? ' dark' : ''}" href="${esc(item.href)}">${esc(item.label)}</a>`;
+  }).join('');
+}
+
 function render() {
-  const photos = canUsePhotoBank(ctx.rep?.role, ctx.mode);
-  const who = ctx.rep ? `${ctx.rep.name} · ${ctx.rep.role}` : 'This phone';
+  const role = ctx.rep?.role;
+  const photos = canUsePhotoBank(role, ctx.mode);
+  const who = ctx.rep ? `${ctx.rep.name} · ${roleLabel(role)}` : 'This phone';
   if (!photos) {
-    app.innerHTML = `<p class="tnProgress">${esc(who)}</p><h1 class="tnTitle">Fill a form</h1><p class="tnSub">Photos are for sales reps. You can still fill forms assigned to setters.</p><div class="tnStack"><a class="tnTap primary" href="/forms.html">Fill Form</a><a class="tnTap dark" href="/setter.html">Setter intake</a></div>`;
+    app.innerHTML = `<p class="tnProgress">${esc(who)}</p><h1 class="tnTitle">Appointment setter</h1><p class="tnSub">Photos are for sales reps. You can still send inspections, fill forms assigned to you, and message management.</p><div class="tnStack">${homeLinks(role)}</div>`;
     return;
   }
-  app.innerHTML = `${ctx.mode === 'local' ? '<div class="tnBanner">Saved on this phone until Supabase storage is connected.</div>' : ''}<p class="tnProgress">${esc(who)}</p><h1 class="tnTitle">Sales</h1><p class="tnSub">Search the house, then add a photo or fill a form.</p><label class="tnLabel" for="q">House</label><input class="tnInput" id="q" placeholder="Address or homeowner"><div id="hits" class="tnStack" style="margin-top:10px"></div><h2 style="margin:22px 0 8px">Photos by house</h2><div id="groups" class="tnStack"></div><div class="tnStack" style="margin-top:16px"><a class="tnTap" href="/setter.html">Log an appointment</a>${ctx.rep && (ctx.rep.role === 'admin' || ctx.rep.role === 'manager') ? '<a class="tnTap" href="/files.html">Files & Forms</a>' : ''}</div>`;
+  app.innerHTML = `${ctx.mode === 'local' ? '<div class="tnBanner">Saved on this phone until Supabase storage is connected.</div>' : ''}<p class="tnProgress">${esc(who)}</p><h1 class="tnTitle">Sales</h1><p class="tnSub">Search the house, then add a roof photo or fill a form.</p><label class="tnLabel" for="q">House</label><input class="tnInput" id="q" placeholder="Address or homeowner"><div id="hits" class="tnStack" style="margin-top:10px"></div><h2 style="margin:22px 0 8px">Photos by house</h2><div id="groups" class="tnStack"></div><div class="tnStack" style="margin-top:16px">${homeLinks(role)}${ctx.rep && (ctx.rep.role === 'admin' || ctx.rep.role === 'manager') ? '<a class="tnTap" href="/files.html">Files & Forms</a>' : ''}</div>`;
   const input = document.getElementById('q');
   let timer;
   input.oninput = () => { clearTimeout(timer); timer = setTimeout(() => runSearch(input.value), 200); };

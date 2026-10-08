@@ -3,9 +3,13 @@ import './field-ops.js';
 import './tn-files/password-reset.js';
 import { PASSWORD_UPDATED } from './lib/password-reset.js';
 import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } from './lib/route-picks.js';
+import { ROUTE_TRAY_KEY, routeTrayCollapsedByDefault, routeTraySummary, shouldExpandRouteTray } from './lib/route-tray.js';
+import { MAP_FACTS } from './lib/map-facts.js';
 import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
 import { HAIL_MILES, WARNING_COLORS, housesInStorm, readStormCache, reportMarkerText, writeStormCache } from './lib/storm-maps.js';
 import { setWeatherLocation, startMapWeather } from './weather-widget.js';
+import { roleLabel } from './lib/field-rules.js';
+import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/account-rules.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -14,7 +18,6 @@ const HOME_BASE={lat:40.3931,lng:-82.4857};
 const HOME_MILES=35;
 const LIST_SNAPS=['sheet-collapsed','sheet-half','sheet-full'];
 const APPOINTMENT_STAGES=['Scheduled','Confirmed','Completed','No-show','Cancelled'];
-const ROLE_OPTIONS=['admin','manager','canvasser','salesperson'];
 const LOCAL_KEY='tnrc2:local';
 
 const state={
@@ -29,7 +32,9 @@ const state={
   doorLeadId:null, doorSaving:false, doorUndo:null,
   homeArea:true, didFit:false, listSnap:'sheet-collapsed', pinBannerDismissed:false,
   listShown:180, listFilterKey:'',
-  navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[]
+  navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[],
+  pendingPostSignIn:false,
+  tileLayer:null, mapLoaderGen:0, mapSettled:false, pinsPainted:false, awaitingFirstFit:false, factTimer:null, mapLoaderGiveUp:null
 };
 
 const $=id=>document.getElementById(id);
@@ -70,8 +75,9 @@ function bindStaticEvents(){
   $('logoutBtn').onclick=()=>state.supabase?.auth.signOut();
   $('localModeBtn').onclick=()=>{hideLogin();enterLocal('Local device mode enabled. Connect Supabase for shared live team data.')};
   $('nextBtn').onclick=nextBest; $('nextCardBtn').onclick=nextBest;
-  $('mobileNext').onclick=nextBest; $('mobileRoute').onclick=openRoutePanel; $('mobileLocate').onclick=locate;
-  $('routeBtn').onclick=openRoutePanel; $('routeTrayBtn').onclick=openRoutePanel;
+  $('mobileNext').onclick=nextBest; $('mobileRoute').onclick=openRouteFromChrome; $('mobileLocate').onclick=locate;
+  $('routeBtn').onclick=openRouteFromChrome; $('routeTrayBtn').onclick=openRoutePanel;
+  $('routeTrayToggle').onclick=()=>setRouteTrayCollapsed($('routeTrayToggle').getAttribute('aria-expanded')==='true');
   $('selectVisibleBtn').onclick=selectVisibleForRoute; $('clearRouteBtn').onclick=clearRoute;
   $('doorSheetRoute').onclick=()=>{if(!state.doorLeadId)return;toggleSelected(state.doorLeadId);$('doorSheetRoute').textContent=routeToggleLabel(state.selected.has(state.doorLeadId));};
   $('focusBtn').onclick=toggleMapFocus; $('fitBtn').onclick=fitFilteredLeads;
@@ -80,7 +86,8 @@ function bindStaticEvents(){
   $('tabWork').onclick=()=>switchTab('work');
   $('tabHandoffs').onclick=()=>switchTab('handoffs');
   $('tabTeam').onclick=()=>switchTab('team');
-  $('adminBtn').onclick=(e)=>{ if(state.currentRep?.role==='admin'||state.currentRep?.role==='manager') return; e.preventDefault(); };
+  $('adminBtn').onclick=(e)=>{ if(canOpenManagement({email:state.user?.email, rep:state.currentRep, adminEmails:state.config?.adminEmails})) return; e.preventDefault(); };
+  $('postSignInContinue')?.addEventListener('click', ()=>$('postSignIn').classList.add('hidden'));
   $('locateBtn').onclick=locate;
   $('clearBtn').onclick=()=>{['search','statusFilter','repFilter','territoryFilter','sourceFilter'].forEach(id=>$(id).value='');$('mineToggle').checked=false;state.stormHouseIds=null;syncFilters();renderAll()};
   $('search').addEventListener('input',debounce(()=>{syncFilters();renderAll()},120));
@@ -150,6 +157,8 @@ function bindStaticEvents(){
   bindDoorSwipe();
   bindListSheet();
   syncListMode();
+  rotateMapFacts();
+  setRouteTrayCollapsed(readRouteTrayCollapsed(), {persist:false});
   const onDoorMedia=()=>{if(state.map){closeDoorSheet();refreshMapLayers();}syncListMode();};
   if(doorSheetMedia.addEventListener) doorSheetMedia.addEventListener('change',onDoorMedia);
   else doorSheetMedia.addListener(onDoorMedia);
@@ -180,15 +189,22 @@ async function enterCloud(session){
   $('cloudNotice').classList.add('hidden');
   try{
     await loadCloudData();
-    const adminAllowed=!state.config?.adminEmails?.length || state.config.adminEmails.includes(String(session.user.email||'').toLowerCase()); $('adminBtn').classList.toggle('hidden',!(adminAllowed && (state.currentRep?.role==='admin'||state.currentRep?.role==='manager')));
+    const open=canOpenManagement({email:session.user.email, rep:state.currentRep, adminEmails:state.config?.adminEmails});
+    $('adminBtn').classList.toggle('hidden', !open);
+    if(state.pendingPostSignIn){state.pendingPostSignIn=false; if(open) showPostSignIn();}
     initMapOnce(); buildFilters(); renderAll(); startRealtime();
-  }catch(e){console.error(e);enterLocal(`Cloud connection failed: ${e.message}`)}
+  }catch(e){console.error(e);state.pendingPostSignIn=false;enterLocal(`Cloud connection failed: ${e.message}`)}
 }
 
 async function loadCloudData(){
   const sb=state.supabase;
   state.reps=await fetchAll(()=>sb.from('reps').select('id,user_id,name,role,active').eq('active',true).order('name'));
-  state.currentRep=state.reps.find(r=>r.user_id===state.user.id)||null;
+  state.currentRep=managementProfile({
+    email:state.user?.email,
+    rep:state.reps.find(r=>r.user_id===state.user.id)||null,
+    userId:state.user?.id,
+    name:state.user?.user_metadata?.name||''
+  });
   if(!state.currentRep) throw new Error('Your Supabase account is signed in, but no active rep profile exists yet. Add the user to public.reps.');
   state.territories=await fetchAll(()=>sb.from('territories').select('*').order('name'));
   state.leads=(await fetchAll(()=>sb.from('leads').select('*').order('city').order('address'))).map(normalizeLead);
@@ -213,16 +229,25 @@ function showLogin(){
 }
 function hideLogin(){ $('loginModal').classList.add('hidden'); $('appShell').classList.remove('blurred'); }
 async function login(e){e.preventDefault();if(!state.supabase){return}
+  state.pendingPostSignIn=true;
   $('loginError').textContent='Signing in…';
   const {error}=await state.supabase.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});
-  if(error)$('loginError').textContent=error.message;
+  if(error){state.pendingPostSignIn=false;$('loginError').textContent=error.message}
+}
+function showPostSignIn(){
+  const panel=$('postSignIn'); if(!panel) return;
+  const who=state.currentRep?.name||state.user?.email||'';
+  $('postSignInWho').textContent=who?`${who} is signed in. Management is part of this profile.`:'You are signed in. Management is part of this profile.';
+  $('postSignInLinks').innerHTML=MANAGEMENT_LINKS.map(link=>`<a class="postSignInLink" href="${esc(link.href)}"><b>${esc(link.label)}</b><span>${esc(link.hint||'')}</span></a>`).join('');
+  panel.classList.remove('hidden');
 }
 function showFatal(e){$('workList').innerHTML=`<div class="empty"><b>Could not load command center.</b><br>${esc(e.message)}</div>`}
 
 function initMapOnce(){
   if(state.map)return;
   state.map=L.map('map',{zoomControl:true,preferCanvas:true}).setView([40.39,-82.49],11);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(state.map);
+  state.tileLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(state.map);
+  state.tileLayer.on('load',()=>settleMapLoader(state.mapLoaderGen));
   state.markerLayer=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:42,showCoverageOnHover:false,spiderfyOnMaxZoom:true}).addTo(state.map);
   state.map.on('dragstart',()=>{ if(state.navigating&&state.navFollow){state.navFollow=false;syncRecenterButton();} });
   if(!state.map.getPane('radarPane')){
@@ -232,6 +257,59 @@ function initMapOnce(){
   }
   startMapWeather(state.map);
   ensureStormMaps();
+  requestAnimationFrame(()=>state.map?.invalidateSize());
+}
+function reducedMotion(){return window.matchMedia('(prefers-reduced-motion: reduce)').matches}
+function rotateMapFacts(){
+  const el=$('mapLoaderFact'); if(!el||state.factTimer)return;
+  let index=0;
+  const apply=()=>{el.textContent=MAP_FACTS[index%MAP_FACTS.length];};
+  apply();
+  state.factTimer=setInterval(()=>{
+    const next=()=>{index+=1;apply();el.classList.remove('isFading');};
+    if(reducedMotion()){next();return;}
+    el.classList.add('isFading');
+    setTimeout(next, 320);
+  }, 4000);
+}
+function revealMapLoader(){
+  const el=$('mapLoader'); if(!el)return;
+  el.classList.remove('isDone','isGone');
+  el.setAttribute('aria-busy','true');
+}
+function hideMapLoader(gen){
+  if(gen!=null&&gen!==state.mapLoaderGen)return;
+  clearTimeout(state.mapLoaderGiveUp);
+  const el=$('mapLoader'); if(!el||el.classList.contains('isGone')){state.mapSettled=true;return;}
+  el.classList.add('isDone');
+  el.setAttribute('aria-busy','false');
+  state.mapSettled=true;
+  const finish=()=>{if(el.classList.contains('isDone'))el.classList.add('isGone');};
+  if(reducedMotion())finish();
+  else{el.addEventListener('transitionend',finish,{once:true});setTimeout(finish,480);}
+}
+function mapTilesPending(){
+  const imgs=document.querySelectorAll('#map .leaflet-tile-pane img.leaflet-tile');
+  if(!imgs.length)return true;
+  return [...imgs].some(img=>!img.complete);
+}
+function beginMapLoader(showNow){
+  const gen=++state.mapLoaderGen;
+  state.pinsPainted=false;
+  clearTimeout(state.mapLoaderGiveUp);
+  state.mapLoaderGiveUp=null;
+  if(showNow)revealMapLoader();
+  return gen;
+}
+function settleMapLoader(gen){
+  if(gen!==state.mapLoaderGen||!state.pinsPainted||state.awaitingFirstFit)return;
+  if(!state.mapLoaderGiveUp)state.mapLoaderGiveUp=setTimeout(()=>hideMapLoader(gen),12000);
+  state.map?.invalidateSize();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(gen!==state.mapLoaderGen||!state.pinsPainted||state.awaitingFirstFit)return;
+    if(mapTilesPending())return;
+    hideMapLoader(gen);
+  }));
 }
 
 function syncFilters(){
@@ -260,7 +338,7 @@ function applyFilters(){
 function renderAll(){
   if(!state.map)return;
   applyFilters(); renderStats(); renderWorkList(); renderHandoffs(); renderTeam(); renderSidebarCounts(); refreshMapLayers(); updateSelectedBadge(); updateListSummary(); updatePinBanner();
-  if(!state.didFit){state.didFit=true;setTimeout(()=>{publishListPeek();fitMapToScope(false);},80);}
+  if(!state.didFit){state.didFit=true;state.awaitingFirstFit=true;setTimeout(()=>{publishListPeek();fitMapToScope(false);state.awaitingFirstFit=false;settleMapLoader(state.mapLoaderGen);},80);}
 }
 
 function renderStats(){
@@ -329,7 +407,7 @@ function renderTeam(){
   const by={}; state.reps.forEach(r=>by[r.id]={rep:r,knocks:0,appts:0,interested:0});
   state.activities.filter(a=>new Date(a.created_at).getTime()>=cutoff).forEach(a=>{if(!by[a.actor_id])return; const to=a.metadata?.to_status; if(['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].includes(to))by[a.actor_id].knocks++;if(to==='Interested')by[a.actor_id].interested++;if(a.action==='appointment_booked')by[a.actor_id].appts++});
   const rows=Object.values(by).sort((a,b)=>(b.appts*10+b.interested*2+b.knocks)-(a.appts*10+a.interested*2+a.knocks));
-  list.innerHTML=rows.map((x,i)=>`<div class="teamRow"><div class="rank">${i+1}</div><div class="teamName"><strong>${esc(x.rep.name)}</strong><small>${esc(x.rep.role)}</small></div><div><b>${x.knocks}</b><small>worked</small></div><div><b>${x.appts}</b><small>appts</small></div></div>`).join('')||'<div class="empty">No team members configured.</div>';
+  list.innerHTML=rows.map((x,i)=>`<div class="teamRow"><div class="rank">${i+1}</div><div class="teamName"><strong>${esc(x.rep.name)}</strong><small>${esc(roleLabel(x.rep.role))}</small></div><div><b>${x.knocks}</b><small>worked</small></div><div><b>${x.appts}</b><small>appts</small></div></div>`).join('')||'<div class="empty">No team members configured.</div>';
 }
 
 function scoreLead(l){
@@ -350,6 +428,17 @@ function scoreLead(l){
 
 function refreshMapLayers(){
   if(!state.map)return;
+  const many=state.filtered.filter(isCoords).length>600;
+  if(state.mapSettled&&many){
+    const gen=beginMapLoader(true);
+    requestAnimationFrame(()=>{if(gen!==state.mapLoaderGen)return;paintMapLayers();settleMapLoader(gen);});
+    return;
+  }
+  const gen=beginMapLoader(!state.mapSettled);
+  paintMapLayers();
+  settleMapLoader(gen);
+}
+function paintMapLayers(){
   state.markerLayer?.clearLayers();
   (state._territoryLayers||[]).forEach(x=>x.remove());
   state._territoryLayers=[];
@@ -362,6 +451,7 @@ function refreshMapLayers(){
   if(state.layerFlags.territories)drawTerritories();
   if(state.routeStops?.length)drawRoutePreview(false);
   else if(state.navigating)drawNavOverlay();
+  state.pinsPainted=true;
 }
 function useDoorSheet(){return doorSheetMedia.matches;}
 function pinIconFor(l){
@@ -426,10 +516,22 @@ function fitMapToScope(animate=false){
   const mapped=state.filtered.filter(isCoords);
   const home=mapped.filter(isHomeLead);
   const use=state.homeArea&&home.length?home:mapped;
-  if(!use.length){state.map.setView([HOME_BASE.lat,HOME_BASE.lng],12,{animate});return;}
+  if(!use.length){state.map.setView([HOME_BASE.lat,HOME_BASE.lng],12,{animate});watchSlowTiles();return;}
   const bounds=L.latLngBounds(use.map(l=>[Number(l.lat),Number(l.lng)]));
   const phone=useDoorSheet();
   state.map.fitBounds(bounds.pad(.12),{animate,maxZoom:16,paddingTopLeft:[16,phone?128:36],paddingBottomRight:[16,phone?150:28]});
+  watchSlowTiles();
+}
+let tileWatch=0;
+function watchSlowTiles(){
+  if(!state.mapSettled)return;
+  clearTimeout(tileWatch);
+  tileWatch=setTimeout(()=>{
+    if(!mapTilesPending())return;
+    const gen=beginMapLoader(true);
+    state.pinsPainted=true;
+    settleMapLoader(gen);
+  },320);
 }
 function fitFilteredLeads(){
   if(!state.filtered.filter(isCoords).length){toast('No mapped houses in the current filter.');fitMapToScope(true);return;}
@@ -734,7 +836,7 @@ function openLead(id){
     <div class="drawerActions"><button id="drawerMaps" class="darkBtn">Open Google Maps</button><button id="drawerDir" class="outlineBtn">Directions</button></div>
     <div class="fieldActions"><button data-qstatus="Knocked">Knocked</button><button data-qstatus="No Answer">No answer</button><button data-qstatus="Interested">Interested</button><button data-qstatus="Not Interested">Not interested</button></div>
     <label>Sales status</label><select id="dStatus">${STATUS_OPTIONS.map(x=>`<option value="${esc(x)}" ${leadStatus(l)===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
-    <label>Assigned rep</label><select id="dOwner"><option value="">Unassigned</option>${reps.map(r=>`<option value="${esc(r.id)}" ${l.assignedRepId===r.id?'selected':''}>${esc(r.name)} · ${esc(r.role)}</option>`).join('')}</select>
+    <label>Assigned rep</label><select id="dOwner"><option value="">Unassigned</option>${reps.map(r=>`<option value="${esc(r.id)}" ${l.assignedRepId===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('')}</select>
     <div class="verifiedGrid"><label>Roof age (verified)</label><input id="dRoofAge" type="number" min="0" max="100" value="${esc(l.roof_age_years??l.roofAgeYears??'')}" placeholder="e.g. 16"><label><input id="dRoofVerified" type="checkbox" ${l.roof_age_verified||l.roofAgeVerified?'checked':''}> verified</label></div>
     <label>Notes</label><textarea id="dNotes" placeholder="Homeowner response, roof condition, next action…">${esc(notes)}</textarea>
     <button id="saveLeadBtn" class="saveBtn">Save field result</button>
@@ -830,7 +932,7 @@ function openAppointmentForm(l,appt=null){
   const appointment=appt||{lead_id:l.id,stage:'Scheduled',scheduled_at:'',salesperson_id:''};
   $('appointmentModal').classList.remove('hidden'); $('appointmentTitle').textContent=appt?'Edit handoff':'Book appointment';
   $('appLeadId').value=l.id; $('appScheduled').value=appointment.scheduled_at?new Date(appointment.scheduled_at).toISOString().slice(0,16):''; $('appStage').value=appointment.stage||'Scheduled';
-  $('appSalesperson').innerHTML='<option value="">Unassigned</option>'+state.reps.filter(r=>['salesperson','manager','admin'].includes(r.role)).map(r=>`<option value="${esc(r.id)}" ${appointment.salesperson_id===r.id||appointment.salesperson?.id===r.id?'selected':''}>${esc(r.name)} · ${esc(r.role)}</option>`).join('');
+  $('appSalesperson').innerHTML='<option value="">Unassigned</option>'+state.reps.filter(r=>['salesperson','manager','admin'].includes(r.role)).map(r=>`<option value="${esc(r.id)}" ${appointment.salesperson_id===r.id||appointment.salesperson?.id===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('');
   $('appNotes').value=appointment.notes||l.notes||''; $('appId').value=appointment.id||'';
 }
 async function saveAppointmentFromForm(e){e.preventDefault();
@@ -863,6 +965,11 @@ function switchTab(tab){document.querySelectorAll('.tab').forEach(x=>x.classList
 
 function openAdmin(){
   $('adminModal').classList.remove('hidden');
+  const accounts=$('adminAccountsLink');
+  if(accounts){
+    accounts.href='/admin#accounts';
+    accounts.classList.toggle('hidden', !canOpenManagement({email:state.user?.email, rep:state.currentRep, adminEmails:state.config?.adminEmails}));
+  }
   $('adminCloudStatus').textContent=state.mode==='cloud'?`Connected as ${state.currentRep?.name||state.user?.email}`:'Local device mode';
   $('adminLeadCount').textContent=fmt(state.leads.length); $('adminMappedCount').textContent=fmt(state.leads.filter(isCoords).length); $('adminTerritoryCount').textContent=fmt(state.territories.length);
   renderTerritoryAdmin();
@@ -1055,7 +1162,40 @@ function locate(){
 }
 locate._seq=0;
 
-function updateSelectedBadge(){const n=state.selected.size;$('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n}
+function updateSelectedBadge(){
+  const prev=state.routeCountSeen;
+  const n=state.selected.size;
+  state.routeCountSeen=n;
+  $('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n;
+  updateRouteTraySummary();
+  if(shouldExpandRouteTray(prev,n))setRouteTrayCollapsed(false);
+}
+function readRouteTrayCollapsed(){
+  let saved=null;
+  try{saved=localStorage.getItem(ROUTE_TRAY_KEY);}catch{}
+  return routeTrayCollapsedByDefault({saved,phone:window.matchMedia('(max-width: 960px)').matches,houseCount:state.selected.size});
+}
+function updateRouteTraySummary(){
+  const summary=routeTraySummary(state.selected.size,state.routeMode);
+  const label=$('routeTrayCompact'); if(label)label.textContent=summary;
+  const btn=$('routeTrayToggle'); if(!btn)return;
+  const collapsed=$('routeTray')?.classList.contains('isCollapsed');
+  btn.setAttribute('aria-label', collapsed?`${summary}. Show route tools`:`${summary}. Hide route tools`);
+}
+function setRouteTrayCollapsed(collapsed,{persist=true}={}){
+  const tray=$('routeTray'); if(!tray)return;
+  const on=!!collapsed;
+  tray.classList.toggle('isCollapsed',on);
+  document.documentElement.classList.remove('routeTrayStartCollapsed');
+  const btn=$('routeTrayToggle');
+  if(btn)btn.setAttribute('aria-expanded',on?'false':'true');
+  if(persist){try{localStorage.setItem(ROUTE_TRAY_KEY,on?'1':'0');}catch{}}
+  updateRouteTraySummary();
+}
+function openRouteFromChrome(){
+  setRouteTrayCollapsed(false);
+  openRoutePanel();
+}
 function toggleSelected(id){
   if(state.selected.has(id))state.selected.delete(id);else state.selected.add(id);
   document.querySelectorAll(`.rowCheck[data-id="${CSS.escape(id)}"]`).forEach(box=>{box.checked=state.selected.has(id)});
@@ -1103,6 +1243,7 @@ function setRouteMode(mode){
   $('trayDrive').setAttribute('aria-pressed', next==='driving'?'true':'false');
   $('trayWalk').classList.toggle('isOn', next==='walking');
   $('trayWalk').setAttribute('aria-pressed', next==='walking'?'true':'false');
+  updateRouteTraySummary();
   if(changed&&state.routeStops?.length)optimizeAndDrawRoute();
 }
 function syncNavChoiceButton(){

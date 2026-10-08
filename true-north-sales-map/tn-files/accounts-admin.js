@@ -1,12 +1,9 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { esc } from './ui.js';
-import { canManageAccount, roleLabel } from '../lib/account-rules.js';
+import { canManageAccount, managementProfile, roleLabel } from '../lib/account-rules.js';
+import { CREATABLE_FIELD_ROLES } from '../lib/role-access.js';
 
-const FIELD = [
-  ['appointment_setter', 'Appointment setter'],
-  ['canvasser', 'Canvasser'],
-  ['salesperson', 'Sales rep']
-];
+const FIELD = CREATABLE_FIELD_ROLES;
 const ADMIN_EXTRA = [
   ['manager', 'Manager'],
   ['admin', 'Admin']
@@ -70,7 +67,12 @@ async function show() {
       return;
     }
     const row = await sb.from('reps').select('id,name,email,role').eq('user_id', session.user.id).eq('active', true).maybeSingle();
-    me = row.data;
+    me = managementProfile({
+      email: session.user.email,
+      rep: row.data,
+      userId: session.user.id,
+      name: session.user.user_metadata?.name || ''
+    });
     if (!me || !['admin', 'manager'].includes(me.role)) {
       root.innerHTML = '<h1 class="tnTitle">Accounts</h1><p class="tnSub">Only an admin or manager can manage logins.</p>';
       return;
