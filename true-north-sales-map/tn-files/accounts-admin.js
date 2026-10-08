@@ -49,7 +49,7 @@ let resetId = '';
 async function show() {
   const root = document.getElementById('tnAccounts');
   if (!root) return;
-  root.innerHTML = '<p class="tnSub">Loading accounts…</p>';
+  root.innerHTML = '<div class="tnSkeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
   try {
     if (!sb) {
       const response = await fetch('/api/config');

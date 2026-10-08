@@ -49,7 +49,7 @@ function renderDenied() {
 }
 
 async function loadAndRender() {
-  root.innerHTML = '<p class="tnSub">Loading…</p>';
+  root.innerHTML = '<div class="tnSkeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
   try {
     [templates, photos, submissions, reps, assignments, intakes] = await Promise.all([
       listTemplates(ctx), listPhotos(ctx), listSubmissions(ctx), listReps(ctx), listAssignments(ctx), listIntakes(ctx)
