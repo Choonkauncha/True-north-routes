@@ -188,6 +188,36 @@ function mountPhoneMenu() {
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') close();
   });
+  watchAdminButton();
+}
+
+function managementAllowed() {
+  const admin = document.getElementById('adminBtn');
+  return Boolean(admin && !admin.classList.contains('hidden'));
+}
+
+function syncMoreManagement() {
+  const menu = document.getElementById('tnMoreMenu');
+  if (!menu) return;
+  const existing = document.getElementById('tnMoreAdmin');
+  if (!managementAllowed()) {
+    existing?.remove();
+    return;
+  }
+  if (existing) return;
+  const link = document.createElement('a');
+  link.id = 'tnMoreAdmin';
+  link.href = '/admin';
+  link.textContent = 'Management';
+  menu.prepend(link);
+}
+
+function watchAdminButton() {
+  const admin = document.getElementById('adminBtn');
+  syncMoreManagement();
+  if (!admin || admin.dataset.tnWatch) return;
+  admin.dataset.tnWatch = '1';
+  new MutationObserver(syncMoreManagement).observe(admin, { attributes: true, attributeFilter: ['class'] });
 }
 
 function doorSheetIsOpen() {
