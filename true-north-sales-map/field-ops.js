@@ -209,6 +209,73 @@ function syncSheetClass() {
   }
 }
 
+function syncListSheet() {
+  const root = document.documentElement;
+  const sheet = document.getElementById('listSheet');
+  const phone = window.matchMedia('(max-width: 700px)').matches;
+  if (!sheet || !phone) {
+    root.classList.remove('tn-list-half', 'tn-list-full');
+    root.style.removeProperty('--tn-list-half-bottom');
+    return;
+  }
+  if (sheet.classList.contains('sheet-full')) {
+    root.classList.add('tn-list-full');
+    root.classList.remove('tn-list-half');
+    return;
+  }
+  root.classList.remove('tn-list-full');
+  if (!sheet.classList.contains('sheet-half')) {
+    root.classList.remove('tn-list-half');
+    root.style.removeProperty('--tn-list-half-bottom');
+    return;
+  }
+  const top = sheet.getBoundingClientRect().top;
+  const room = window.innerHeight - top;
+  if (room < 48) return;
+  if (top < 72) {
+    root.classList.remove('tn-list-half');
+    root.classList.add('tn-list-full');
+    return;
+  }
+  root.style.setProperty('--tn-list-half-bottom', `${Math.round(room + 8)}px`);
+  root.classList.add('tn-list-half');
+}
+
+function watchListSheet() {
+  let observed = null;
+  let resizeObserver = null;
+  const attach = () => {
+    const sheet = document.getElementById('listSheet');
+    if (!sheet) {
+      observed = null;
+      resizeObserver?.disconnect();
+      resizeObserver = null;
+      syncListSheet();
+      return;
+    }
+    if (sheet === observed) {
+      syncListSheet();
+      return;
+    }
+    observed = sheet;
+    resizeObserver?.disconnect();
+    resizeObserver = new ResizeObserver(syncListSheet);
+    resizeObserver.observe(sheet);
+    new MutationObserver(syncListSheet).observe(sheet, { attributes: true, attributeFilter: ['class'] });
+    syncListSheet();
+  };
+  attach();
+  new MutationObserver(mutations => {
+    const hit = mutations.some(mutation => {
+      if (mutation.type === 'attributes' && mutation.target?.id === 'listSheet') return true;
+      const nodes = [...mutation.addedNodes, ...mutation.removedNodes];
+      return nodes.some(node => node.nodeType === 1 && (node.id === 'listSheet' || node.querySelector?.('#listSheet')));
+    });
+    if (hit) attach();
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['id'] });
+  window.addEventListener('resize', syncListSheet);
+}
+
 function watchSheets() {
   const seen = new WeakSet();
   const attach = () => {
@@ -874,6 +941,7 @@ async function boot() {
     ensureCss();
     mountPhoneMenu();
     watchSheets();
+    watchListSheet();
     if (document.getElementById('shiftsApp')) await bootShifts();
     else await bootWidget();
   } catch (error) {
