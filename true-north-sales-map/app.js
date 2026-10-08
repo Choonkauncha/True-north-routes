@@ -14,6 +14,8 @@ import { bindAreaDraw } from './area-draw.js';
 import { roleLabel } from './lib/field-rules.js';
 import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/account-rules.js';
 import { forgetRole, readStoredUser, rememberRole } from './lib/management-gate.js';
+import { assertHandoffPhoto, handoffPermissions, isHandoffSetter, validateHandoffPatch, visibleHandoffs } from './lib/handoff-access.js';
+import { canSeeReceipt, canUploadReceipt } from './lib/receipt-access.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -228,6 +230,21 @@ function bindStaticEvents(){
   $('closeAppointment').onclick=()=>$('appointmentModal').classList.add('hidden');
   $('appStage').addEventListener('change',()=>{});
   $('copyHandoffBtn').onclick=copyCurrentHandoff;
+  $('completeHandoffBtn')?.addEventListener('click',completeHandoff);
+  $('reopenHandoffBtn')?.addEventListener('click',reopenHandoff);
+  $('appPhoto')?.addEventListener('change',()=>{const file=$('appPhoto').files?.[0]; if(file) addHandoffPhoto(file);});
+  $('saveHandoffReceiptBtn')?.addEventListener('click',()=>uploadReceipt({
+    file:$('handoffReceiptFile')?.files?.[0],
+    amount:$('handoffReceiptAmount')?.value,
+    vendor:$('handoffReceiptVendor')?.value,
+    recordDate:$('handoffReceiptDate')?.value,
+    note:$('handoffReceiptNote')?.value,
+    leadId:$('appLeadId')?.value||null,
+    errorEl:$('handoffReceiptError')
+  }));
+  $('uploadReceiptBtn')?.addEventListener('click',()=>openGeneralReceipt());
+  $('receiptForm')?.addEventListener('submit',saveGeneralReceipt);
+  $('closeReceipt')?.addEventListener('click',()=>$('receiptModal')?.classList.add('hidden'));
   $('doorSheetClose').onclick=closeDoorSheet;
   $('doorSheetScrim').onclick=closeDoorSheet;
   $('doorSheetFull').onclick=()=>{const id=state.doorLeadId; closeDoorSheet(); if(id) openLead(id);};
@@ -943,11 +960,26 @@ function leadHTML(l){
 }
 function statusClass(s){return s.toLowerCase().replace(/\s+/g,'-')}
 
+const HANDOFF_PREVIEW_KEY='tnrc2:handoffPreview';
+function handoffActor(){
+  if(state.mode==='cloud' && state.currentRep) return {role:state.currentRep.role||'', repId:state.currentRep.id||''};
+  if(state.mode==='local'){
+    try{
+      const preview=JSON.parse(sessionStorage.getItem(HANDOFF_PREVIEW_KEY)||'null');
+      if(preview && typeof preview.role==='string') return {role:preview.role, repId:preview.repId||''};
+    }catch{}
+    return {role:'admin', repId:'local'};
+  }
+  return {role:'', repId:''};
+}
 function renderHandoffs(){
   const list=$('handoffList');
-  const appts=state.appointments.slice().filter(a=>!['Completed','Cancelled'].includes(a.stage)).sort((a,b)=>String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
-  list.innerHTML=appts.length?appts.slice(0,120).map(a=>appointmentHTML(a)).join(''):'<div class="empty">No open appointments.</div>';
+  const actor=handoffActor();
+  const appts=visibleHandoffs({role:actor.role, repId:actor.repId, appointments:state.appointments}).slice(0,120);
+  list.innerHTML=appts.length?appts.map(a=>appointmentHTML(a)).join(''):'<div class="empty">No open appointments.</div>';
   list.querySelectorAll('[data-appt]').forEach(el=>el.onclick=()=>openAppointment(el.dataset.appt));
+  const bar=$('repReceiptBar');
+  if(bar) bar.classList.toggle('hidden', actor.role!=='salesperson');
 }
 function appointmentHTML(a){
   const l=state.leads.find(x=>x.id===a.lead_id)||{};
@@ -1340,7 +1372,7 @@ function toggleMapFocus(){
 async function quickStatus(id,status,continueNext=false){
   const l=state.leads.find(x=>x.id===id); if(!l)return;
   await persistLeadPatch(l,{status});
-  if(status==='Appointment'){openAppointmentForm(l);return;}
+  if(status==='Appointment'){location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;return;}
   renderAll();
   toast(`${status} · ${l.address}`);
   if(continueNext){closeDrawer();setTimeout(nextBest,150);}
@@ -1550,13 +1582,12 @@ function openLead(id){
     <div class="verifiedGrid"><label>Roof age (verified)</label><input id="dRoofAge" type="number" min="0" max="100" value="${esc(l.roof_age_years??l.roofAgeYears??'')}" placeholder="e.g. 16"><label><input id="dRoofVerified" type="checkbox" ${l.roof_age_verified||l.roofAgeVerified?'checked':''}> verified</label></div>
     <label>Notes</label><textarea id="dNotes" placeholder="Homeowner response, roof condition, next action…">${esc(notes)}</textarea>
     <button id="saveLeadBtn" class="saveBtn">Save field result</button></section>
-    <div class="drawerSection"><div class="sectionTitle">Appointment handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">Edit handoff</button></div>`:`<button id="bookApptBtn" class="outlineBtn">Book / hand off this lead</button>`}</div>`;
+    <div class="drawerSection"><div class="sectionTitle">Appointment handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||state.reps.find(r=>r.id===appt.salesperson_id)?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">${handoffPermissions({role:handoffActor().role, repId:handoffActor().repId, appointment:appt}).notes||handoffPermissions({role:handoffActor().role, repId:handoffActor().repId, appointment:appt}).assign?'Open handoff':'View handoff'}</button></div>`:`<a class="outlineBtn" href="/setter.html?lead=${encodeURIComponent(l.id)}">Inspection form</a>`}</div>`;
   $('drawer').classList.remove('hidden');
   $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l);
   if($('drawerSetter')) $('drawerSetter').onclick=()=>{location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;};
   $('drawer').querySelectorAll('[data-qstatus]').forEach(btn=>btn.onclick=()=>quickStatus(l.id,btn.dataset.qstatus,true));
   $('saveLeadBtn').onclick=()=>saveLead(l);
-  $('bookApptBtn')?.addEventListener('click',()=>openAppointmentForm(l));
   $('editApptBtn')?.addEventListener('click',()=>openAppointmentForm(l,appt));
 }
 function closeDrawer(){$('drawer').classList.add('hidden');state.active=null;}
@@ -1565,7 +1596,8 @@ async function saveLead(l){
   try{await persistLeadPatch(l,{status,assigned_rep_id:repId,assignedRepId:repId,roof_age_years:roofAge,roofAgeYears:roofAge,roof_age_verified:roofVerified,roofAgeVerified:roofVerified,notes});}
   catch{return}
   closeDrawer();renderAll();
-  if(status==='Appointment')openAppointmentForm(l); else toast('Field result saved');
+  if(status==='Appointment'){location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;return;}
+  toast('Field result saved');
 }
 
 async function logActivity(leadId,action,metadata={}){
@@ -1639,33 +1671,206 @@ function openAppleRoute(stops=state.routeStops){
   window.open(appleDirectionsUrl(state.currentLocation, points, state.routeMode),'_blank','noopener');
 }
 
+function showHandoffField(id, on){
+  const el=$(id); if(!el) return;
+  el.classList.toggle('hidden', !on);
+  el.querySelectorAll('input,select,textarea').forEach(input=>{input.disabled=!on;});
+}
+function toDatetimeLocal(value){
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return '';
+  const pad=n=>String(n).padStart(2,'0');
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 function openAppointmentForm(l,appt=null){
-  const appointment=appt||{lead_id:l.id,stage:'Scheduled',scheduled_at:'',salesperson_id:''};
-  $('appointmentModal').classList.remove('hidden'); $('appointmentTitle').textContent=appt?'Edit handoff':'Book appointment';
-  $('appLeadId').value=l.id; $('appScheduled').value=appointment.scheduled_at?new Date(appointment.scheduled_at).toISOString().slice(0,16):''; $('appStage').value=appointment.stage||'Scheduled';
-  $('appSalesperson').innerHTML='<option value="">Unassigned</option>'+state.reps.filter(r=>['salesperson','manager','admin'].includes(r.role)).map(r=>`<option value="${esc(r.id)}" ${appointment.salesperson_id===r.id||appointment.salesperson?.id===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('');
-  $('appNotes').value=appointment.notes||l.notes||''; $('appId').value=appointment.id||'';
+  if(!appt){location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;return;}
+  const actor=handoffActor();
+  const perms=handoffPermissions({role:actor.role, repId:actor.repId, appointment:appt});
+  $('appointmentModal').classList.remove('hidden');
+  $('appointmentTitle').textContent='Inspection';
+  const salesName=state.reps.find(r=>r.id===appt.salesperson_id)?.name||appt.salesperson?.name||'Unassigned';
+  $('handoffSummary').innerHTML=`<b>${esc(l.name||'Inspection')}</b><div>${esc(addressOf(l))}</div><div>${esc(formatDate(appt.scheduled_at))} · ${esc(appt.stage)}</div><div>Sales rep: ${esc(salesName)}</div>`;
+  const viewOnly=!perms.notes&&!perms.assign&&!perms.photos&&!perms.complete&&!perms.reopen;
+  $('handoffAccessNote').textContent=viewOnly?(isHandoffSetter(actor.role)?'Appointment setters can view handoffs only.':'You can view this handoff only.'):'';
+  $('appLeadId').value=l.id;
+  $('appId').value=appt.id||'';
+  $('appScheduled').value=appt.scheduled_at?toDatetimeLocal(appt.scheduled_at):'';
+  $('appStage').value=appt.stage||'Scheduled';
+  $('appSalesperson').innerHTML='<option value="">Unassigned</option>'+state.reps.filter(r=>['salesperson','manager','admin'].includes(r.role)).map(r=>`<option value="${esc(r.id)}" ${appt.salesperson_id===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('');
+  $('appNotes').value=appt.notes||'';
+  showHandoffField('appWhenLabel', perms.schedule);
+  showHandoffField('appSalesLabel', perms.assign);
+  showHandoffField('appStageLabel', perms.assign);
+  showHandoffField('appNotesLabel', perms.notes);
+  showHandoffField('appPhotoLabel', perms.photos);
+  $('completeHandoffBtn')?.classList.toggle('hidden', !perms.complete);
+  $('reopenHandoffBtn')?.classList.toggle('hidden', !perms.reopen);
+  $('saveHandoffBtn')?.classList.toggle('hidden', !(perms.notes||perms.assign||perms.schedule));
+  const receiptOk=Boolean(canUploadReceipt({role:actor.role, repId:actor.repId, leadId:l.id, appointments:[appt]}).ok);
+  $('handoffReceipt')?.classList.toggle('hidden', !receiptOk);
+  if($('handoffReceiptError')) $('handoffReceiptError').textContent='';
+  if($('appPhoto')) $('appPhoto').value='';
+  paintHandoffPhotos(appt);
 }
 async function saveAppointmentFromForm(e){e.preventDefault();
-  const l=state.leads.find(x=>x.id===$('appLeadId').value); if(!l)return;
-  const data={lead_id:l.id,canvasser_id:state.mode==='cloud'?state.currentRep.id:null,salesperson_id:$('appSalesperson').value||null,scheduled_at:new Date($('appScheduled').value).toISOString(),stage:$('appStage').value,notes:$('appNotes').value.trim()};
-  if(state.mode==='cloud'){
-    let result;
-    if($('appId').value)result=await state.supabase.from('appointments').update(data).eq('id',$('appId').value).select('*').single();
-    else result=await state.supabase.from('appointments').insert(data).select('*').single();
-    if(result.error){alert(result.error.message);return}
-    const fresh=result.data; const idx=state.appointments.findIndex(a=>a.id===fresh.id);if(idx>=0)state.appointments[idx]=fresh;else state.appointments.push(fresh);
-    await logActivity(l.id,'appointment_booked',{scheduled_at:data.scheduled_at,salesperson_id:data.salesperson_id});
-    const {error}=await state.supabase.from('leads').update({status:'Appointment',updated_at:nowISO(),updated_by:state.currentRep.id}).eq('id',l.id);if(error){alert(error.message);return}
-    l.status='Appointment';
-    window.TrueNorthField?.captureDoorStatus?.({leadId:l.id,status:'Appointment'});
-  }else{
-    const id=$('appId').value||`local-${Date.now()}`;const rec={...data,id,salesperson_name:state.reps.find(r=>r.id===data.salesperson_id)?.name||''};const idx=state.appointments.findIndex(a=>a.id===id);if(idx>=0)state.appointments[idx]=rec;else state.appointments.push(rec);localStorage.setItem('tnrc2:appointments',JSON.stringify(state.appointments));l.status='Appointment';localAppendActivity({lead_id:l.id,actor_id:'local',action:'appointment_booked',metadata:{scheduled_at:data.scheduled_at},created_at:nowISO()});
-  }
-  $('appointmentModal').classList.add('hidden');renderAll();closeDrawer();
-  switchTab('handoffs');
+  if($('saveHandoffBtn')?.classList.contains('hidden')) return;
+  const before=state.appointments.find(a=>String(a.id)===String($('appId').value));
+  if(!before){alert('Open an inspection from the handoff queue.');return;}
+  const actor=handoffActor();
+  const patch={};
+  if(!$('appNotesLabel')?.classList.contains('hidden')) patch.notes=$('appNotes').value.trim();
+  if(!$('appSalesLabel')?.classList.contains('hidden')) patch.salesperson_id=$('appSalesperson').value||null;
+  if(!$('appWhenLabel')?.classList.contains('hidden') && $('appScheduled').value) patch.scheduled_at=new Date($('appScheduled').value).toISOString();
+  if(!$('appStageLabel')?.classList.contains('hidden')) patch.stage=$('appStage').value;
+  const check=validateHandoffPatch({role:actor.role, repId:actor.repId, before, patch});
+  if(check.error){alert(check.error);return;}
+  await applyHandoffPatch(before, patch);
 }
-function openAppointment(id){const a=state.appointments.find(x=>String(x.id)===String(id));if(!a)return;const l=state.leads.find(x=>x.id===a.lead_id);if(l)openAppointmentForm(l,a)}
+async function completeHandoff(){
+  const before=state.appointments.find(a=>String(a.id)===String($('appId').value));
+  if(!before) return;
+  const actor=handoffActor();
+  const check=validateHandoffPatch({role:actor.role, repId:actor.repId, before, patch:{stage:'Completed'}});
+  if(check.error){alert(check.error);return;}
+  await applyHandoffPatch(before, {stage:'Completed'});
+}
+async function reopenHandoff(){
+  const before=state.appointments.find(a=>String(a.id)===String($('appId').value));
+  if(!before) return;
+  const actor=handoffActor();
+  const check=validateHandoffPatch({role:actor.role, repId:actor.repId, before, patch:{stage:'Scheduled'}});
+  if(check.error){alert(check.error);return;}
+  await applyHandoffPatch(before, {stage:'Scheduled'});
+}
+async function applyHandoffPatch(before, patch){
+  if(state.mode==='cloud'){
+    const result=await state.supabase.from('appointments').update(patch).eq('id', before.id).select('id,lead_id,canvasser_id,salesperson_id,scheduled_at,stage,notes').single();
+    if(result.error){alert(result.error.message);return;}
+    const idx=state.appointments.findIndex(a=>a.id===before.id);
+    if(idx>=0) state.appointments[idx]={...state.appointments[idx], ...result.data};
+  }else{
+    const idx=state.appointments.findIndex(a=>a.id===before.id);
+    if(idx>=0) state.appointments[idx]={...state.appointments[idx], ...patch};
+    localStorage.setItem('tnrc2:appointments', JSON.stringify(state.appointments));
+  }
+  $('appointmentModal').classList.add('hidden');
+  renderAll();
+}
+async function addHandoffPhoto(file){
+  const before=state.appointments.find(a=>String(a.id)===String($('appId').value));
+  if(!before||!file) return;
+  const actor=handoffActor();
+  const check=assertHandoffPhoto({role:actor.role, repId:actor.repId, appointment:before});
+  if(check.error){alert(check.error);return;}
+  const lead=state.leads.find(x=>x.id===before.lead_id);
+  if(state.mode!=='cloud'){
+    state.handoffPhotos=state.handoffPhotos||[];
+    state.handoffPhotos.push({id:`local-photo-${Date.now()}`, lead_id:before.lead_id, appointment_id:before.id, url:URL.createObjectURL(file), caption:file.name});
+    paintHandoffPhotos(before);
+    if($('appPhoto')) $('appPhoto').value='';
+    return;
+  }
+  const path=`${before.lead_id}/${crypto.randomUUID()}.jpg`;
+  const upload=await state.supabase.storage.from('lead-photos').upload(path, file, {contentType:file.type||'image/jpeg', upsert:false});
+  if(upload.error){alert(upload.error.message);return;}
+  const inserted=await state.supabase.from('lead_photos').insert({
+    lead_id:before.lead_id,
+    appointment_id:before.id,
+    storage_path:path,
+    uploaded_by:state.currentRep.id,
+    address_snapshot:lead?addressOf(lead):'',
+    caption:''
+  }).select('id,lead_id,appointment_id,storage_path,caption').single();
+  if(inserted.error){
+    alert(/appointment_id|schema cache|column/i.test(inserted.error.message)?'Run supabase/migrations/20261008_inspection_handoff.sql in the Supabase SQL editor, then try again.':inserted.error.message);
+    return;
+  }
+  const signed=await state.supabase.storage.from('lead-photos').createSignedUrl(path, 60*60);
+  state.handoffPhotos=state.handoffPhotos||[];
+  state.handoffPhotos.push({...inserted.data, url:signed.data?.signedUrl||''});
+  paintHandoffPhotos(before);
+  if($('appPhoto')) $('appPhoto').value='';
+}
+function paintHandoffPhotos(appointment){
+  const box=$('handoffPhotos'); if(!box) return;
+  const rows=(state.handoffPhotos||[]).filter(photo=>photo.appointment_id===appointment.id);
+  box.innerHTML=rows.map(photo=>photo.url?`<img alt="${esc(photo.caption||'Inspection photo')}" src="${esc(photo.url)}">`:'').join('');
+  box.classList.toggle('hidden', !rows.length);
+}
+function openGeneralReceipt(){
+  const actor=handoffActor();
+  const decision=canUploadReceipt({role:actor.role, repId:actor.repId, leadId:null, appointments:state.appointments});
+  if(!decision.ok){alert(decision.error);return;}
+  $('receiptForm')?.reset();
+  if($('receiptLeadId')) $('receiptLeadId').value='';
+  if($('receiptError')) $('receiptError').textContent='';
+  if($('receiptTitle')) $('receiptTitle').textContent='Upload receipt';
+  if($('receiptContext')) $('receiptContext').textContent='This receipt is not tied to an inspection. Admins see it in Document Library → Receipts.';
+  $('receiptModal')?.classList.remove('hidden');
+}
+async function saveGeneralReceipt(event){
+  event.preventDefault();
+  await uploadReceipt({
+    file:$('receiptFile')?.files?.[0],
+    amount:$('receiptAmount')?.value,
+    vendor:$('receiptVendor')?.value,
+    recordDate:$('receiptDate')?.value,
+    note:$('receiptNote')?.value,
+    leadId:null,
+    errorEl:$('receiptError'),
+    onSaved(){$('receiptModal')?.classList.add('hidden');}
+  });
+}
+async function uploadReceipt({file, amount, vendor, recordDate, note, leadId, errorEl, onSaved}={}){
+  const actor=handoffActor();
+  const decision=canUploadReceipt({role:actor.role, repId:actor.repId, leadId:leadId||null, appointments:state.appointments});
+  if(!decision.ok){if(errorEl) errorEl.textContent=decision.error; return;}
+  if(!file){if(errorEl) errorEl.textContent='Choose a photo or PDF.'; return;}
+  const lead=leadId?state.leads.find(x=>x.id===leadId):null;
+  try{
+    const store=await import('./tn-files/store.js');
+    const ctx=state.mode==='cloud'
+      ? {mode:'cloud', sb:state.supabase, rep:state.currentRep}
+      : {mode:'local', sb:null, rep:{id:actor.repId, role:actor.role, name:'Sales rep'}};
+    await store.saveReceipt(ctx, {
+      file,
+      amount,
+      vendor,
+      record_date:recordDate,
+      note,
+      lead_id:leadId||null,
+      address_snapshot:lead?addressOf(lead):''
+    });
+    if(errorEl) errorEl.textContent='Uploaded. Admins can see it in Receipts.';
+    if($('handoffReceiptFile')) $('handoffReceiptFile').value='';
+    await refreshMyReceipts();
+    onSaved?.();
+  }catch(error){
+    const message=String(error?.message||error||'Could not upload that receipt.');
+    if(errorEl) errorEl.textContent=/row-level security|42501|permission/i.test(message)?'Only the assigned sales rep can upload this receipt. Apply supabase/migrations/20261008_inspection_handoff.sql if this is a new database.':message;
+  }
+}
+async function refreshMyReceipts(){
+  const list=$('myReceiptList'); if(!list) return;
+  const actor=handoffActor();
+  if(actor.role!=='salesperson'){list.innerHTML='';return;}
+  let rows=[];
+  try{
+    if(state.mode==='cloud' && state.supabase){
+      const {data, error}=await state.supabase.from('receipt_records').select('id,uploaded_by,file_name,amount,vendor,record_date,lead_id,address_snapshot,note,created_at').order('created_at',{ascending:false}).limit(100);
+      if(!error) rows=data||[];
+    }else{
+      const store=await import('./tn-files/store.js');
+      rows=await store.listReceipts({mode:'local'});
+    }
+  }catch{rows=[];}
+  const mine=rows.filter(row=>canSeeReceipt({role:actor.role, repId:actor.repId, receipt:row}));
+  list.innerHTML=mine.length?mine.map(row=>{
+    const bits=[row.vendor, row.amount!=null&&row.amount!==''?`$${row.amount}`:'', row.record_date, row.address_snapshot].filter(Boolean).join(' · ');
+    return `<div class="receiptRow"><b>${esc(row.file_name||'Receipt')}</b><div>${esc(bits||'No details')}</div>${row.note?`<div>${esc(row.note)}</div>`:''}</div>`;
+  }).join(''):'<div class="empty">No receipts uploaded yet.</div>';
+}
+function openAppointment(id){const a=state.appointments.find(x=>String(x.id)===String(id));if(!a)return;const l=state.leads.find(x=>x.id===a.lead_id)||{id:a.lead_id,name:'Inspection',address:'',city:'',state:'',zip:''};openAppointmentForm(l,a);}
 async function copyCurrentHandoff(){
   const id=$('appLeadId').value; const l=state.leads.find(x=>x.id===id);if(!l)return;
   const text=`True North Restorations — Sales Handoff\nHomeowner: ${l.name||'Property lead'}\nAddress: ${addressOf(l)}\nAppointment: ${formatDate($('appScheduled').value)}\nSalesperson: ${state.reps.find(r=>r.id===$('appSalesperson').value)?.name||'Unassigned'}\nNotes: ${$('appNotes').value||'—'}`;
@@ -1683,6 +1888,7 @@ function switchTab(tab,{toggle=false}={}){
   setInfoOpen(true);
   btn?.classList.add('active');
   panel.classList.remove('hidden');
+  if(tab==='handoffs') refreshMyReceipts();
 }
 
 function openAdmin(){

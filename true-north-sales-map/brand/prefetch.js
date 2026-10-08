@@ -21,13 +21,13 @@ gate.src = '/tn-files/password-gate.js';
 document.head.appendChild(gate);
 
 const LIKELY = {
-  '/': ['/setter.html', '/rep.html', '/account.html', '/admin.html', '/homeowner.html', '/forms.html'],
-  '/index.html': ['/setter.html', '/rep.html', '/account.html', '/admin.html', '/homeowner.html', '/forms.html'],
-  '/setter.html': ['/', '/forms.html', '/rep.html', '/admin.html', '/account.html', '/homeowner.html'],
+  '/': ['/setter.html', '/rep.html', '/account.html', '/admin.html', '/forms.html'],
+  '/index.html': ['/setter.html', '/rep.html', '/account.html', '/admin.html', '/forms.html'],
+  '/setter.html': ['/', '/forms.html', '/rep.html', '/admin.html', '/account.html'],
   '/rep.html': ['/', '/setter.html', '/forms.html', '/photo.html', '/account.html'],
   '/forms.html': ['/rep.html', '/', '/account.html', '/photo.html'],
-  '/admin.html': ['/', '/setter.html', '/account.html', '/shifts.html', '/homeowner.html', '/forms.html'],
-  '/admin': ['/', '/setter.html', '/account.html', '/shifts.html', '/homeowner.html'],
+  '/admin.html': ['/', '/setter.html', '/account.html', '/shifts.html', '/forms.html'],
+  '/admin': ['/', '/setter.html', '/account.html', '/shifts.html'],
   '/account.html': ['/', '/admin.html', '/setter.html', '/rep.html'],
   '/homeowner.html': ['/', '/setter.html'],
   '/photo.html': ['/rep.html', '/', '/account.html'],

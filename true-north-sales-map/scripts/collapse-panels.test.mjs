@@ -67,11 +67,13 @@ const setter = read('setter.html');
 assert.match(setter, /data-tn-panel="setter-homeowner"/);
 assert.match(setter, /data-tn-panel="setter-checklist"/);
 assert.match(setter, /id="setterForm"/);
-assert.match(setter, /type="submit">Save appointment/);
+assert.match(setter, /type="submit">Save inspection/);
+assert.match(setter, /data-tn-panel="setter-concern"/);
+assert.doesNotMatch(setter, /data-tn-panel="[^"]*consent/);
 
 const homeowner = read('homeowner.html');
-assert.match(homeowner, /data-tn-panel="homeowner-you"/);
-assert.match(homeowner, /type="submit">Request my inspection/);
+assert.match(homeowner, /location\.replace\('\/setter\.html'/);
+assert.match(homeowner, /location\.search/);
 assert.doesNotMatch(homeowner, /data-tn-panel="homeowner-consent"/);
 
 const admin = read('admin.html');
