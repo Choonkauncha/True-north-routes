@@ -3,6 +3,7 @@ import { bindSignOut, esc, signInCard } from './ui.js';
 import { passwordChangeError } from '../lib/password-reset.js';
 import { roleLabel } from '../lib/role-access.js';
 import { MANAGEMENT_LINKS, canOpenManagement } from '../lib/account-rules.js';
+import { mountAccountTraining } from './training-account.js';
 
 const app = document.getElementById('app');
 
@@ -43,7 +44,8 @@ function renderForm(ctx) {
   app.innerHTML = `<h1 class="tnTitle">My account</h1>
     <p class="tnSub">${esc(who)}${esc(role)}</p>
     ${managementCard(ctx)}
-    <p class="tnAccountBtns"><a class="tnTap" href="/forms.html">My forms</a></p>
+    <p class="tnAccountBtns"><a class="tnTap" href="/training.html">Training</a><a class="tnTap" href="/forms.html">My forms</a></p>
+    <div id="tnAccountTraining"></div>
     <form id="pwForm" class="tnCard">
       <label class="tnLabel" for="pw1">New password</label>
       <input class="tnInput" id="pw1" type="password" autocomplete="new-password" minlength="8" required>
@@ -55,6 +57,7 @@ function renderForm(ctx) {
     </form>
     <p class="tnAccountBtns" style="margin-top:16px"><a class="tnTap tnOutline" href="/">Back to map</a><button id="accountSignOut" class="tnTap" type="button">Sign out</button></p>`;
   document.getElementById('pwForm').onsubmit = (event) => save(event, ctx);
+  mountAccountTraining(document.getElementById('tnAccountTraining'), ctx).catch(() => {});
   document.getElementById('accountSignOut').onclick = async () => { await signOut(ctx); location.href = '/'; };
 }
 

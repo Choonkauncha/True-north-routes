@@ -1,4 +1,4 @@
-const ADMIN_TABS = ['overview', 'team', 'appointments', 'homeowners', 'activity', 'territories', 'files', 'accounts'];
+const ADMIN_TABS = ['overview', 'team', 'appointments', 'homeowners', 'activity', 'territories', 'files', 'accounts', 'training'];
 
 /** Map a /admin hash to a dashboard tab. Messages and the form library are not rail tabs. */
 export function adminHashTarget(hash) {

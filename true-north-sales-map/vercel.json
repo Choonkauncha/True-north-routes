@@ -11,6 +11,7 @@
     {"source":"/files","destination":"/files.html"},
     {"source":"/form-print","destination":"/form-print.html"},
     {"source":"/account","destination":"/account.html"},
+    {"source":"/training","destination":"/training.html"},
     {"source":"/reset-password","destination":"/reset-password.html"}
   ],
   "headers": [
