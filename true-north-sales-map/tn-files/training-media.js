@@ -80,8 +80,9 @@ export function capturePoster(file) {
 
 export async function transcodeToMp4(file, onProgress) {
   onProgress?.(1);
-  const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
-  const { fetchFile, toBlobURL } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js');
+  // Same-origin copies: the CDN dist/esm build starts a module worker at a cross-origin URL, which this origin rejects.
+  const { FFmpeg } = await import('../vendor/ffmpeg/index.js');
+  const { fetchFile, toBlobURL } = await import('../vendor/ffmpeg/util/index.js');
   const ffmpeg = new FFmpeg();
   ffmpeg.on('progress', ({ progress }) => onProgress?.(Math.max(1, Math.round((progress || 0) * 100))));
   const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
@@ -159,7 +160,7 @@ export async function renderPdfPage(doc, pageNumber, canvas) {
 export function uploadTrainingFile({ file, objectName, contentType, supabaseUrl, accessToken, apikey, onProgress }) {
   const sizeError = uploadSizeError(file.size);
   if (sizeError) return Promise.reject(new Error(sizeError));
-  return import('https://cdn.jsdelivr.net/npm/tus-js-client@4.2.3/lib.esm/browser/index.js').then(({ Upload }) => new Promise((resolve, reject) => {
+  return import('https://cdn.jsdelivr.net/npm/tus-js-client@4.2.3/+esm').then(({ Upload }) => new Promise((resolve, reject) => {
     const upload = new Upload(file, {
       endpoint: tusEndpoint(supabaseUrl),
       retryDelays: [0, 1000, 3000, 5000],
