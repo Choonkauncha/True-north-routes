@@ -79,17 +79,11 @@ export function formatAddress(lead) {
   return [lead.address, lead.city, lead.state, lead.zip].filter(Boolean).join(', ');
 }
 
-export function canUsePhotoBank(role, mode = 'cloud') {
-  if (mode === 'local' && !role) return true;
-  return role === 'salesperson' || role === 'admin' || role === 'manager';
-}
+export { canUsePhotoBank, canSeeForm } from '../lib/role-access.js';
+import { canSeeForm } from '../lib/role-access.js';
 
 export function canFillAudience(role, audience, mode = 'cloud') {
-  if (mode === 'local' && !role) return true;
-  if (role === 'admin' || role === 'manager') return true;
-  if (role === 'salesperson') return audience === 'rep' || audience === 'both';
-  if (role === 'canvasser' || role === 'appointment_setter') return audience === 'setter' || audience === 'both';
-  return false;
+  return canSeeForm(role, { id: 'audience-only', active: true, audience }, { mode });
 }
 
 export function isManagement(role) {
@@ -178,8 +172,9 @@ export function normalizeAddressKey(value) {
 }
 
 export function audienceLabel(audience) {
-  if (audience === 'setter') return 'Setters';
-  if (audience === 'rep') return 'Sales reps';
+  if (audience === 'setter') return 'All setters';
+  if (audience === 'rep') return 'All sales reps';
   if (audience === 'both') return 'Setters and sales reps';
+  if (audience === 'people') return 'Specific people';
   return audience || '';
 }

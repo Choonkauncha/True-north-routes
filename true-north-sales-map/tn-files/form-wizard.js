@@ -1,6 +1,7 @@
-import { bootFiles, signIn, getLead, listTemplates, searchLeads, uploadFormAsset, saveSubmission, plainError } from './store.js';
+import { bootFiles, signIn, getLead, listTemplates, listAssignments, searchLeads, uploadFormAsset, saveSubmission, plainError } from './store.js';
 import { esc, bindSignOut, signInCard, mountSignature, compressImage, houseBackHref } from './ui.js';
-import { canFillAudience, screensFromFields, initialAnswers, validateScreen, snapshotHomeowner, formatAddress, PREVIEW_LEAD, audienceLabel } from './logic.js';
+import { screensFromFields, initialAnswers, validateScreen, snapshotHomeowner, formatAddress, PREVIEW_LEAD, audienceLabel } from './logic.js';
+import { canSeeForm, canUsePhotoBank } from '../lib/role-access.js';
 
 const app = document.getElementById('app');
 const params = new URLSearchParams(location.search);
@@ -22,21 +23,29 @@ async function start() {
     lead = PREVIEW_LEAD;
     if (!template) { app.innerHTML = '<p class="tnSub">Nothing to preview.</p><a class="tnTap" href="/files.html">Back to forms</a>'; return; }
     beginTemplate();
-    phase = 'section';
+    phase = template.kind === 'file' ? 'file' : 'section';
     return render();
   }
+  const repNav = document.getElementById('repNav');
+  if (repNav) repNav.classList.toggle('hidden', !canUsePhotoBank(ctx.rep?.role, ctx.mode));
   lead = queryLead();
   if (params.get('lead')) {
     const found = await getLead(ctx, params.get('lead')).catch(() => null);
     if (found) lead = { ...lead, ...found };
   }
-  templates = (await listTemplates(ctx)).filter((item) => item.active !== false && canFillAudience(ctx.rep?.role, item.audience, ctx.mode));
+  const assignments = await listAssignments(ctx).catch(() => []);
+  templates = (await listTemplates(ctx)).filter((item) => item.active !== false && canSeeForm(ctx.rep?.role, item, { repId: ctx.rep?.id, assignments, mode: ctx.mode }));
   if (params.get('template')) template = templates.find((item) => item.id === params.get('template')) || null;
   if (!lead) phase = 'house';
-  else if (!template && templates.length === 1) { template = templates[0]; beginTemplate(); phase = 'section'; }
+  else if (!template && templates.length === 1) { template = templates[0]; openTemplate(); }
   else if (!template) phase = 'pick';
-  else { beginTemplate(); phase = 'section'; }
+  else openTemplate();
   render();
+}
+
+function openTemplate() {
+  beginTemplate();
+  phase = template?.kind === 'file' ? 'file' : (screens.length ? 'section' : 'review');
 }
 
 function beginTemplate() {
@@ -68,6 +77,7 @@ function render() {
   pads = [];
   if (phase === 'house') return renderHouse();
   if (phase === 'pick') return renderPick();
+  if (phase === 'file') return renderFile();
   if (phase === 'section') return renderSection();
   if (phase === 'review') return renderReview();
   if (phase === 'success') return renderSuccess();
@@ -92,17 +102,85 @@ async function runSearch(query) {
 
 function chooseHouse(row) {
   lead = row;
-  if (templates.length === 1) { template = templates[0]; beginTemplate(); phase = 'section'; }
+  if (templates.length === 1) { template = templates[0]; openTemplate(); }
   else phase = 'pick';
   render();
+}
+
+function renderFile() {
+  const fileLabel = template.file_name || template.name;
+  app.innerHTML = `${banner()}<a class="tnTap" href="${esc(houseBackHref(lead))}">Back to this house</a><h1 class="tnTitle" style="margin-top:12px">${esc(template.name)}</h1><p class="tnSub">${esc(fileLabel)}. View it, then send a completed copy if you have one.</p><div class="tnStack"><a class="tnTap primary" id="openFile" href="#" target="_blank" rel="noopener">View or download</a><label class="tnTap">Attach completed copy<input id="returnFile" type="file" accept="application/pdf,image/*"></label><p id="returnName" class="tnSub"></p><button class="tnTap dark" id="sendFile" type="button">Send to management</button><p id="fileError" class="tnError"></p></div>`;
+  let attachment = null;
+  document.getElementById('returnFile').onchange = () => {
+    attachment = document.getElementById('returnFile').files?.[0] || null;
+    document.getElementById('returnName').textContent = attachment ? attachment.name : '';
+  };
+  document.getElementById('sendFile').onclick = () => sendFileCopy(attachment);
+  openLibraryFile();
+}
+
+async function openLibraryFile() {
+  const link = document.getElementById('openFile');
+  if (!link || !template?.storage_path) return;
+  if (String(template.storage_path).startsWith('local:')) {
+    const { pendingObjectUrl } = await import('./store.js');
+    const url = await pendingObjectUrl(String(template.storage_path).slice(6));
+    if (url) {
+      link.href = url;
+      link.setAttribute('download', template.file_name || 'form');
+    }
+    return;
+  }
+  if (ctx.mode === 'local') {
+    link.removeAttribute('href');
+    return;
+  }
+  const signed = await ctx.sb.storage.from('form-assets').createSignedUrl(template.storage_path, 60 * 60);
+  if (signed.data?.signedUrl) {
+    link.href = signed.data.signedUrl;
+    link.setAttribute('download', template.file_name || 'form');
+  }
+}
+
+async function sendFileCopy(attachment) {
+  const error = document.getElementById('fileError');
+  const button = document.getElementById('sendFile');
+  button.disabled = true;
+  error.textContent = 'Sending…';
+  try {
+    let attachment_path = '';
+    let attachment_name = '';
+    if (attachment) {
+      const uploaded = await uploadFormAsset(ctx, { leadId: lead?.id, blob: attachment, contentType: attachment.type || 'application/octet-stream' });
+      attachment_path = uploaded.path;
+      attachment_name = attachment.name;
+    }
+    saved = await saveSubmission(ctx, {
+      template_id: template.id,
+      template_name: template.name,
+      lead_id: lead?.id || null,
+      address_snapshot: formatAddress(lead),
+      homeowner_name: lead?.name || '',
+      fields: [],
+      answers: {},
+      is_draft: false,
+      draft_notice: '',
+      attachment_path,
+      attachment_name
+    });
+    phase = 'success';
+    render();
+  } catch (err) {
+    button.disabled = false;
+    error.textContent = plainError(err);
+  }
 }
 
 function renderPick() {
   app.innerHTML = `${banner()}<a class="tnTap" href="${esc(houseBackHref(lead))}">Back to this house</a><h1 class="tnTitle" style="margin-top:12px">Which form?</h1><p class="tnSub">${esc(formatAddress(lead) || lead?.name || '')}</p><div class="tnStack">${templates.length ? templates.map((item) => `<button type="button" class="tnCard" data-id="${esc(item.id)}"><b>${esc(item.name)}</b><span>${esc(audienceLabel(item.audience))}${item.is_draft ? ' · Draft' : ''}</span></button>`).join('') : '<p class="tnSub">No forms are assigned to you yet.</p><a class="tnTap" href="' + esc(houseBackHref(lead)) + '">Back to this house</a>'}</div>`;
   app.querySelectorAll('[data-id]').forEach((button) => button.onclick = () => {
     template = templates.find((item) => item.id === button.dataset.id);
-    beginTemplate();
-    phase = screens.length ? 'section' : 'review';
+    openTemplate();
     render();
   });
 }

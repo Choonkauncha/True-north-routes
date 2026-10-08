@@ -20,7 +20,7 @@ Map-first canvassing operations for Vercel. The supplied dataset contains **17,2
 - Heat layers for lead density, opportunity score, and roof-age proxy / verified roof age.
 - Active storm alerts from the National Weather Service. This is a **current warning layer**, not a historical hail-damage archive.
 - Appointment handoff queue for salesperson transfer.
-- 7-day canvasser leaderboard based on recorded field activity.
+- 7-day field leaderboard based on recorded field activity.
 - Admin/manager tools to seed the source rows, initialize territories, run batch geocoding, load storm alerts, and export lead state.
 - Local device fallback is retained for testing, but it is not shared between reps.
 
@@ -28,7 +28,7 @@ Map-first canvassing operations for Vercel. The supplied dataset contains **17,2
 
 The live project is `https://ztdnpbrhiudklfqzgcbd.supabase.co`. Paste one file, create the first admin in the Auth dashboard, then set the Vercel env vars. Do not put a password in git.
 
-1. Supabase → SQL Editor → New query. Paste the whole file `supabase/setup_all.sql` and run it once. It is idempotent and already ordered: `schema.sql`, then Cam’s `supabase/migrations/20261008_access_clockin.sql`, then `supabase/forms_photos.sql`, then `supabase/accounts.sql` (audit log, role guard, and the first-admin trigger). Regenerate it with `node scripts/build-setup-sql.mjs` if one of those four files changes.
+1. Supabase → SQL Editor → New query. Paste the whole file `supabase/setup_all.sql` and run it once. It is idempotent and already ordered: `schema.sql`, then Cam’s `supabase/migrations/20261008_access_clockin.sql`, then `supabase/forms_photos.sql`, then `supabase/accounts.sql` (audit log, role guard, and the first-admin trigger), then `supabase/migrations/20261008_role_form_library.sql`, then `supabase/migrations/20261008_document_review.sql`. Regenerate it with `node scripts/build-setup-sql.mjs` if one of those files changes. If the live project already ran the older setup, run `supabase/migrations/20261008_role_form_library.sql` and then `supabase/migrations/20261008_document_review.sql`. Do not apply either file from the app.
 2. Supabase → Authentication → Add user. Create a user with email `travisbishopmackie@gmail.com` or `truenorthrestorationss@gmail.com` and a password you choose. The `reps_bootstrap_admin` trigger inserts an active `public.reps` row with role `admin`. If that Auth user already existed before the SQL ran, the same script’s backfill insert attaches the admin row. Either order works.
 3. Authentication → URL Configuration. Set Site URL to the Vercel app origin, and add that origin, `http://localhost:4173`, and `<origin>/reset-password` to Redirect URLs. “Open as this user” sends a one-time magic link back to `/`. Forgot password sends the reset link to `/reset-password`.
 4. Vercel project Root Directory is `true-north-sales-map`. Environment variables:
@@ -37,13 +37,13 @@ The live project is `https://ztdnpbrhiudklfqzgcbd.supabase.co`. Paste one file, 
    - `SUPABASE_SECRET_KEY` — server-only secret. Used by `/api/accounts` and `/api/homeowner-signup`. Never send it to the browser. `SUPABASE_SERVICE_ROLE_KEY` is the fallback name the account API reads when `SUPABASE_SECRET_KEY` is unset.
    - `ADMIN_EMAILS` — optional. Defaults to `truenorthrestorationss@gmail.com,travisbishopmackie@gmail.com`. This is the sign-in allow-list returned by `/api/config`. The SQL trigger uses those same two addresses and does not read this variable.
 5. Redeploy. Environment-variable changes apply to new deployments.
-6. Open `/admin`, sign in as that admin, and use **Accounts** to create setter, canvasser, sales rep, and manager logins. Each person opens **My account** (map → More on a phone, or the header link) and changes the initial password.
+6. Open `/admin`, sign in as that admin, and use **Accounts** to create appointment setter, sales rep, and manager logins. The same Accounts action is on the Management dashboard in My account and in the map’s command center. Each person opens **My account** (map → More on a phone, or the header link) and changes the initial password.
 
 ## Cloud setup
 
 1. Prefer `supabase/setup_all.sql` (see above). The same pieces can be run separately: `supabase/schema.sql`, then the clock-in migration, then `supabase/forms_photos.sql`, then `supabase/accounts.sql`.
 2. Enable Email/Password authentication in Supabase Auth. The first admin is created in Authentication → Add user; the trigger writes the `reps` row. Later people are created from the admin **Accounts** tab, which creates the Auth user and the active `reps` row together.
-3. Roles on `public.reps` are `admin`, `manager`, `appointment_setter`, `canvasser`, and `salesperson`.
+3. Roles on `public.reps` are `admin`, `manager`, `appointment_setter`, and `salesperson`. Older `canvasser` rows stay valid and are treated as appointment setters. The Accounts screen does not create that role.
 4. In Vercel Project Settings → Environment Variables, add `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` as listed above.
 5. Redeploy. Vercel environment-variable changes apply to new deployments.
 6. Sign in as an admin/manager and open **Admin** → **Initialize cloud data**.
@@ -62,7 +62,7 @@ This remains a static-first site, with Vercel Functions only for `/api/config`, 
 
 ## Clock in, location, and office messages
 
-Setters, canvassers, and sales reps get a large green **Clock In** button on the field map and on setter intake. On a phone it stays fixed at the bottom of the screen so it can be reached with a thumb. After clock-in it turns red, says **Clock Out**, and shows a running timer. The first clock-in shows a short location notice with one **Got it** button. A point is stored at clock-in, clock-out, and each door-status change during that shift. The browser is not asked to track in the background.
+Appointment setters and sales reps get a large green **Clock In** button on the field map and on the inspection form. On a phone it stays fixed at the bottom of the screen so it can be reached with a thumb. After clock-in it turns red, says **Clock Out**, and shows a running timer. The first clock-in shows a short location notice with one **Got it** button. A point is stored at clock-in, clock-out, and each door-status change during that shift. The browser is not asked to track in the background.
 
 **Messages** opens one chat with the office. Newest messages sit at the bottom, with a large text box and Send button. An unread count sits on the Messages button. Admins open Messages, tap a person, and get that same chat.
 
@@ -90,13 +90,13 @@ Re-running the file replaces functions and policies. It does not drop shifts or 
 
 ### How to test
 
-Use two Supabase users: one `canvasser` (or `appointment_setter` / `salesperson`) and one `admin` or `manager`, each with an active `public.reps` row.
+Use two Supabase users: one `appointment_setter` or `salesperson`, and one `admin` or `manager`, each with an active `public.reps` row.
 
 1. **Clock in.** Sign in on `/` or `/setter` as the field user. Tap the green Clock In button. The first time, the location sheet appears. Tap Got it. Allow the browser location prompt. The button turns red, says Clock Out, and the timer starts. In Supabase, `location_consents` has one row for that rep, and `shifts` has an open row whose `rep_id` matches them.
 2. **Door point.** While clocked in, mark a door status on the map (Knocked, No answer, and the other field buttons). `location_points` gains a `door_status` row. Clock out. A `clock_out` point is stored and `clock_out_at` is set. Mark another door after clock-out and confirm no new point is written.
 3. **Own rows only.** With the field user's session, `select * from shifts` in the API or from the browser client returns only that user's shifts. Repeat for `location_points` and `messages`. An admin session sees every row.
 4. **Messages.** From the field user, open Messages. It is one chat. Send a note. Sign in as admin. The Messages button shows an unread count. Open it, tap that person, and reply. The field user's chat shows the reply, and the unread count clears after the chat is opened. Nothing is posted to GroupMe.
-5. **Shifts page.** As admin, open `/shifts`. People who are clocked in right now are at the top. Tap a person. The page shows miles for the day and draws that person's points on the map. A setter or canvasser who opens `/shifts` sees an office-only notice.
+5. **Shifts page.** As admin, open `/shifts`. People who are clocked in right now are at the top. Tap a person. The page shows miles for the day and draws that person's points on the map. An appointment setter who opens `/shifts` sees an office-only notice.
 
 `npm test` checks the Eastern day boundary, mile total, unread counts, and that the migration contains the consent notice.
 
@@ -123,13 +123,15 @@ Cloud mode requires the Vercel environment variables. Without them, the app load
 ## v2.2 management / homeowner workflows
 
 ### New surfaces
-- `/` — field map / canvasser command center.
+- `/` — field map and route builder.
 - `/setter.html` or `/setter` — authenticated Appointment Setter intake and clean inspection handoff.
 - `/homeowner.html` or `/homeowner` — public homeowner inspection request form.
 - `/admin.html` or `/admin` — gated management dashboard for approved admin/manager users.
 
 ### Admin access
-Admin access is enforced by Supabase Auth plus an allow-list returned by `/api/config`, and then checked against an active `public.reps` profile with role `admin` or `manager`. The two approved email addresses are the default `ADMIN_EMAILS` and the bootstrap trigger. **Do not put the password in source control.** Add the first Auth user in the Supabase dashboard; the trigger writes the admin `reps` row.
+Admin access is enforced by Supabase Auth plus an allow-list returned by `/api/config`, and then checked against an active `public.reps` profile with role `admin` or `manager`. The two approved email addresses are the default `ADMIN_EMAILS` and the bootstrap trigger. If either address is signed in and the `reps` row is missing, the app still treats that login as admin, the same way `reps_bootstrap_admin` does. Removing an address from `ADMIN_EMAILS` still blocks the Management screens. **Do not put the password in source control.** Add the first Auth user in the Supabase dashboard; the trigger writes the admin `reps` row.
+
+Signed-in admins and managers see **Management** on the map header (desktop), at the top of the phone More menu, on My account as a **Management dashboard** card, and on the screen right after they sign in. Setters and sales reps do not. The card links open `/admin` already signed in: Accounts (`/admin#accounts`), Team & roles, Documents, Messages from the field, and Form library. The in-map command center also links to Accounts.
 
 ### Homeowner form
 The public form submits through `POST /api/homeowner-signup`. The Vercel function writes a lead + homeowner intake + activity record using the server-only `SUPABASE_SECRET_KEY`, so the public browser never receives the secret key and does not need direct write access to the shared CRM tables.
@@ -144,20 +146,20 @@ Appointment setters sign in, record the homeowner and property information, capt
 
 ## Photos and forms
 
-Sales reps and admin/managers can attach photos to a house. Appointment setters and canvassers do not get the photo bank. Reps and setters fill forms that an admin assigns to their portal. Two starter agreements ship as drafts: **Closing / Deal Agreement** and **Contingency Agreement**. They are placeholders. Replace the wording with True North’s own agreements before a homeowner signs anything.
+Sales reps and admin/managers can attach photos to a house and add a note on each photo. Appointment setters do not get the photo bank. Reps and setters fill only the forms assigned to their role or to them by name. Two starter agreements ship as drafts for sales reps: **Closing / Deal Agreement** and **Contingency Agreement**. They are placeholders. Replace the wording with True North’s own agreements before a homeowner signs anything. An admin can also upload a PDF or image under **Documents** and assign it to all setters, all sales reps, or specific people. **Documents** on `/admin` groups intakes, forms, and roof photos by property. Search covers the homeowner, address, person, and form name. Filters cover document type, person, and new or reviewed. Each property opens one timeline, split into Today, This week, and Older.
 
 ### Setup
 
 1. On a fresh project, paste `supabase/setup_all.sql` once. It already includes this step.
-2. If the base schema and Cam’s clock-in migration are already applied, run `supabase/forms_photos.sql` after that migration. It creates `lead_photos`, `form_templates`, and `form_submissions`, turns on row-level security, and creates two private Storage buckets: `lead-photos` and `form-assets`.
+2. If the base schema and Cam’s clock-in migration are already applied, run `supabase/forms_photos.sql` after that migration. It creates `lead_photos`, `form_templates`, and `form_submissions`, turns on row-level security, and creates two private Storage buckets: `lead-photos` and `form-assets`. Then run `supabase/migrations/20261008_role_form_library.sql` so uploaded forms, per-person assignments, and photo-note edits are enforced in the database. Then run `supabase/migrations/20261008_document_review.sql` so management can mark a document reviewed. Do not apply either file from the app.
 3. The browser uses the publishable key. Signed URLs stay private. Creating logins needs the server secret (see One-time setup).
-4. Sign in on the field map, open a house, and use **Add Photo** or **Fill Form**. Add Photo opens the phone camera. Sales reps can also open `/rep`. Admins manage everything under **Files & Forms** on `/admin` (also at `/files`).
+4. Sign in on the field map, open a house, and use **Add Photo** or **Fill Form**. Add Photo opens the phone camera. Sales reps can also open `/rep`. Admins open **Documents** on `/admin` (also at `/files`). Paperwork is grouped by property with no manual filing.
 
 ### Who can see photos
 
 - `salesperson`: photos on leads assigned to them, created by them (`leads.created_by`), or where they are the salesperson on the appointment or homeowner intake.
 - `admin` and `manager`: every photo and every form submission.
-- `canvasser` and `appointment_setter`: no photo bank. They can fill forms assigned to setters or to both portals.
+- `appointment_setter` (and any older `canvasser` row): no photo bank. They can fill forms assigned to all setters, to both portals, or to them by name.
 
 ### Using it
 
@@ -169,7 +171,7 @@ Sales reps and admin/managers can attach photos to a house. Appointment setters 
 
 Admins and managers create logins from `/admin` → **Accounts**: name, email, role, and an initial password. That calls `POST /api/accounts`, which uses the server secret to create the Supabase Auth user and the matching active `reps` row. The secret is never returned to the browser. The function checks the caller’s access token against an active `reps` row.
 
-- An **admin** or **manager** can create, reset, turn off, and turn on setters, canvassers, and sales reps.
+- An **admin** or **manager** can create, reset, turn off, and turn on appointment setters and sales reps. An older canvasser login can still be reset or turned off. New canvasser logins are not offered.
 - Only an **admin** can create or change other admins and managers, and only an **admin** can use **Open as this user**.
 - Turning a login off sets `reps.active` to false and bans the Auth user. Turning it on clears the ban. You cannot turn off your own login.
 - **Open as this user** asks the server for a one-time magic link and shows **Copy link** and **Open in new tab**. Open that link in a private window so the admin’s own session stays put. Every open-as and every admin password reset is written to `public.account_audit` with the admin’s rep id and the time. Browsers cannot insert that table.

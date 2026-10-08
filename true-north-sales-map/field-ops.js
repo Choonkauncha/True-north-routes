@@ -1,6 +1,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import './tn-files/password-reset.js';
 import { formatHours, formatMiles, pointLabel, roleLabel } from './lib/field-rules.js';
+import { canUsePhotoBank, fieldHomeLinks } from './lib/role-access.js';
 
 const state = {
   sb: null,
@@ -147,16 +148,6 @@ function hostForWidget() {
 function mountPhoneMenu() {
   const bar = document.querySelector('.topbar .topRight');
   if (!bar || document.getElementById('tnMore')) return;
-  const seen = new Set();
-  const items = [];
-  document.querySelectorAll('.quickLinkBtn, .ribbonActions a').forEach(link => {
-    const href = link.getAttribute('href');
-    if (!href || seen.has(href)) return;
-    seen.add(href);
-    const short = href.includes('setter') ? 'Setter intake' : href.includes('homeowner') ? 'Homeowner form' : link.textContent.trim();
-    items.push({ href, label: short });
-  });
-  if (!items.length) return;
   const button = document.createElement('button');
   button.type = 'button';
   button.id = 'tnMore';
@@ -168,7 +159,6 @@ function mountPhoneMenu() {
   menu.id = 'tnMoreMenu';
   menu.className = 'tnMoreMenu';
   menu.hidden = true;
-  menu.innerHTML = items.map(item => `<a href="${esc(item.href)}">${esc(item.label)}</a>`).join('');
   const route = document.getElementById('routeBtn');
   if (route) bar.insertBefore(button, route);
   else bar.appendChild(button);
@@ -188,7 +178,32 @@ function mountPhoneMenu() {
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') close();
   });
+  fillRoleMenu();
   watchAdminButton();
+}
+
+function fillRoleMenu() {
+  const menu = document.getElementById('tnMoreMenu');
+  if (!menu) return;
+  const role = state.status?.rep?.role || '';
+  const open = !menu.hidden;
+  menu.innerHTML = fieldHomeLinks(role).map(item => (
+    item.action === 'message'
+      ? `<button type="button" data-tn-action="message">${esc(item.label)}</button>`
+      : `<a href="${esc(item.href)}">${esc(item.label)}</a>`
+  )).join('');
+  menu.hidden = !open;
+  menu.querySelector('[data-tn-action="message"]')?.addEventListener('click', () => {
+    menu.hidden = true;
+    document.getElementById('tnMore')?.setAttribute('aria-expanded', 'false');
+    openMessages();
+  });
+  const showPhotos = Boolean(role) && canUsePhotoBank(role);
+  document.querySelectorAll('a[href="/rep.html"], a[href="/rep"]').forEach(link => {
+    if (link.closest('#tnMoreMenu')) return;
+    link.classList.toggle('hidden', !showPhotos);
+  });
+  syncMoreManagement();
 }
 
 function managementAllowed() {
@@ -196,8 +211,14 @@ function managementAllowed() {
   return Boolean(admin && !admin.classList.contains('hidden'));
 }
 
+function syncHeaderManagement() {
+  const allowed = managementAllowed() || Boolean(state.status?.isAdmin);
+  document.querySelectorAll('a.tnManageLink').forEach((link) => link.classList.toggle('hidden', !allowed));
+}
+
 function syncMoreManagement() {
   const menu = document.getElementById('tnMoreMenu');
+  syncHeaderManagement();
   if (!menu) return;
   const existing = document.getElementById('tnMoreAdmin');
   if (!managementAllowed()) {
@@ -439,6 +460,7 @@ function mountWidget() {
 }
 
 function renderWidget() {
+  syncHeaderManagement();
   const status = state.status;
   const root = document.getElementById('tnFieldOps');
   if (!status || !root) return;
@@ -455,6 +477,7 @@ function renderWidget() {
   badge.textContent = unread > 9 ? '9+' : String(unread);
   badge.classList.toggle('hidden', unread < 1);
   messages.setAttribute('aria-expanded', state.msgOpen ? 'true' : 'false');
+  fillRoleMenu();
   renderClockLabel();
   syncMobileChrome();
 }
@@ -632,7 +655,7 @@ function renderPanel() {
   const active = state.threads.find(thread => thread.rep.id === state.activeRepId);
   const title = document.getElementById('tnMsgTitle');
   const back = document.getElementById('tnMsgBack');
-  if (title) title.textContent = listing ? 'Messages' : (admin ? (active?.rep.name || 'Messages') : 'Office');
+  if (title) title.textContent = listing ? 'Messages' : (admin ? (active?.rep.name || 'Messages') : 'Message management');
   if (back) back.hidden = !admin || listing;
   body.className = `tnMsgLayout ${listing ? 'listOnly' : 'chatOnly'}`;
   const list = admin ? `<div class="tnThreadList">${state.threads.map(thread => `
@@ -645,7 +668,7 @@ function renderPanel() {
     const mine = message.sender_rep_id === mineId;
     const who = mine ? 'You' : (message.sender_rep_id === state.activeRepId ? (active?.rep.name || 'Field') : 'Office');
     return `<article class="tnBubble${mine ? ' mine' : ''}"><b>${esc(who)}</b><p>${esc(message.body)}</p><time>${esc(easternStamp(message.created_at))}</time></article>`;
-  }).join('') : `<div class="tnEmpty">${admin ? 'No messages yet. Write the first one below.' : 'No messages yet. Write the office here. This is separate from GroupMe.'}</div>`;
+  }).join('') : `<div class="tnEmpty">${admin ? 'No messages yet. Write the first one below.' : 'No messages yet. Write management here. This is separate from GroupMe.'}</div>`;
   body.innerHTML = `${list}<div class="tnConvo">
       <div class="tnBubbles" id="tnBubbles">${bubbles}</div>
       <form class="tnComposer" id="tnComposer">
@@ -769,6 +792,7 @@ async function bootWidget() {
   if (!cfg) return;
   state.cfg = cfg;
   await syncSession(readStoredSession());
+  if (new URLSearchParams(location.search).get('open') === 'messages' && state.status?.rep) openMessages();
   window.addEventListener('storage', () => {
     syncSession(readStoredSession()).catch(error => console.warn(error));
   });
@@ -1064,6 +1088,10 @@ async function boot() {
   try {
     ensureCss();
     mountPhoneMenu();
+    document.getElementById('openMessages')?.addEventListener('click', () => {
+      if (state.msgOpen) closeMessages();
+      else openMessages();
+    });
     watchSheets();
     watchListSheet();
     const bar = document.getElementById('mobileBar');

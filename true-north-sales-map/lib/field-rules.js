@@ -30,7 +30,7 @@ export function isIsoDate(value) {
 export function roleLabel(role) {
   return {
     appointment_setter: 'Appointment setter',
-    canvasser: 'Canvasser',
+    canvasser: 'Appointment setter',
     salesperson: 'Sales rep',
     manager: 'Manager',
     admin: 'Admin'
