@@ -4,11 +4,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   BOOTSTRAP_ADMIN_EMAILS,
+  MANAGEMENT_LINKS,
   canManageAccount,
+  canOpenManagement,
+  managementProfile,
   validateEmail,
   validatePassword
 } from '../lib/account-rules.js';
-import { bindAdminTabs } from '../lib/admin-tabs.js';
+import { adminHashTarget, bindAdminTabs } from '../lib/admin-tabs.js';
 import { handleAccounts } from '../api/accounts.js';
 import { buildSetupSql } from './build-setup-sql.mjs';
 
@@ -189,5 +192,75 @@ assert.ok(!mountSource.includes('.onclick'));
 assert.ok(read('field-ops.js').includes("link.textContent = 'Management'"));
 assert.ok(read('field-ops.js').includes("link.href = '/admin'"));
 assert.ok(read('field-ops.js').includes('tnMoreAdmin'));
+
+for (const email of BOOTSTRAP_ADMIN_EMAILS) {
+  const missing = managementProfile({ email, rep: null, userId: 'user-1' });
+  assert.equal(missing.role, 'admin');
+  assert.equal(missing.active, true);
+  assert.equal(missing.email, email);
+  assert.equal(canOpenManagement({ email, rep: null, adminEmails: BOOTSTRAP_ADMIN_EMAILS }), true);
+}
+const travis = managementProfile({
+  email: 'TravisBishopMackie@gmail.com',
+  rep: { id: 'rep-travis', role: 'salesperson', name: 'Travis Mackie', active: true },
+  userId: 'user-travis'
+});
+assert.equal(travis.role, 'admin');
+assert.equal(travis.name, 'Travis Mackie');
+assert.equal(travis.id, 'rep-travis');
+assert.equal(canOpenManagement({
+  email: 'travisbishopmackie@gmail.com',
+  rep: null,
+  adminEmails: ['other@example.com']
+}), false);
+assert.equal(canOpenManagement({
+  email: 'ada@example.com',
+  rep: { role: 'appointment_setter', email: 'ada@example.com' },
+  adminEmails: BOOTSTRAP_ADMIN_EMAILS
+}), false);
+assert.equal(canOpenManagement({
+  email: 'sam@example.com',
+  rep: { role: 'salesperson', email: 'sam@example.com' },
+  adminEmails: [...BOOTSTRAP_ADMIN_EMAILS, 'sam@example.com']
+}), false);
+assert.equal(canOpenManagement({
+  email: 'mgr@example.com',
+  rep: { role: 'manager', email: 'mgr@example.com' },
+  adminEmails: [...BOOTSTRAP_ADMIN_EMAILS, 'mgr@example.com']
+}), true);
+assert.equal(canOpenManagement({
+  email: 'boss@example.com',
+  rep: { role: 'admin', email: 'boss@example.com' },
+  adminEmails: BOOTSTRAP_ADMIN_EMAILS
+}), false);
+assert.equal(canOpenManagement({
+  email: 'boss@example.com',
+  rep: { role: 'admin', email: 'boss@example.com' },
+  adminEmails: []
+}), true);
+assert.deepEqual(MANAGEMENT_LINKS.map((link) => [link.href, link.label]), [
+  ['/admin#accounts', 'Accounts'],
+  ['/admin#team', 'Team & roles'],
+  ['/admin#files', 'Documents'],
+  ['/admin#messages', 'Messages from the field'],
+  ['/admin#builder', 'Form library']
+]);
+assert.deepEqual(adminHashTarget('#accounts'), { tab: 'accounts', messages: false, builder: false });
+assert.deepEqual(adminHashTarget('#team'), { tab: 'team', messages: false, builder: false });
+assert.deepEqual(adminHashTarget('#files'), { tab: 'files', messages: false, builder: false });
+assert.equal(adminHashTarget('#messages').messages, true);
+assert.equal(adminHashTarget('#messages').tab, 'overview');
+assert.equal(adminHashTarget('#builder').builder, true);
+assert.equal(adminHashTarget('#builder').tab, 'files');
+assert.equal(adminHashTarget('#property=18%20public').tab, 'files');
+assert.ok(read('tn-files/account-page.js').includes('Management dashboard'));
+assert.ok(adminHtml.includes('function applyAdminHash'));
+assert.ok(adminHtml.includes('managementProfile'));
+const openAdmin = read('app.js').slice(read('app.js').indexOf('function openAdmin'), read('app.js').indexOf('function renderTerritoryAdmin'));
+assert.ok(openAdmin.includes("accounts.href='/admin#accounts'"));
+const indexHtml = read('index.html');
+assert.ok(indexHtml.includes('id="postSignIn"'));
+assert.ok(indexHtml.includes('id="adminAccountsLink"'));
+assert.ok(indexHtml.includes('>Management</a>'));
 
 console.log('account-rules tests ok');

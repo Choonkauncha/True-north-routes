@@ -1,6 +1,8 @@
 import { bootFiles, signIn, signOut } from './store.js';
 import { bindSignOut, esc, signInCard } from './ui.js';
 import { passwordChangeError } from '../lib/password-reset.js';
+import { roleLabel } from '../lib/role-access.js';
+import { MANAGEMENT_LINKS, canOpenManagement } from '../lib/account-rules.js';
 
 const app = document.getElementById('app');
 
@@ -28,11 +30,20 @@ function renderSignIn(ctx) {
   };
 }
 
+function managementCard(ctx) {
+  const email = ctx.session?.user?.email || ctx.rep?.email || '';
+  if (!canOpenManagement({ email, rep: ctx.rep, adminEmails: ctx.cfg?.adminEmails })) return '';
+  const links = MANAGEMENT_LINKS.map((link) => `<a class="tnTap" href="${esc(link.href)}">${esc(link.label)}</a>`).join('');
+  return `<section class="tnCard tnManageCard" id="managementDashboard"><div class="eyebrow">MANAGEMENT</div><b>Management dashboard</b><span>Accounts, the team, documents, messages, and forms. These open the office tools with this same login.</span><div class="tnStack">${links}</div></section>`;
+}
+
 function renderForm(ctx) {
   const who = ctx.rep?.name || ctx.session.user.email || 'Signed in';
-  const role = ctx.rep?.role ? ` · ${ctx.rep.role.replaceAll('_', ' ')}` : '';
+  const role = ctx.rep?.role ? ` · ${roleLabel(ctx.rep.role)}` : '';
   app.innerHTML = `<h1 class="tnTitle">My account</h1>
     <p class="tnSub">${esc(who)}${esc(role)}</p>
+    ${managementCard(ctx)}
+    <p class="tnAccountBtns"><a class="tnTap" href="/forms.html">My forms</a></p>
     <form id="pwForm" class="tnCard">
       <label class="tnLabel" for="pw1">New password</label>
       <input class="tnInput" id="pw1" type="password" autocomplete="new-password" minlength="8" required>

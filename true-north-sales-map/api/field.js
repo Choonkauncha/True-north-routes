@@ -288,7 +288,7 @@ async function insertPoint(ctx, { shiftId, coord, accuracy, kind, leadId, doorSt
 }
 
 async function saveConsent(ctx) {
-  if (!isFieldRole(ctx.rep.role)) throw fail('Location consent is for setters, canvassers, and sales reps.', 403);
+  if (!isFieldRole(ctx.rep.role)) throw fail('Location consent is for appointment setters and sales reps.', 403);
   try {
     const rows = await rest(ctx.token, 'location_consents', {
       method: 'POST',
@@ -302,7 +302,7 @@ async function saveConsent(ctx) {
 }
 
 async function clockIn(ctx, body) {
-  if (!isFieldRole(ctx.rep.role)) throw fail('Clock in is for setters, canvassers, and sales reps.', 403);
+  if (!isFieldRole(ctx.rep.role)) throw fail('Clock in is for appointment setters and sales reps.', 403);
   if (!await consentRow(ctx)) throw fail('Agree to the location notice before clocking in.', 403, 'CONSENT_REQUIRED');
   if (await openShift(ctx)) throw fail('You are already clocked in.', 409);
   const coord = cleanCoord(body.lat, body.lng);
@@ -323,7 +323,7 @@ async function clockIn(ctx, body) {
 }
 
 async function clockOut(ctx, body) {
-  if (!isFieldRole(ctx.rep.role)) throw fail('Clock out is for setters, canvassers, and sales reps.', 403);
+  if (!isFieldRole(ctx.rep.role)) throw fail('Clock out is for appointment setters and sales reps.', 403);
   const shift = await openShift(ctx);
   if (!shift) throw fail('You are not clocked in.', 409);
   const coord = cleanCoord(body.lat, body.lng);
@@ -364,7 +364,7 @@ async function sendMessage(ctx, body) {
   let repId = ctx.rep.id;
   if (isAdminRole(ctx.rep.role)) {
     if (!isUuid(body.repId)) throw fail('Choose a person to message.', 400);
-    if (body.repId === ctx.rep.id) throw fail('Message a setter, canvasser, or sales rep.', 400);
+    if (body.repId === ctx.rep.id) throw fail('Message an appointment setter or sales rep.', 400);
     const target = await repById(ctx, body.repId);
     if (!target || !isFieldRole(target.role) || target.active === false) throw fail('That person does not have a field thread.', 404);
     repId = body.repId;

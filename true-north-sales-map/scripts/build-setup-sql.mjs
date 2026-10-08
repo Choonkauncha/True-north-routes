@@ -6,13 +6,15 @@ const parts = [
   ['supabase/schema.sql', '1. Base schema'],
   ['supabase/migrations/20261008_access_clockin.sql', '2. Clock-in, location, and messages'],
   ['supabase/forms_photos.sql', '3. Photos and forms'],
-  ['supabase/accounts.sql', '4. Accounts, audit, and first admin']
+  ['supabase/accounts.sql', '4. Accounts, audit, and first admin'],
+  ['supabase/migrations/20261008_role_form_library.sql', '5. Role form library and photo notes'],
+  ['supabase/migrations/20261008_document_review.sql', '6. Document review']
 ];
 
 export function buildSetupSql(root) {
   const banner = `-- True North setup, in order, safe to run again.
 -- Paste this whole file into the Supabase SQL Editor once on a fresh project.
--- It is schema.sql, then the clock-in migration, then forms_photos.sql, then accounts.sql.
+-- It is schema.sql, then the clock-in migration, then forms_photos.sql, then accounts.sql, then the role form library migration, then the document review migration.
 `;
   const body = parts.map(([path, title]) => {
     const sql = readFileSync(join(root, path), 'utf8').trim();
