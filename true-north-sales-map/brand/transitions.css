@@ -1,36 +1,43 @@
-/* Navy canvas so a new document never flashes white. Body paint comes from each page. */
-html {
-  background: #0c1424 !important;
+/* Navy canvas and the shared True North loader. Critical copy is also inlined on each page so the first paint does not wait on this file. */
+html{background:#0c1424!important}
+.tnLoader,.mapLoader{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:#0c1424;color:#fff}
+.mapLoader{z-index:4000;flex-direction:column;gap:16px;padding:28px 22px;text-align:center}
+.tnLoader.isGone,.mapLoader.isGone{display:none!important}
+.bootMark{position:relative;width:84px;height:84px;flex:none}
+.bootMark .bootEmblem{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;animation:none}
+.bootOutline{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.bootOutlineTrack,.bootOutlineTravel{fill:none;stroke-linejoin:round;stroke-linecap:round}
+.bootOutlineTrack{stroke:rgba(30,107,255,.5);stroke-width:12}
+.bootOutlineTravel{stroke:#1e6bff;stroke-width:14;stroke-dasharray:18 82;filter:drop-shadow(0 0 2px #d6e6ff) drop-shadow(0 0 6px #1e6bff);animation:bootOutlineTravel 2.8s linear infinite}
+@keyframes bootOutlineTravel{to{stroke-dashoffset:-100}}
+.tnLoaderSr,.mapLoaderSr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.tnSignInScreen{position:fixed;inset:0;z-index:100001;display:grid;place-items:center;padding:16px;background:#0c1424;overflow:auto;box-sizing:border-box}
+html.tn-map.tn-signed-out body>*:not(#loginModal){display:none!important}
+html.tn-map.tn-signed-out #loginModal{display:flex!important;background:#0c1424!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;z-index:100000}
+html.tn-signed-out,html.tn-signed-out body{background:#0c1424!important}
+html.tn-signed-out .tnHeader,html.tn-signed-out .tn-skip,html.tn-signed-out #setterApp{display:none!important}
+html.tn-signed-out:not(.tn-hold-login) #tnBootHold{display:none!important}
+html.tn-signed-out.tn-hold-login #tnBootHold{display:flex!important}
+html.tn-signed-out body.tn-standalone #main{min-height:100vh;display:grid;place-items:center;background:#0c1424;margin:0;padding:16px;box-sizing:border-box}
+.tn-vt-loader{view-transition-name:tn-loader}
+@media(prefers-reduced-motion:reduce){
+  .bootOutlineTravel{animation:none;stroke-dasharray:none;stroke-dashoffset:0;filter:none}
+  .bootOutlineTrack{stroke:transparent}
+  .tnLoader,.mapLoader{transition:none}
 }
 
-@view-transition {
-  navigation: auto;
-}
-
-::view-transition-old(root) {
-  animation: tn-vt-out 160ms ease both;
-}
-
-::view-transition-new(root) {
-  animation: tn-vt-in 160ms ease both;
-}
-
-@keyframes tn-vt-out {
-  to { opacity: 0; }
-}
-
-@keyframes tn-vt-in {
-  from { opacity: 0; }
-}
-
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: tn-vt-out 160ms ease both; }
+::view-transition-new(root) { animation: tn-vt-in 160ms ease both; }
+::view-transition-group(tn-loader),
+::view-transition-old(tn-loader),
+::view-transition-new(tn-loader) { animation: none; }
+::view-transition-group(tn-loader) { z-index: 100000; }
+@keyframes tn-vt-out { to { opacity: 0; } }
+@keyframes tn-vt-in { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none !important;
-  }
+  ::view-transition-new(*) { animation: none !important; }
 }
-
-html {
-  overflow-x: clip;
-}
+html { overflow-x: clip; }

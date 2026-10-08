@@ -183,6 +183,9 @@ assert.ok(app.includes('webkitCompassHeading') || fs.readFileSync(new URL('../li
 assert.ok(css.includes('safe-area-inset'));
 assert.ok(css.includes('.navCompass'));
 assert.ok(css.includes('html.isNavigating .mapShell'));
+assert.ok(css.includes('html.isNavigating #listSheet.sheet-collapsed'));
+assert.ok(css.includes('html.isNavigating #routeTray.isCollapsed'));
+assert.ok(css.includes('html.isNavigating .tnFold.isCollapsed'));
 assert.ok(css.includes('.navStop'));
 assert.ok(!app.includes('Math.max(state.map.getZoom(),17)'));
 

@@ -382,10 +382,20 @@ html.isNavigating .mapLegend,
 html.isNavigating .mapInfo,
 html.isNavigating .weatherStack,
 html.isNavigating #listSheet,
+html.isNavigating #listSheet.sidePanel,
+html.isNavigating #listSheet.sheet-collapsed,
+html.isNavigating #listSheet.sheet-half,
+html.isNavigating #listSheet.sheet-full,
+html.isNavigating #listSheet.panel-open,
 html.isNavigating #mobileBar,
 html.isNavigating #routeTray,
+html.isNavigating #routeTray.isCollapsed,
 html.isNavigating .pinBanner,
-html.isNavigating .leaflet-control-zoom{display:none!important}
+html.isNavigating .mapLoader,
+html.isNavigating .leaflet-control-zoom,
+html.isNavigating .tnFold.isCollapsed{display:none!important}
+html.isNavigating #doorSheet.open .doorSheetCard.tnFold{display:flex!important}
+html.isNavigating #doorSheet.open .tnFold > .tnFoldBody{grid-template-rows:1fr!important;overflow:visible!important}
 html.isNavigating,
 html.isNavigating body{height:100%;overflow:hidden}
 html.isNavigating .mapShell{position:fixed;inset:0;z-index:1400;width:100%;height:100%;height:100dvh;grid-template-columns:1fr!important;background:#d8e0e3}
@@ -402,3 +412,14 @@ html.isNavPaused .navCompass{display:none}
   html.isNavigating .navBarActions{grid-template-columns:1fr 1fr 1fr}
   html.isNavigating .navBarActions button{min-height:44px;font-size:13px;padding:8px 4px}
 }
+.handoffSummary{display:flex;flex-direction:column;gap:4px;margin:8px 0 10px;font-size:14px;line-height:1.35}
+.handoffAccessNote{margin:0 0 10px;font-size:13px;line-height:1.4;color:#6f3b12}
+.handoffActions{display:flex;flex-direction:column;gap:8px}
+.handoffActions button,.repReceiptBar .darkBtn,.handoffReceipt .darkBtn{width:100%;min-height:44px}
+.handoffPhotos{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.handoffPhotos img{width:100%;border-radius:10px}
+.handoffReceipt{display:flex;flex-direction:column;gap:8px;margin:12px 0;padding-top:8px;border-top:1px solid #d5dee4}
+.handoffReceipt label,.appointmentCard label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:800}
+.repReceiptBar{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
+.myReceiptList{display:flex;flex-direction:column;gap:8px}
+.receiptRow{border:1px solid #d5dee4;border-radius:10px;padding:10px;font-size:13px;line-height:1.35}

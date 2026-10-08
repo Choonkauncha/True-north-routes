@@ -1,5 +1,5 @@
 import { bootFiles, signIn, getSubmission } from './store.js';
-import { esc, bindSignOut, signInCard } from './ui.js';
+import { esc, bindSignOut, mountSignIn, revealApp } from './ui.js';
 import { isManagement } from './logic.js';
 
 const app = document.getElementById('app');
@@ -8,13 +8,13 @@ const id = new URLSearchParams(location.search).get('id');
 async function start() {
   const ctx = await bootFiles();
   bindSignOut(ctx, document.getElementById('signOut'));
-  if (!id) { app.innerHTML = '<p class="tnSub">Missing form.</p><a class="tnTap" href="/files.html">Files & Forms</a>'; return; }
+  if (!id) { revealApp(); app.innerHTML = '<p class="tnSub">Missing form.</p><a class="tnTap" href="/files.html">Files & Forms</a>'; return; }
   if (ctx.mode === 'cloud' && !ctx.session) return renderSignIn(ctx);
   await show(ctx);
 }
 
 function renderSignIn(ctx) {
-  app.innerHTML = signInCard();
+  mountSignIn(app);
   document.getElementById('tnLogin').onsubmit = async (event) => {
     event.preventDefault();
     try { await signIn(ctx, document.getElementById('tnEmail').value, document.getElementById('tnPassword').value); await show(ctx); }
@@ -23,6 +23,7 @@ function renderSignIn(ctx) {
 }
 
 async function show(ctx) {
+  revealApp();
   const row = await getSubmission(ctx, id).catch((error) => ({ error }));
   if (!row || row.error || !row.id) {
     app.innerHTML = `<p class="tnError">${esc(row?.error?.message || 'That form is not available.')}</p><a class="tnTap" href="/files.html">Files & Forms</a>`;

@@ -633,7 +633,7 @@ export async function saveReceipt(ctx, input) {
     note: fields.note
   };
   if (ctx.mode === 'local') {
-    const saved = { ...row, id: crypto.randomUUID(), uploaded_by: 'local', created_at: new Date().toISOString(), url: uploaded.url };
+    const saved = { ...row, id: crypto.randomUUID(), uploaded_by: ctx.rep?.id || 'local', created_at: new Date().toISOString(), url: uploaded.url };
     await idbPut('receipts', saved);
     return saved;
   }

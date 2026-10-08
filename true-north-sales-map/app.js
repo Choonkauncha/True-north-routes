@@ -14,7 +14,9 @@ import { readSavedLayers, resolveLayers, writeSavedLayers } from './lib/map-laye
 import { bindAreaDraw } from './area-draw.js';
 import { roleLabel } from './lib/field-rules.js';
 import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/account-rules.js';
-import { forgetRole, rememberRole } from './lib/management-gate.js';
+import { forgetRole, readStoredUser, rememberRole } from './lib/management-gate.js';
+import { assertHandoffPhoto, handoffPermissions, isHandoffSetter, validateHandoffPatch, visibleHandoffs } from './lib/handoff-access.js';
+import { canSeeReceipt, canUploadReceipt } from './lib/receipt-access.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -41,7 +43,8 @@ const state={
   heatTimer:null, heatKey:'', territoryKey:'', bootDone:false, stormBusy:false, fieldWarmed:false, listSortToken:0,
   navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[],
   pendingPostSignIn:false, paintTicket:0, toolsDeferred:false, pinsMarked:false, cloudReady:false, staticPromise:null,
-  tileLayer:null, mapLoaderGen:0, mapSettled:false, pinsPainted:false, awaitingFirstFit:false, factTimer:null, mapLoaderGiveUp:null
+  tileLayer:null, mapLoaderGen:0, mapSettled:false, pinsPainted:false, awaitingFirstFit:false, factTimer:null, mapLoaderGiveUp:null,
+  sessionReady:false
 };
 
 const $=id=>document.getElementById(id);
@@ -58,6 +61,7 @@ function debounce(fn,ms=150){let t;return(...a)=>{clearTimeout(t);t=setTimeout((
 
 let cloudToken='';
 let cloudFlight=null;
+let authEpoch=0;
 let weatherApiPromise;
 function weatherApi(){ weatherApiPromise ||= import('./weather-widget.js'); return weatherApiPromise; }
 function closeWeather(options){ weatherApi().then(mod=>mod.setWeatherOpen(false, options)).catch(()=>{}); }
@@ -78,15 +82,20 @@ function markFirstPins(){
 
 async function boot(){
   bindStaticEvents();
-  initMapOnce();
-  setTimeout(deferFieldTools, 4000);
+  const authed=!!readStoredUser(localStorage);
+  if(authed){
+    initMapOnce();
+    setTimeout(deferFieldTools, 4000);
+  }else showLogin();
   const centersP=fetchJSON('/data/city-centers.json').catch(()=>({}));
   const cfgP=fetchJSON('/api/config').catch(()=>null);
-  const cached=await readLeadCache().catch(()=>null);
-  if(cached?.leads?.length){
-    streamLeads(cached.leads, cached.leads.length, null);
-    await new Promise(resolve=>requestAnimationFrame(resolve));
-  }else startStaticLeads().catch(error=>console.error(error));
+  if(authed){
+    const cached=await readLeadCache().catch(()=>null);
+    if(cached?.leads?.length){
+      streamLeads(cached.leads, cached.leads.length, null);
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+    }else startStaticLeads().catch(error=>console.error(error));
+  }
   const [centers, cfg]=await Promise.all([centersP, cfgP]);
   state.centers=centers||{};
   if(cfg?.configured){
@@ -97,9 +106,9 @@ async function boot(){
       const {data}=await state.supabase.auth.getSession();
       if(data.session) await enterCloud(data.session);
       else showLogin();
-      state.supabase.auth.onAuthStateChange(async(_event,session)=>{
+      state.supabase.auth.onAuthStateChange(async(event,session)=>{
         if(session) await enterCloud(session);
-        else { cloudToken=''; state.cloudReady=false; showLogin(); }
+        else if(event==='SIGNED_OUT'){ cloudToken=''; state.cloudReady=false; showLogin(); }
       });
     }catch(e){console.error(e);enterLocal(`Cloud client error: ${e.message}`)}
   }else{
@@ -111,7 +120,7 @@ async function fetchJSON(url){const r=await fetch(url);if(!r.ok)throw new Error(
 
 function bindStaticEvents(){
   $('loginForm').addEventListener('submit',login);
-  $('logoutBtn').onclick=()=>{ forgetRole(localStorage, state.user?.id); state.supabase?.auth.signOut(); };
+  $('logoutBtn').onclick=()=>{ const userId=state.user?.id; showLogin(); forgetRole(localStorage, userId); state.supabase?.auth.signOut(); };
   $('localModeBtn').onclick=()=>{hideLogin();enterLocal('Local device mode enabled. Connect Supabase for shared live team data.')};
   $('nextBtn').onclick=nextBest; $('nextCardBtn').onclick=nextBest;
   $('mobileNext').onclick=nextBest; $('mobileRoute').onclick=openRouteFromChrome; $('mobileLocate').onclick=locate;
@@ -225,6 +234,21 @@ function bindStaticEvents(){
   $('closeAppointment').onclick=()=>$('appointmentModal').classList.add('hidden');
   $('appStage').addEventListener('change',()=>{});
   $('copyHandoffBtn').onclick=copyCurrentHandoff;
+  $('completeHandoffBtn')?.addEventListener('click',completeHandoff);
+  $('reopenHandoffBtn')?.addEventListener('click',reopenHandoff);
+  $('appPhoto')?.addEventListener('change',()=>{const file=$('appPhoto').files?.[0]; if(file) addHandoffPhoto(file);});
+  $('saveHandoffReceiptBtn')?.addEventListener('click',()=>uploadReceipt({
+    file:$('handoffReceiptFile')?.files?.[0],
+    amount:$('handoffReceiptAmount')?.value,
+    vendor:$('handoffReceiptVendor')?.value,
+    recordDate:$('handoffReceiptDate')?.value,
+    note:$('handoffReceiptNote')?.value,
+    leadId:$('appLeadId')?.value||null,
+    errorEl:$('handoffReceiptError')
+  }));
+  $('uploadReceiptBtn')?.addEventListener('click',()=>openGeneralReceipt());
+  $('receiptForm')?.addEventListener('submit',saveGeneralReceipt);
+  $('closeReceipt')?.addEventListener('click',()=>$('receiptModal')?.classList.add('hidden'));
   $('doorSheetClose').onclick=closeDoorSheet;
   $('doorSheetScrim').onclick=closeDoorSheet;
   $('doorSheetFull').onclick=()=>{const id=state.doorLeadId; closeDoorSheet(); if(id) openLead(id);};
@@ -256,7 +280,8 @@ function bindStaticEvents(){
 
 function enterLocal(message){
   state.mode='local'; state.session=null; state.currentRep=null; state.cloudReady=false;
-  hideLogin(); $('userMenu').classList.add('hidden'); $('adminBtn').classList.add('hidden'); $('adminBtn').hidden = true;
+  hideLogin(); state.sessionReady=true; if(!state.map) initMapOnce();
+  $('userMenu').classList.add('hidden'); $('adminBtn').classList.add('hidden'); $('adminBtn').hidden = true;
   $('connection').textContent='LOCAL DEVICE'; $('connection').className='chip local';
   $('cloudNotice').textContent=message||'Local mode'; $('cloudNotice').classList.remove('hidden');
   if(!state.bootDone) setBootProgress(0,0);
@@ -378,7 +403,13 @@ async function enterCloud(session){
   return cloudFlight;
 }
 async function runEnterCloud(session){
+  const epoch=authEpoch;
   state.mode='cloud'; state.session=session; state.user=session.user; hideLogin();
+  if(epoch!==authEpoch) return;
+  state.sessionReady=true;
+  if(!state.map) initMapOnce();
+  deferFieldTools();
+  settleMapLoader(state.mapLoaderGen);
   $('connection').textContent='CLOUD SYNC'; $('connection').className='chip live';
   $('userMenu').classList.remove('hidden');
   $('userIdentity').textContent=session.user.email||session.user.id;
@@ -386,6 +417,7 @@ async function runEnterCloud(session){
   const sideP=loadSideData();
   try{
     await loadLeadBundle();
+    if(epoch!==authEpoch) return;
     const open=canOpenManagement({email:session.user.email, rep:state.currentRep, adminEmails:state.config?.adminEmails});
     $('adminBtn').hidden = !open;
     $('adminBtn').classList.toggle('hidden', !open);
@@ -395,6 +427,7 @@ async function runEnterCloud(session){
     startRealtime();
     state.cloudReady=true;
     await sideP;
+    if(epoch!==authEpoch) return;
     publishSideData();
   }catch(e){
     console.error(e);
@@ -634,16 +667,73 @@ async function fetchAllParallel(makeBuilder, count){
 
 function normalizeLead(l){return {...l,status:l.status||'New',assignedRepId:l.assigned_rep_id||l.assignedRepId||null,roofAgeYears:l.roof_age_years??l.roofAgeYears??null,roofAgeVerified:l.roof_age_verified??l.roofAgeVerified??false,lat:l.lat??null,lng:l.lng??null};}
 
+function scrubPrivateMap(){
+  state.paintTicket++;
+  state.stopLeadRead?.();
+  state.leads=[];
+  state.filtered=[];
+  state.leadsById=new Map();
+  state.appointments=[];
+  state.activities=[];
+  state.reps=[];
+  state.territories=[];
+  state.selected.clear();
+  state.routeStops=[];
+  state.bootDone=false;
+  state.pinsPainted=false;
+  state.cloudReady=false;
+  state.didFit=false;
+  state.session=null;
+  state.user=null;
+  state.currentRep=null;
+  cloudToken='';
+  if(state.navWatch!=null){ navigator.geolocation.clearWatch(state.navWatch); state.navWatch=null; }
+  state.navigating=false;
+  document.documentElement.classList.remove('isNavigating');
+  try{ state.pinMarkers.forEach(marker=>marker.remove()); }catch{ /* map already gone */ }
+  state.pinMarkers.clear();
+  state.pinShown.clear();
+  state.markerLayer?.clearLayers?.();
+  state.pinClusters?.clearLayers?.();
+  state.heatLayers.forEach(layer=>state.map?.removeLayer(layer));
+  state.heatLayers=[];
+  if(state.map){ state.map.remove(); state.map=null; }
+  state.tileLayer=null;
+  state.routeLine=null;
+  state.userMarker=null;
+  ['workList','handoffList','teamList','routeStops','stats','drawerContent','doorSheetActions'].forEach(id=>{ const el=$(id); if(el) el.innerHTML=''; });
+  ['doorSheetAddress','doorSheetName','doorSheetPlace','doorSheetStatus','toastText','userIdentity','datasetCount','mapInfoCount','mapInfoNext','search'].forEach(id=>{
+    const el=$(id);
+    if(!el) return;
+    if(el.tagName==='INPUT' || el.tagName==='TEXTAREA') el.value='';
+    else el.textContent='';
+  });
+  ['drawer','doorSheet','navBar','routePanel','appointmentModal','adminModal','postSignIn','navChoice'].forEach(id=>$(id)?.classList.add('hidden'));
+  const book=$('doorSheetBook'); if(book) book.setAttribute('href','/setter.html');
+  document.getElementById('tnFieldOps')?.remove();
+  document.getElementById('tnMsgOverlay')?.remove();
+  $('userMenu')?.classList.add('hidden');
+  $('appShell')?.classList.remove('blurred');
+}
 function showLogin(){
-  deferFieldTools();
+  authEpoch++;
+  state.sessionReady=false;
+  document.documentElement.classList.add('tn-signed-out');
   const logo=document.querySelector('#loginModal .signInLogo');
-  if(logo?.dataset.src && !logo.getAttribute('src')) logo.src=logo.dataset.src;
-  $('loginModal').classList.remove('hidden'); $('appShell').classList.add('blurred');
-  $('loginError').textContent='';
+  if(logo && !logo.getAttribute('src')) logo.src=logo.dataset.src||'/brand/logo-full.webp';
+  $('loginModal')?.classList.remove('hidden');
+  if($('loginError')) $('loginError').textContent='';
   const note=$('loginNote');
   if(note) note.textContent=new URLSearchParams(location.search).get('reset')==='1'?PASSWORD_UPDATED:'';
+  scrubPrivateMap();
+  import('./tn-files/password-reset.js').catch(()=>{});
 }
-function hideLogin(){ $('loginModal').classList.add('hidden'); $('appShell').classList.remove('blurred'); }
+function hideLogin(){
+  document.documentElement.classList.remove('tn-signed-out');
+  $('loginModal')?.classList.add('hidden');
+  $('appShell')?.classList.remove('blurred');
+  revealMapLoader();
+}
 async function login(e){e.preventDefault();if(!state.supabase){return}
   state.pendingPostSignIn=true;
   $('loginError').textContent='Signing in…';
@@ -704,6 +794,7 @@ function revealMapLoader(){
   }
 }
 function hideMapLoader(gen){
+  if(!state.sessionReady) return;
   if(gen!=null&&gen!==state.mapLoaderGen)return;
   clearTimeout(state.mapLoaderGiveUp);
   const el=$('mapLoader'); if(!el||el.classList.contains('isGone')||el.dataset.hiding==='1'){state.mapSettled=true;return;}
@@ -874,11 +965,26 @@ function leadHTML(l){
 }
 function statusClass(s){return s.toLowerCase().replace(/\s+/g,'-')}
 
+const HANDOFF_PREVIEW_KEY='tnrc2:handoffPreview';
+function handoffActor(){
+  if(state.mode==='cloud' && state.currentRep) return {role:state.currentRep.role||'', repId:state.currentRep.id||''};
+  if(state.mode==='local'){
+    try{
+      const preview=JSON.parse(sessionStorage.getItem(HANDOFF_PREVIEW_KEY)||'null');
+      if(preview && typeof preview.role==='string') return {role:preview.role, repId:preview.repId||''};
+    }catch{}
+    return {role:'admin', repId:'local'};
+  }
+  return {role:'', repId:''};
+}
 function renderHandoffs(){
   const list=$('handoffList');
-  const appts=state.appointments.slice().filter(a=>!['Completed','Cancelled'].includes(a.stage)).sort((a,b)=>String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
-  list.innerHTML=appts.length?appts.slice(0,120).map(a=>appointmentHTML(a)).join(''):'<div class="empty">No open appointments.</div>';
+  const actor=handoffActor();
+  const appts=visibleHandoffs({role:actor.role, repId:actor.repId, appointments:state.appointments}).slice(0,120);
+  list.innerHTML=appts.length?appts.map(a=>appointmentHTML(a)).join(''):'<div class="empty">No open appointments.</div>';
   list.querySelectorAll('[data-appt]').forEach(el=>el.onclick=()=>openAppointment(el.dataset.appt));
+  const bar=$('repReceiptBar');
+  if(bar) bar.classList.toggle('hidden', actor.role!=='salesperson');
 }
 function appointmentHTML(a){
   const l=state.leads.find(x=>x.id===a.lead_id)||{};
@@ -1272,7 +1378,7 @@ function toggleMapFocus(){
 async function quickStatus(id,status,continueNext=false){
   const l=state.leads.find(x=>x.id===id); if(!l)return;
   await persistLeadPatch(l,{status});
-  if(status==='Appointment'){openAppointmentForm(l);return;}
+  if(status==='Appointment'){location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;return;}
   renderAll();
   toast(`${status} · ${l.address}`);
   if(continueNext){closeDrawer();setTimeout(nextBest,150);}
@@ -1474,21 +1580,20 @@ function openLead(id){
   const notes=l.notes||localSaved(l).notes||'';
   const reps=state.reps.slice().sort((a,b)=>a.name.localeCompare(b.name));
   $('drawerContent').innerHTML=`<div class="drawerTop" data-lead-id="${esc(l.id)}"><div><div class="eyebrow">FIELD RECORD</div><h2>${esc(l.name||'Property lead')}</h2><div class="drawerAddr">${esc(l.address)}<br>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</div></div><span class="bigScore">${scoreLead(l)}</span></div>
-    <div class="detailGrid"><div><small>Source</small><b>${esc(l.source)}</b></div><div><small>Priority</small><b>${esc(l.priority||'Standard')}</b></div><div><small>Built</small><b>${esc(l.year_built??l.yearBuilt??'Unknown')}</b></div><div><small>Mapped</small><b>${isCoords(l)?'Exact geocode':'Needs geocode'}</b></div></div>
+    <section class="drawerSection" data-tn-panel="lead-details" data-tn-rank="primary"><h3>House details</h3><div class="detailGrid"><div><small>Source</small><b>${esc(l.source)}</b></div><div><small>Priority</small><b>${esc(l.priority||'Standard')}</b></div><div><small>Built</small><b>${esc(l.year_built??l.yearBuilt??'Unknown')}</b></div><div><small>Mapped</small><b>${isCoords(l)?'Exact geocode':'Needs geocode'}</b></div></div>
     <div class="drawerActions"><button id="drawerMaps" class="darkBtn">Open Google Maps</button><button id="drawerDir" class="outlineBtn">Directions</button></div>
     <div class="fieldActions"><button data-qstatus="Knocked">Knocked</button><button data-qstatus="No Answer">No answer</button><button data-qstatus="Interested">Interested</button><button data-qstatus="Not Interested">Not interested</button></div>
     <label>Sales status</label><select id="dStatus">${STATUS_OPTIONS.map(x=>`<option value="${esc(x)}" ${leadStatus(l)===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
     <label>Assigned rep</label><select id="dOwner"><option value="">Unassigned</option>${reps.map(r=>`<option value="${esc(r.id)}" ${l.assignedRepId===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('')}</select>
     <div class="verifiedGrid"><label>Roof age (verified)</label><input id="dRoofAge" type="number" min="0" max="100" value="${esc(l.roof_age_years??l.roofAgeYears??'')}" placeholder="e.g. 16"><label><input id="dRoofVerified" type="checkbox" ${l.roof_age_verified||l.roofAgeVerified?'checked':''}> verified</label></div>
     <label>Notes</label><textarea id="dNotes" placeholder="Homeowner response, roof condition, next action…">${esc(notes)}</textarea>
-    <button id="saveLeadBtn" class="saveBtn">Save field result</button>
-    <div class="drawerSection"><div class="sectionTitle">Appointment handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">Edit handoff</button></div>`:`<button id="bookApptBtn" class="outlineBtn">Book / hand off this lead</button>`}</div>`;
+    <button id="saveLeadBtn" class="saveBtn">Save field result</button></section>
+    <div class="drawerSection"><div class="sectionTitle">Appointment handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||state.reps.find(r=>r.id===appt.salesperson_id)?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">${handoffPermissions({role:handoffActor().role, repId:handoffActor().repId, appointment:appt}).notes||handoffPermissions({role:handoffActor().role, repId:handoffActor().repId, appointment:appt}).assign?'Open handoff':'View handoff'}</button></div>`:`<a class="outlineBtn" href="/setter.html?lead=${encodeURIComponent(l.id)}">Inspection form</a>`}</div>`;
   $('drawer').classList.remove('hidden');
   $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l);
   if($('drawerSetter')) $('drawerSetter').onclick=()=>{location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;};
   $('drawer').querySelectorAll('[data-qstatus]').forEach(btn=>btn.onclick=()=>quickStatus(l.id,btn.dataset.qstatus,true));
   $('saveLeadBtn').onclick=()=>saveLead(l);
-  $('bookApptBtn')?.addEventListener('click',()=>openAppointmentForm(l));
   $('editApptBtn')?.addEventListener('click',()=>openAppointmentForm(l,appt));
 }
 function closeDrawer(){$('drawer').classList.add('hidden');state.active=null;}
@@ -1497,7 +1602,8 @@ async function saveLead(l){
   try{await persistLeadPatch(l,{status,assigned_rep_id:repId,assignedRepId:repId,roof_age_years:roofAge,roofAgeYears:roofAge,roof_age_verified:roofVerified,roofAgeVerified:roofVerified,notes});}
   catch{return}
   closeDrawer();renderAll();
-  if(status==='Appointment')openAppointmentForm(l); else toast('Field result saved');
+  if(status==='Appointment'){location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;return;}
+  toast('Field result saved');
 }
 
 async function logActivity(leadId,action,metadata={}){
@@ -1571,33 +1677,206 @@ function openAppleRoute(stops=state.routeStops){
   window.open(appleDirectionsUrl(state.currentLocation, points, state.routeMode),'_blank','noopener');
 }
 
+function showHandoffField(id, on){
+  const el=$(id); if(!el) return;
+  el.classList.toggle('hidden', !on);
+  el.querySelectorAll('input,select,textarea').forEach(input=>{input.disabled=!on;});
+}
+function toDatetimeLocal(value){
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return '';
+  const pad=n=>String(n).padStart(2,'0');
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 function openAppointmentForm(l,appt=null){
-  const appointment=appt||{lead_id:l.id,stage:'Scheduled',scheduled_at:'',salesperson_id:''};
-  $('appointmentModal').classList.remove('hidden'); $('appointmentTitle').textContent=appt?'Edit handoff':'Book appointment';
-  $('appLeadId').value=l.id; $('appScheduled').value=appointment.scheduled_at?new Date(appointment.scheduled_at).toISOString().slice(0,16):''; $('appStage').value=appointment.stage||'Scheduled';
-  $('appSalesperson').innerHTML='<option value="">Unassigned</option>'+state.reps.filter(r=>['salesperson','manager','admin'].includes(r.role)).map(r=>`<option value="${esc(r.id)}" ${appointment.salesperson_id===r.id||appointment.salesperson?.id===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('');
-  $('appNotes').value=appointment.notes||l.notes||''; $('appId').value=appointment.id||'';
+  if(!appt){location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;return;}
+  const actor=handoffActor();
+  const perms=handoffPermissions({role:actor.role, repId:actor.repId, appointment:appt});
+  $('appointmentModal').classList.remove('hidden');
+  $('appointmentTitle').textContent='Inspection';
+  const salesName=state.reps.find(r=>r.id===appt.salesperson_id)?.name||appt.salesperson?.name||'Unassigned';
+  $('handoffSummary').innerHTML=`<b>${esc(l.name||'Inspection')}</b><div>${esc(addressOf(l))}</div><div>${esc(formatDate(appt.scheduled_at))} · ${esc(appt.stage)}</div><div>Sales rep: ${esc(salesName)}</div>`;
+  const viewOnly=!perms.notes&&!perms.assign&&!perms.photos&&!perms.complete&&!perms.reopen;
+  $('handoffAccessNote').textContent=viewOnly?(isHandoffSetter(actor.role)?'Appointment setters can view handoffs only.':'You can view this handoff only.'):'';
+  $('appLeadId').value=l.id;
+  $('appId').value=appt.id||'';
+  $('appScheduled').value=appt.scheduled_at?toDatetimeLocal(appt.scheduled_at):'';
+  $('appStage').value=appt.stage||'Scheduled';
+  $('appSalesperson').innerHTML='<option value="">Unassigned</option>'+state.reps.filter(r=>['salesperson','manager','admin'].includes(r.role)).map(r=>`<option value="${esc(r.id)}" ${appt.salesperson_id===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('');
+  $('appNotes').value=appt.notes||'';
+  showHandoffField('appWhenLabel', perms.schedule);
+  showHandoffField('appSalesLabel', perms.assign);
+  showHandoffField('appStageLabel', perms.assign);
+  showHandoffField('appNotesLabel', perms.notes);
+  showHandoffField('appPhotoLabel', perms.photos);
+  $('completeHandoffBtn')?.classList.toggle('hidden', !perms.complete);
+  $('reopenHandoffBtn')?.classList.toggle('hidden', !perms.reopen);
+  $('saveHandoffBtn')?.classList.toggle('hidden', !(perms.notes||perms.assign||perms.schedule));
+  const receiptOk=Boolean(canUploadReceipt({role:actor.role, repId:actor.repId, leadId:l.id, appointments:[appt]}).ok);
+  $('handoffReceipt')?.classList.toggle('hidden', !receiptOk);
+  if($('handoffReceiptError')) $('handoffReceiptError').textContent='';
+  if($('appPhoto')) $('appPhoto').value='';
+  paintHandoffPhotos(appt);
 }
 async function saveAppointmentFromForm(e){e.preventDefault();
-  const l=state.leads.find(x=>x.id===$('appLeadId').value); if(!l)return;
-  const data={lead_id:l.id,canvasser_id:state.mode==='cloud'?state.currentRep.id:null,salesperson_id:$('appSalesperson').value||null,scheduled_at:new Date($('appScheduled').value).toISOString(),stage:$('appStage').value,notes:$('appNotes').value.trim()};
-  if(state.mode==='cloud'){
-    let result;
-    if($('appId').value)result=await state.supabase.from('appointments').update(data).eq('id',$('appId').value).select('*').single();
-    else result=await state.supabase.from('appointments').insert(data).select('*').single();
-    if(result.error){alert(result.error.message);return}
-    const fresh=result.data; const idx=state.appointments.findIndex(a=>a.id===fresh.id);if(idx>=0)state.appointments[idx]=fresh;else state.appointments.push(fresh);
-    await logActivity(l.id,'appointment_booked',{scheduled_at:data.scheduled_at,salesperson_id:data.salesperson_id});
-    const {error}=await state.supabase.from('leads').update({status:'Appointment',updated_at:nowISO(),updated_by:state.currentRep.id}).eq('id',l.id);if(error){alert(error.message);return}
-    l.status='Appointment';
-    window.TrueNorthField?.captureDoorStatus?.({leadId:l.id,status:'Appointment'});
-  }else{
-    const id=$('appId').value||`local-${Date.now()}`;const rec={...data,id,salesperson_name:state.reps.find(r=>r.id===data.salesperson_id)?.name||''};const idx=state.appointments.findIndex(a=>a.id===id);if(idx>=0)state.appointments[idx]=rec;else state.appointments.push(rec);localStorage.setItem('tnrc2:appointments',JSON.stringify(state.appointments));l.status='Appointment';localAppendActivity({lead_id:l.id,actor_id:'local',action:'appointment_booked',metadata:{scheduled_at:data.scheduled_at},created_at:nowISO()});
-  }
-  $('appointmentModal').classList.add('hidden');renderAll();closeDrawer();
-  switchTab('handoffs');
+  if($('saveHandoffBtn')?.classList.contains('hidden')) return;
+  const before=state.appointments.find(a=>String(a.id)===String($('appId').value));
+  if(!before){alert('Open an inspection from the handoff queue.');return;}
+  const actor=handoffActor();
+  const patch={};
+  if(!$('appNotesLabel')?.classList.contains('hidden')) patch.notes=$('appNotes').value.trim();
+  if(!$('appSalesLabel')?.classList.contains('hidden')) patch.salesperson_id=$('appSalesperson').value||null;
+  if(!$('appWhenLabel')?.classList.contains('hidden') && $('appScheduled').value) patch.scheduled_at=new Date($('appScheduled').value).toISOString();
+  if(!$('appStageLabel')?.classList.contains('hidden')) patch.stage=$('appStage').value;
+  const check=validateHandoffPatch({role:actor.role, repId:actor.repId, before, patch});
+  if(check.error){alert(check.error);return;}
+  await applyHandoffPatch(before, patch);
 }
-function openAppointment(id){const a=state.appointments.find(x=>String(x.id)===String(id));if(!a)return;const l=state.leads.find(x=>x.id===a.lead_id);if(l)openAppointmentForm(l,a)}
+async function completeHandoff(){
+  const before=state.appointments.find(a=>String(a.id)===String($('appId').value));
+  if(!before) return;
+  const actor=handoffActor();
+  const check=validateHandoffPatch({role:actor.role, repId:actor.repId, before, patch:{stage:'Completed'}});
+  if(check.error){alert(check.error);return;}
+  await applyHandoffPatch(before, {stage:'Completed'});
+}
+async function reopenHandoff(){
+  const before=state.appointments.find(a=>String(a.id)===String($('appId').value));
+  if(!before) return;
+  const actor=handoffActor();
+  const check=validateHandoffPatch({role:actor.role, repId:actor.repId, before, patch:{stage:'Scheduled'}});
+  if(check.error){alert(check.error);return;}
+  await applyHandoffPatch(before, {stage:'Scheduled'});
+}
+async function applyHandoffPatch(before, patch){
+  if(state.mode==='cloud'){
+    const result=await state.supabase.from('appointments').update(patch).eq('id', before.id).select('id,lead_id,canvasser_id,salesperson_id,scheduled_at,stage,notes').single();
+    if(result.error){alert(result.error.message);return;}
+    const idx=state.appointments.findIndex(a=>a.id===before.id);
+    if(idx>=0) state.appointments[idx]={...state.appointments[idx], ...result.data};
+  }else{
+    const idx=state.appointments.findIndex(a=>a.id===before.id);
+    if(idx>=0) state.appointments[idx]={...state.appointments[idx], ...patch};
+    localStorage.setItem('tnrc2:appointments', JSON.stringify(state.appointments));
+  }
+  $('appointmentModal').classList.add('hidden');
+  renderAll();
+}
+async function addHandoffPhoto(file){
+  const before=state.appointments.find(a=>String(a.id)===String($('appId').value));
+  if(!before||!file) return;
+  const actor=handoffActor();
+  const check=assertHandoffPhoto({role:actor.role, repId:actor.repId, appointment:before});
+  if(check.error){alert(check.error);return;}
+  const lead=state.leads.find(x=>x.id===before.lead_id);
+  if(state.mode!=='cloud'){
+    state.handoffPhotos=state.handoffPhotos||[];
+    state.handoffPhotos.push({id:`local-photo-${Date.now()}`, lead_id:before.lead_id, appointment_id:before.id, url:URL.createObjectURL(file), caption:file.name});
+    paintHandoffPhotos(before);
+    if($('appPhoto')) $('appPhoto').value='';
+    return;
+  }
+  const path=`${before.lead_id}/${crypto.randomUUID()}.jpg`;
+  const upload=await state.supabase.storage.from('lead-photos').upload(path, file, {contentType:file.type||'image/jpeg', upsert:false});
+  if(upload.error){alert(upload.error.message);return;}
+  const inserted=await state.supabase.from('lead_photos').insert({
+    lead_id:before.lead_id,
+    appointment_id:before.id,
+    storage_path:path,
+    uploaded_by:state.currentRep.id,
+    address_snapshot:lead?addressOf(lead):'',
+    caption:''
+  }).select('id,lead_id,appointment_id,storage_path,caption').single();
+  if(inserted.error){
+    alert(/appointment_id|schema cache|column/i.test(inserted.error.message)?'Run supabase/migrations/20261008_inspection_handoff.sql in the Supabase SQL editor, then try again.':inserted.error.message);
+    return;
+  }
+  const signed=await state.supabase.storage.from('lead-photos').createSignedUrl(path, 60*60);
+  state.handoffPhotos=state.handoffPhotos||[];
+  state.handoffPhotos.push({...inserted.data, url:signed.data?.signedUrl||''});
+  paintHandoffPhotos(before);
+  if($('appPhoto')) $('appPhoto').value='';
+}
+function paintHandoffPhotos(appointment){
+  const box=$('handoffPhotos'); if(!box) return;
+  const rows=(state.handoffPhotos||[]).filter(photo=>photo.appointment_id===appointment.id);
+  box.innerHTML=rows.map(photo=>photo.url?`<img alt="${esc(photo.caption||'Inspection photo')}" src="${esc(photo.url)}">`:'').join('');
+  box.classList.toggle('hidden', !rows.length);
+}
+function openGeneralReceipt(){
+  const actor=handoffActor();
+  const decision=canUploadReceipt({role:actor.role, repId:actor.repId, leadId:null, appointments:state.appointments});
+  if(!decision.ok){alert(decision.error);return;}
+  $('receiptForm')?.reset();
+  if($('receiptLeadId')) $('receiptLeadId').value='';
+  if($('receiptError')) $('receiptError').textContent='';
+  if($('receiptTitle')) $('receiptTitle').textContent='Upload receipt';
+  if($('receiptContext')) $('receiptContext').textContent='This receipt is not tied to an inspection. Admins see it in Document Library → Receipts.';
+  $('receiptModal')?.classList.remove('hidden');
+}
+async function saveGeneralReceipt(event){
+  event.preventDefault();
+  await uploadReceipt({
+    file:$('receiptFile')?.files?.[0],
+    amount:$('receiptAmount')?.value,
+    vendor:$('receiptVendor')?.value,
+    recordDate:$('receiptDate')?.value,
+    note:$('receiptNote')?.value,
+    leadId:null,
+    errorEl:$('receiptError'),
+    onSaved(){$('receiptModal')?.classList.add('hidden');}
+  });
+}
+async function uploadReceipt({file, amount, vendor, recordDate, note, leadId, errorEl, onSaved}={}){
+  const actor=handoffActor();
+  const decision=canUploadReceipt({role:actor.role, repId:actor.repId, leadId:leadId||null, appointments:state.appointments});
+  if(!decision.ok){if(errorEl) errorEl.textContent=decision.error; return;}
+  if(!file){if(errorEl) errorEl.textContent='Choose a photo or PDF.'; return;}
+  const lead=leadId?state.leads.find(x=>x.id===leadId):null;
+  try{
+    const store=await import('./tn-files/store.js');
+    const ctx=state.mode==='cloud'
+      ? {mode:'cloud', sb:state.supabase, rep:state.currentRep}
+      : {mode:'local', sb:null, rep:{id:actor.repId, role:actor.role, name:'Sales rep'}};
+    await store.saveReceipt(ctx, {
+      file,
+      amount,
+      vendor,
+      record_date:recordDate,
+      note,
+      lead_id:leadId||null,
+      address_snapshot:lead?addressOf(lead):''
+    });
+    if(errorEl) errorEl.textContent='Uploaded. Admins can see it in Receipts.';
+    if($('handoffReceiptFile')) $('handoffReceiptFile').value='';
+    await refreshMyReceipts();
+    onSaved?.();
+  }catch(error){
+    const message=String(error?.message||error||'Could not upload that receipt.');
+    if(errorEl) errorEl.textContent=/row-level security|42501|permission/i.test(message)?'Only the assigned sales rep can upload this receipt. Apply supabase/migrations/20261008_inspection_handoff.sql if this is a new database.':message;
+  }
+}
+async function refreshMyReceipts(){
+  const list=$('myReceiptList'); if(!list) return;
+  const actor=handoffActor();
+  if(actor.role!=='salesperson'){list.innerHTML='';return;}
+  let rows=[];
+  try{
+    if(state.mode==='cloud' && state.supabase){
+      const {data, error}=await state.supabase.from('receipt_records').select('id,uploaded_by,file_name,amount,vendor,record_date,lead_id,address_snapshot,note,created_at').order('created_at',{ascending:false}).limit(100);
+      if(!error) rows=data||[];
+    }else{
+      const store=await import('./tn-files/store.js');
+      rows=await store.listReceipts({mode:'local'});
+    }
+  }catch{rows=[];}
+  const mine=rows.filter(row=>canSeeReceipt({role:actor.role, repId:actor.repId, receipt:row}));
+  list.innerHTML=mine.length?mine.map(row=>{
+    const bits=[row.vendor, row.amount!=null&&row.amount!==''?`$${row.amount}`:'', row.record_date, row.address_snapshot].filter(Boolean).join(' · ');
+    return `<div class="receiptRow"><b>${esc(row.file_name||'Receipt')}</b><div>${esc(bits||'No details')}</div>${row.note?`<div>${esc(row.note)}</div>`:''}</div>`;
+  }).join(''):'<div class="empty">No receipts uploaded yet.</div>';
+}
+function openAppointment(id){const a=state.appointments.find(x=>String(x.id)===String(id));if(!a)return;const l=state.leads.find(x=>x.id===a.lead_id)||{id:a.lead_id,name:'Inspection',address:'',city:'',state:'',zip:''};openAppointmentForm(l,a);}
 async function copyCurrentHandoff(){
   const id=$('appLeadId').value; const l=state.leads.find(x=>x.id===id);if(!l)return;
   const text=`True North Restorations — Sales Handoff\nHomeowner: ${l.name||'Property lead'}\nAddress: ${addressOf(l)}\nAppointment: ${formatDate($('appScheduled').value)}\nSalesperson: ${state.reps.find(r=>r.id===$('appSalesperson').value)?.name||'Unassigned'}\nNotes: ${$('appNotes').value||'—'}`;
@@ -1615,6 +1894,7 @@ function switchTab(tab,{toggle=false}={}){
   setInfoOpen(true);
   btn?.classList.add('active');
   panel.classList.remove('hidden');
+  if(tab==='handoffs') refreshMyReceipts();
 }
 
 function openAdmin(){

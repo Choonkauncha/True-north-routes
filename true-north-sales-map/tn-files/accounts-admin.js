@@ -104,7 +104,7 @@ function render() {
     const mine = person.id === me.id || person.user_id === session.user.id;
     const actor = { id: me.id, userId: session.user.id, role: me.role };
     if (isOtherAdmin(actor, person)) {
-      return `<article class="tnAccountCard tnAccountLocked" data-rep="${esc(person.id)}">
+      return `<article class="tnAccountCard tnAccountLocked" data-rep="${esc(person.id)}" data-tn-panel="person-${esc(person.id)}" data-tn-rank="secondary">
         <b>${esc(person.name)}</b>
         <span>${esc(roleLabel(person.role))}</span>
         <p class="tnHelp">Only this admin can open this account.</p>
@@ -114,7 +114,7 @@ function render() {
     const can = canManageAccount(me.role, person.role, 'reset', opts);
     const canOff = canManageAccount(me.role, person.role, person.active ? 'deactivate' : 'reactivate', opts) && !mine;
     const canOpen = canManageAccount(me.role, person.role, 'open_as', opts) && person.active && !mine;
-    return `<article class="tnAccountCard" data-rep="${esc(person.id)}">
+    return `<article class="tnAccountCard" data-rep="${esc(person.id)}" data-tn-panel="person-${esc(person.id)}" data-tn-rank="secondary">
       <b>${esc(person.name)}</b>
       <span>${esc(person.email || 'No email')} · ${esc(roleLabel(person.role))} · ${person.active ? 'Active' : 'Off'}</span>
       <div class="tnAccountBtns">
@@ -130,7 +130,8 @@ function render() {
   }).join('');
   root.innerHTML = `<div class="dashTitle"><div><div class="eyebrow">LOGINS</div><h1 class="tnTitle">Accounts</h1><p class="tnSub">Create a login, reset a password, or turn a person off. They choose their own password the next time they sign in.</p></div></div>
     ${notice ? `<p class="tnBanner">${esc(notice)}</p>` : ''}
-    <form id="tnCreateAccount" class="tnCard">
+    <form id="tnCreateAccount" class="tnCard" data-tn-panel="create-account" data-tn-rank="primary">
+      <h2>New login</h2>
       <label class="tnLabel" for="acctName">Name</label>
       <input class="tnInput" id="acctName" required autocomplete="name">
       <label class="tnLabel" for="acctEmail">Email</label>
