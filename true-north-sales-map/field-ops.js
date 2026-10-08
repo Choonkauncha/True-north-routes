@@ -228,10 +228,12 @@ function elementShown(el) {
 
 function tallestShownTop(selector) {
   let top = null;
+  const band = window.innerHeight * 0.5;
   document.querySelectorAll(selector).forEach(el => {
     if (!elementShown(el)) return;
-    const edge = el.getBoundingClientRect().top;
-    if (top === null || edge < top) top = edge;
+    const box = el.getBoundingClientRect();
+    if (box.bottom < band) return;
+    if (top === null || box.top < top) top = box.top;
   });
   return top;
 }
