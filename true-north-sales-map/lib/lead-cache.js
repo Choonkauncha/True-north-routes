@@ -13,6 +13,15 @@ export function newestUpdatedAt(leads) {
   return newest;
 }
 
+/** Compare cloud timestamps that may use `Z` or `+00:00`. Non-dates stay as text. */
+export function normalizeStamp(value) {
+  const text = String(value || '');
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(text)) return text;
+  const time = Date.parse(text);
+  if (!Number.isFinite(time)) return text;
+  return new Date(time).toISOString();
+}
+
 export function planLeadSync({ cachedStamp = '', cachedCount = 0, remoteCount = null, remoteUpdatedAt = '' } = {}) {
   if (!cachedCount) return 'full';
   if (remoteCount != null && Number(remoteCount) !== Number(cachedCount)) return 'full';
@@ -58,6 +67,43 @@ export function nextObjectEnd(text, cursor, count) {
   }
   cursor.i = source.length;
   return source.length;
+}
+
+/**
+ * End index of up to `count` complete top-level objects.
+ * An object split across a later chunk does not move the cursor.
+ */
+export function takeCompleteObjects(text, cursor, count) {
+  const source = String(text || '');
+  const target = Math.max(1, count || 1);
+  let found = 0;
+  const checkpoint = () => ({ i: cursor.i, depth: cursor.depth, inString: cursor.inString, escape: cursor.escape });
+  let saved = checkpoint();
+  for (let i = cursor.i; i < source.length; i++) {
+    const char = source[i];
+    if (cursor.inString) {
+      if (cursor.escape) cursor.escape = false;
+      else if (char === '\\') cursor.escape = true;
+      else if (char === '"') cursor.inString = false;
+      continue;
+    }
+    if (char === '"') { cursor.inString = true; continue; }
+    if (char === '{' || char === '[') { cursor.depth++; continue; }
+    if (char === '}' || char === ']') {
+      cursor.depth--;
+      if (char === '}' && cursor.depth === 1) {
+        found++;
+        cursor.i = i + 1;
+        saved = checkpoint();
+        if (found >= target) return cursor.i;
+      }
+    }
+  }
+  cursor.i = saved.i;
+  cursor.depth = saved.depth;
+  cursor.inString = saved.inString;
+  cursor.escape = saved.escape;
+  return saved.i;
 }
 
 /** Parse one slice of a JSON array, including a middle slice that starts on a comma. */

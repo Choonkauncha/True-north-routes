@@ -1,16 +1,14 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import './field-ops.js';
-import './tn-files/password-reset.js';
 import { PASSWORD_UPDATED } from './lib/password-reset.js';
 import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } from './lib/route-picks.js';
 import { ROUTE_TRAY_KEY, routeTrayCollapsedByDefault, routeTraySummary, shouldExpandRouteTray } from './lib/route-tray.js';
 import { MAP_FACTS } from './lib/map-facts.js';
 import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
-import { createArrayCursor, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, parseJsonArraySlice, planLeadSync } from './lib/lead-cache.js';
+import { acquireScreenWakeLock, activeStep, createGpsFilter, createInterpolator, createReadoutThrottle, createRerouteGate, lineLatLngs, maneuverText, normalizeSteps, releaseScreenWakeLock, snapToRoute } from './lib/nav-motion.js';
+import { createArrayCursor, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, normalizeStamp, parseJsonArraySlice, planLeadSync, takeCompleteObjects } from './lib/lead-cache.js';
 import { readLeadCache, writeLeadCache } from './lib/lead-store.js';
+import { LEAD_OVERLAY_COLUMNS, LEAD_OVERLAY_OR, STATIC_LEAD_SOURCES, mergeLeadOverlay, pageRanges } from './lib/lead-sync.js';
 import { STREET_ZOOM, clusterLeads, pinDiff, sampleHeat } from './lib/pin-layer.js';
 import { HAIL_MILES, WARNING_COLORS, housesInStorm, readStormCache, reportMarkerText, writeStormCache } from './lib/storm-maps.js';
-import { setWeatherLocation, setWeatherOpen, startMapWeather } from './weather-widget.js';
 import { readSavedLayers, resolveLayers, writeSavedLayers } from './lib/map-layers.js';
 import { bindAreaDraw } from './area-draw.js';
 import { roleLabel } from './lib/field-rules.js';
@@ -40,7 +38,7 @@ const state={
   leadsById:new Map(), pinMarkers:new Map(), pinShown:new Set(), pinRenderer:null, pinClusters:null, clusterSig:'', clusterSource:null, clusterZoom:null,
   heatTimer:null, heatKey:'', territoryKey:'', bootDone:false, stormBusy:false, fieldWarmed:false, listSortToken:0,
   navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[],
-  pendingPostSignIn:false,
+  pendingPostSignIn:false, paintTicket:0, toolsDeferred:false, pinsMarked:false, cloudReady:false, staticPromise:null,
   tileLayer:null, mapLoaderGen:0, mapSettled:false, pinsPainted:false, awaitingFirstFit:false, factTimer:null, mapLoaderGiveUp:null
 };
 
@@ -56,19 +54,50 @@ const localSaved=l=>JSON.parse(localStorage.getItem(`tnrc2:lead:${l.id}`)||'{}')
 function saveLocal(l,v){localStorage.setItem(`tnrc2:lead:${l.id}`,JSON.stringify(v));}
 function debounce(fn,ms=150){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
 
+let cloudToken='';
+let cloudFlight=null;
+let weatherApiPromise;
+function weatherApi(){ weatherApiPromise ||= import('./weather-widget.js'); return weatherApiPromise; }
+function closeWeather(options){ weatherApi().then(mod=>mod.setWeatherOpen(false, options)).catch(()=>{}); }
+function deferFieldTools(){
+  if(state.toolsDeferred) return;
+  state.toolsDeferred=true;
+  import('./field-ops.js').catch(()=>{});
+  import('./tn-files/password-reset.js').catch(()=>{});
+  import('./tn-files/sheet-actions.js').catch(()=>{});
+}
+function markFirstPins(){
+  if(state.pinsMarked) return;
+  state.pinsMarked=true;
+  window.__tnFirstPins=performance.now();
+  document.documentElement.dataset.tnPins='1';
+  deferFieldTools();
+}
+
 async function boot(){
   bindStaticEvents();
-  state.centers=await fetchJSON('/data/city-centers.json').catch(()=>({}));
-  const cfg=await fetchJSON('/api/config').catch(()=>null);
+  initMapOnce();
+  setTimeout(deferFieldTools, 4000);
+  const centersP=fetchJSON('/data/city-centers.json').catch(()=>({}));
+  const cfgP=fetchJSON('/api/config').catch(()=>null);
+  const cached=await readLeadCache().catch(()=>null);
+  if(cached?.leads?.length){
+    streamLeads(cached.leads, cached.leads.length, null);
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+  }else startStaticLeads().catch(error=>console.error(error));
+  const [centers, cfg]=await Promise.all([centersP, cfgP]);
+  state.centers=centers||{};
   if(cfg?.configured){
     state.config=cfg;
     try{
+      const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
       state.supabase=createClient(cfg.url,cfg.publishableKey);
       const {data}=await state.supabase.auth.getSession();
       if(data.session) await enterCloud(data.session);
       else showLogin();
       state.supabase.auth.onAuthStateChange(async(_event,session)=>{
-        if(session) await enterCloud(session); else showLogin();
+        if(session) await enterCloud(session);
+        else { cloudToken=''; state.cloudReady=false; showLogin(); }
       });
     }catch(e){console.error(e);enterLocal(`Cloud client error: ${e.message}`)}
   }else{
@@ -155,7 +184,7 @@ function bindStaticEvents(){
       if(!on)return;
       setFilterOpen(false);
       setInfoOpen(false);
-      setWeatherOpen(false,{persist:false});
+      closeWeather({persist:false});
       $('layerMenu')?.classList.remove('open');
       if(useDoorSheet())setListSheet('sheet-collapsed');
     },
@@ -221,15 +250,15 @@ function bindStaticEvents(){
 }
 
 function enterLocal(message){
-  state.mode='local'; state.session=null; state.currentRep=null;
+  state.mode='local'; state.session=null; state.currentRep=null; state.cloudReady=false;
   hideLogin(); $('userMenu').classList.add('hidden'); $('adminBtn').classList.add('hidden');
   $('connection').textContent='LOCAL DEVICE'; $('connection').className='chip local';
   $('cloudNotice').textContent=message||'Local mode'; $('cloudNotice').classList.remove('hidden');
-  setBootProgress(0,0);
+  if(!state.bootDone) setBootProgress(0,0);
   loadLocalDataset().catch(e=>{hideBoot();showFatal(e)});
 }
 async function loadLocalDataset(){
-  const manifest=await fetchJSON('/data/manifest.json').catch(()=>null);
+  const manifest=state.staticManifest||await fetchJSON('/data/manifest.json').catch(()=>null);
   const stamp=localStamp(manifest);
   const meta=JSON.parse(localStorage.getItem('tnrc2:leadsMeta')||'{}');
   state.reps=JSON.parse(localStorage.getItem('tnrc2:reps')||'[]');
@@ -242,15 +271,75 @@ async function loadLocalDataset(){
   const cached=await readLeadCache();
   if(cached?.stamp===stamp && Array.isArray(cached.leads) && cached.leads.length){
     if(!total) $('datasetCount').textContent=`${fmt(cached.leads.length)} source records`;
-    streamLeads(cached.leads, total||cached.leads.length, meta);
+    if(!state.bootDone) streamLeads(cached.leads, total||cached.leads.length, meta);
+    return;
+  }
+  if(state.staticPromise){
+    const leads=await state.staticPromise;
+    if(!total && leads) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
+    writeLeadCache({stamp, leads, savedAt:Date.now()});
     return;
   }
   const response=await fetch('/data/leads.json');
   if(!response.ok) throw new Error(`HTTP ${response.status}`);
-  const text=await response.text();
-  const leads=await ingestLeadText(text, total, meta);
+  if(!response.body?.getReader){
+    const text=await response.text();
+    const leads=await ingestLeadText(text, total, meta);
+    if(!total) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
+    writeLeadCache({stamp, leads, savedAt:Date.now()});
+    return;
+  }
+  const leads=await readLeadResponse(response, total, meta);
   if(!total) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
   writeLeadCache({stamp, leads, savedAt:Date.now()});
+}
+function startStaticLeads(){
+  if(state.staticPromise) return state.staticPromise;
+  state.staticPromise=(async()=>{
+    const manifest=await fetchJSON('/data/manifest.json').catch(()=>null);
+    state.staticManifest=manifest;
+    const total=manifest?.totalRecords||0;
+    if(total && $('datasetCount')) $('datasetCount').textContent=`${fmt(total)} source records`;
+    const response=await fetch('/data/leads.json');
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    if(!response.body?.getReader){
+      const text=await response.text();
+      return ingestLeadText(text, total, null);
+    }
+    return readLeadResponse(response, total, null);
+  })();
+  return state.staticPromise;
+}
+async function readLeadResponse(response, total, meta){
+  const reader=response.body.getReader();
+  const decoder=new TextDecoder();
+  let text='';
+  const cursor=createArrayCursor();
+  let mark=0;
+  const leads=[];
+  let accept=!state.bootDone;
+  state.stopLeadRead=()=>{ accept=false; };
+  const take=(batch, last)=>{
+    if(batch.length) leads.push(...batch);
+    if(accept) ingestLeadChunk(batch, meta, total||leads.length, last);
+  };
+  while(true){
+    const {done,value}=await reader.read();
+    text+=decoder.decode(value||new Uint8Array(), {stream:!done});
+    while(true){
+      const end=takeCompleteObjects(text, cursor, 400);
+      if(end<=mark) break;
+      const batch=parseJsonArraySlice(text, mark, end);
+      mark=end;
+      if(!batch.length) break;
+      take(batch, false);
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+    }
+    if(done) break;
+  }
+  const tail=parseJsonArraySlice(text, mark, text.length);
+  take(tail, true);
+  return leads;
 }
 async function ingestLeadText(text, total, meta){
   resetLeadStream();
@@ -275,26 +364,54 @@ async function ingestLeadText(text, total, meta){
 }
 
 async function enterCloud(session){
+  const token=session?.access_token||'';
+  if(!token) return;
+  if(token===cloudToken && (cloudFlight || state.cloudReady)) return cloudFlight;
+  cloudToken=token;
+  state.cloudReady=false;
+  cloudFlight=runEnterCloud(session).catch(error=>{ cloudToken=''; throw error; }).finally(()=>{ cloudFlight=null; });
+  return cloudFlight;
+}
+async function runEnterCloud(session){
   state.mode='cloud'; state.session=session; state.user=session.user; hideLogin();
   $('connection').textContent='CLOUD SYNC'; $('connection').className='chip live';
   $('userMenu').classList.remove('hidden');
   $('userIdentity').textContent=session.user.email||session.user.id;
   $('cloudNotice').classList.add('hidden');
+  const sideP=loadSideData();
   try{
-    setBootProgress(0,0);
-    await loadCloudData();
+    await loadLeadBundle();
     const open=canOpenManagement({email:session.user.email, rep:state.currentRep, adminEmails:state.config?.adminEmails});
     $('adminBtn').classList.toggle('hidden', !open);
     if(state.pendingPostSignIn){state.pendingPostSignIn=false; if(open) showPostSignIn();}
-    initMapOnce();
-    streamLeads(state.leads, state.leads.length, null);
+    if(!state.map) initMapOnce();
     startRealtime();
-  }catch(e){console.error(e);state.pendingPostSignIn=false;enterLocal(`Cloud connection failed: ${e.message}`)}
+    state.cloudReady=true;
+    await sideP;
+    publishSideData();
+  }catch(e){
+    console.error(e);
+    cloudToken='';
+    state.cloudReady=false;
+    state.pendingPostSignIn=false;
+    enterLocal(`Cloud connection failed: ${e.message}`);
+  }
 }
 
 async function loadCloudData(){
+  const sideP=loadSideData();
+  await loadLeadBundle();
+  await sideP;
+  publishSideData();
+}
+async function loadLeadBundle(){
   const sb=state.supabase;
-  state.reps=await fetchAll(()=>sb.from('reps').select('id,user_id,name,role,active').eq('active',true).order('name'));
+  const [reps, territories, leads]=await Promise.all([
+    fetchAll(()=>sb.from('reps').select('id,user_id,name,role,active').eq('active',true).order('name')),
+    fetchAll(()=>sb.from('territories').select('*').order('name')),
+    loadCloudLeadRows()
+  ]);
+  state.reps=reps;
   state.currentRep=managementProfile({
     email:state.user?.email,
     rep:state.reps.find(r=>r.user_id===state.user.id)||null,
@@ -302,36 +419,123 @@ async function loadCloudData(){
     name:state.user?.user_metadata?.name||''
   });
   if(!state.currentRep) throw new Error('Your Supabase account is signed in, but no active rep profile exists yet. Add the user to public.reps.');
-  state.territories=await fetchAll(()=>sb.from('territories').select('*').order('name'));
-  state.leads=await loadCloudLeadRows();
-  state.leadsById=new Map(state.leads.map(lead=>[lead.id, lead]));
-  state.appointments=await fetchAll(()=>sb.from('appointments').select('*,canvasser:reps!appointments_canvasser_id_fkey(id,name),salesperson:reps!appointments_salesperson_id_fkey(id,name)').order('scheduled_at',{ascending:true}));
-  state.activities=await fetchAll(()=>sb.from('lead_activity').select('id,lead_id,actor_id,action,metadata,created_at,actor:reps!lead_activity_actor_id_fkey(name)').order('created_at',{ascending:false}).limit(3000));
-  $('datasetCount').textContent=`${fmt(state.leads.length)} live leads`;
+  state.territories=territories;
+  if(leads) replaceLeads(leads);
 }
-
+function loadSideData(){
+  const sb=state.supabase;
+  return Promise.all([
+    fetchAll(()=>sb.from('appointments').select('*,canvasser:reps!appointments_canvasser_id_fkey(id,name),salesperson:reps!appointments_salesperson_id_fkey(id,name)').order('scheduled_at',{ascending:true})),
+    fetchAll(()=>sb.from('lead_activity').select('id,lead_id,actor_id,action,metadata,created_at,actor:reps!lead_activity_actor_id_fkey(name)').order('created_at',{ascending:false}).limit(3000))
+  ]).then(([appointments, activities])=>{
+    state.appointments=appointments;
+    state.activities=activities;
+  });
+}
+function publishSideData(){
+  if(!state.bootDone) return;
+  renderStats();
+  renderHandoffs();
+  renderTeam();
+  renderSidebarCounts();
+  state.listPaintToken='';
+  paintWorkList();
+}
 async function loadCloudLeadRows(){
   const sb=state.supabase;
   const cached=await readLeadCache();
-  let remoteCount=null, remoteUpdatedAt='';
+  const cachedLeads=Array.isArray(cached?.leads)?cached.leads:[];
+  let boot=null;
   try{
-    const countQuery=await sb.from('leads').select('id',{count:'exact',head:true});
-    remoteCount=countQuery.count;
-    const newest=await sb.from('leads').select('updated_at').order('updated_at',{ascending:false}).limit(1);
-    remoteUpdatedAt=newest.data?.[0]?.updated_at||'';
-  }catch{/* a failed stamp check falls through to a full read */}
-  const plan=planLeadSync({cachedStamp:cached?.stamp||'', cachedCount:cached?.leads?.length||0, remoteCount, remoteUpdatedAt});
-  if(plan==='use-cache') return cached.leads.map(normalizeLead);
+    const rpc=await sb.rpc('lead_map_boot');
+    if(!rpc.error && rpc.data) boot=typeof rpc.data==='string'?JSON.parse(rpc.data):rpc.data;
+  }catch{ boot=null; }
+  let remoteCount=boot&&boot.count!=null?Number(boot.count):null;
+  let remoteUpdatedAt=boot?normalizeStamp(boot.newest):'';
+  if(!boot){
+    try{
+      const [countQuery, newest]=await Promise.all([
+        sb.from('leads').select('id',{count:'exact',head:true}),
+        sb.from('leads').select('updated_at').order('updated_at',{ascending:false}).limit(1)
+      ]);
+      if(!countQuery.error) remoteCount=countQuery.count;
+      remoteUpdatedAt=normalizeStamp(newest.data?.[0]?.updated_at||'');
+    }catch{/* a failed stamp check falls through to a full read */}
+  }
+  const plan=planLeadSync({cachedStamp:normalizeStamp(cached?.stamp||''), cachedCount:cachedLeads.length, remoteCount, remoteUpdatedAt});
+  if(plan==='use-cache') return null;
   if(plan==='delta'){
-    const delta=await fetchAll(()=>sb.from('leads').select('*').gt('updated_at', cached.stamp).order('updated_at'));
-    const merged=mergeLeadDelta(cached.leads, delta).map(normalizeLead);
-    const stamp=remoteUpdatedAt||newestUpdatedAt(merged);
+    const since=cached.stamp;
+    const head=await sb.from('leads').select('id',{count:'exact',head:true}).gt('updated_at', since);
+    const delta=head.count?await fetchAllParallel(()=>sb.from('leads').select('*').gt('updated_at', since).order('updated_at'), head.count):[];
+    const merged=mergeLeadDelta(cachedLeads, delta).map(normalizeLead);
+    const stamp=remoteUpdatedAt||normalizeStamp(newestUpdatedAt(merged));
     writeLeadCache({stamp, leads:merged, savedAt:Date.now()});
     return merged;
   }
-  const leads=(await fetchAll(()=>sb.from('leads').select('*').order('city').order('address'))).map(normalizeLead);
-  writeLeadCache({stamp:remoteUpdatedAt||newestUpdatedAt(leads), leads, savedAt:Date.now()});
-  return leads;
+  return loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt);
+}
+async function loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt){
+  const basePromise=state.staticPromise||startStaticLeads();
+  let overlay=Array.isArray(boot?.overlay)?boot.overlay:null;
+  let added=Array.isArray(boot?.added)?boot.added:null;
+  if(!boot){
+    const [overlayRows, addedRows]=await Promise.all([fetchOverlayRows(sb), fetchAddedRows(sb)]);
+    overlay=overlayRows;
+    added=addedRows;
+  }
+  const base=await basePromise;
+  const fixes=await fetchCoordFixes(sb, base).catch(()=>[]);
+  let merged=mergeLeadOverlay(base, [...(overlay||[]), ...(fixes||[])], added||[]).map(normalizeLead);
+  if(remoteCount!=null && merged.length!==Number(remoteCount)){
+    merged=(await fetchAllParallel(()=>sb.from('leads').select('*').order('id'), remoteCount)).map(normalizeLead);
+  }
+  const stamp=remoteUpdatedAt||normalizeStamp(newestUpdatedAt(merged));
+  writeLeadCache({stamp, leads:merged, savedAt:Date.now()});
+  return merged;
+}
+async function fetchOverlayRows(sb){
+  const head=await sb.from('leads').select('id',{count:'exact',head:true}).or(LEAD_OVERLAY_OR);
+  if(head.error) throw head.error;
+  return fetchAllParallel(()=>sb.from('leads').select(LEAD_OVERLAY_COLUMNS).or(LEAD_OVERLAY_OR).order('id'), head.count||0);
+}
+async function fetchAddedRows(sb){
+  const filter=`source.is.null,source.not.in.("${STATIC_LEAD_SOURCES.join('","')}")`;
+  const {data, error}=await sb.from('leads').select('*').or(filter);
+  if(error) throw error;
+  return data||[];
+}
+async function fetchCoordFixes(sb, leads){
+  const ids=(leads||[]).filter(lead=>lead?.lat==null||lead?.lng==null).map(lead=>lead.id).filter(Boolean);
+  const out=[];
+  for(let index=0; index<ids.length; index+=80){
+    const {data, error}=await sb.from('leads').select('id,lat,lng,geocode_match').in('id', ids.slice(index, index+80));
+    if(error) return out;
+    for(const row of data||[]) if(row?.lat!=null && row?.lng!=null) out.push(row);
+  }
+  return out;
+}
+function replaceLeads(rows){
+  state.stopLeadRead?.();
+  state.paintTicket++;
+  const normalized=rows.map(normalizeLead);
+  state.leads=normalized;
+  state.leadsById=new Map(normalized.map(lead=>[lead.id, lead]));
+  state.clusterSource=null;
+  state.clusterSig='';
+  state.clusterZoom=null;
+  state.listFilterKey='';
+  state.listRows=null;
+  state.heatKey='';
+  state.territoryKey='';
+  if($('datasetCount')) $('datasetCount').textContent=`${fmt(normalized.length)} live leads`;
+  if(!state.map) initMapOnce();
+  const fit=!state.didFit;
+  state.bootDone=true;
+  buildFilters();
+  renderNow(fit);
+  markFirstPins();
+  warmFieldLayers();
 }
 function resetLeadStream(){
   state.leads=[];
@@ -344,10 +548,12 @@ function resetLeadStream(){
   state.territoryKey='';
 }
 function streamLeads(rows, total, meta){
+  const ticket=++state.paintTicket;
   resetLeadStream();
   let index=0;
   const size=2000;
   const step=()=>{
+    if(ticket!==state.paintTicket) return;
     const end=Math.min(rows.length, index+size);
     const chunk=[];
     for(let i=index;i<end;i++) chunk.push(rows[i]);
@@ -373,6 +579,7 @@ function ingestLeadChunk(rows, meta, total, isLast){
     renderNow(isLast);
     state.bootDone=true;
     state.pinsPainted=true;
+    markFirstPins();
     settleMapLoader(state.mapLoaderGen);
   }else if(!isLast){
     applyFilters();
@@ -398,17 +605,32 @@ function warmFieldLayers(){
   if(state.fieldWarmed)return;
   state.fieldWarmed=true;
   if(state.layerFlags.radar||state.layerFlags.warnings||state.layerFlags.reports) ensureStormMaps();
-  startMapWeather(state.map);
+  weatherApi().then(mod=>mod.startMapWeather(state.map)).catch(()=>{});
 }
 async function fetchAll(makeBuilder){
   const out=[]; let from=0,step=1000;
   while(true){const {data,error}=await makeBuilder().range(from,from+step-1);if(error)throw error;if(!data?.length)break;out.push(...data);if(data.length<step)break;from+=step;}
   return out;
 }
+async function fetchAllParallel(makeBuilder, count){
+  const total=Number(count);
+  if(!Number.isFinite(total) || total<=0) return [];
+  const ranges=pageRanges(total, 1000);
+  const pages=await Promise.all(ranges.map(([from, to])=>makeBuilder().range(from, to)));
+  const out=[];
+  for(const result of pages){
+    if(result.error) throw result.error;
+    if(result.data?.length) out.push(...result.data);
+  }
+  return out;
+}
 
 function normalizeLead(l){return {...l,status:l.status||'New',assignedRepId:l.assigned_rep_id||l.assignedRepId||null,roofAgeYears:l.roof_age_years??l.roofAgeYears??null,roofAgeVerified:l.roof_age_verified??l.roofAgeVerified??false,lat:l.lat??null,lng:l.lng??null};}
 
 function showLogin(){
+  deferFieldTools();
+  const logo=document.querySelector('#loginModal .signInLogo');
+  if(logo?.dataset.src && !logo.getAttribute('src')) logo.src=logo.dataset.src;
   $('loginModal').classList.remove('hidden'); $('appShell').classList.add('blurred');
   $('loginError').textContent='';
   const note=$('loginNote');
@@ -439,8 +661,9 @@ function initMapOnce(){
   state.pinRenderer=L.canvas({padding:.5});
   state.markerLayer=L.layerGroup().addTo(state.map);
   state.pinClusters=L.layerGroup().addTo(state.map);
-  state.map.on('dragstart',()=>{ if(state.navigating&&state.navFollow){state.navFollow=false;syncRecenterButton();} });
-  state.map.on('moveend',()=>{ if(state.layerFlags.pins) syncPins(); });
+  state.map.on('dragstart',()=>{ if(state.navigating&&state.navFollow){state.navFollow=false;state.navPanUntil=0;state.map.stop();syncRecenterButton();} });
+  state.map.on('zoomstart',()=>{ if(state.navigating&&state.navFollow&&!state.navAutoMove){state.navFollow=false;syncRecenterButton();} });
+  state.map.on('moveend',()=>{ if(state.layerFlags.pins) onNavMapMove(); });
   if(!state.map.getPane('radarPane')){
     const pane=state.map.createPane('radarPane');
     pane.style.zIndex='350';
@@ -717,7 +940,19 @@ function scheduleHeat(){
   clearTimeout(state.heatTimer);
   const want=state.layerFlags.density||state.layerFlags.opportunity||state.layerFlags.roofAge;
   if(!want){state.heatLayers.forEach(layer=>layer.remove());state.heatLayers=[];state.heatKey='';return}
-  state.heatTimer=setTimeout(rebuildHeat, 180);
+  state.heatTimer=setTimeout(()=>{ ensureHeat().then(()=>{ if(window.L?.heatLayer) rebuildHeat(); }).catch(()=>{}); }, 180);
+}
+let heatPromise;
+function ensureHeat(){
+  if(window.L?.heatLayer) return Promise.resolve();
+  heatPromise ||= new Promise((resolve, reject)=>{
+    const script=document.createElement('script');
+    script.src='/vendor/leaflet/leaflet-heat.js';
+    script.onload=()=>resolve();
+    script.onerror=()=>reject(new Error('heat map did not load'));
+    document.head.appendChild(script);
+  });
+  return heatPromise;
 }
 function rebuildHeat(){
   const key=[state.layerFlags.density,state.layerFlags.opportunity,state.layerFlags.roofAge,state.filtered.length,state.listFilterKey].join(':');
@@ -765,7 +1000,22 @@ function hideStreetPins(){
   state.pinShown.forEach(id=>state.pinMarkers.get(id)?.remove());
   state.pinShown.clear();
 }
-function syncPins(){
+function onNavMapMove(){
+  if(state.navigating&&state.navFollow){
+    clearTimeout(state.navPinTimer);
+    state.navPinTimer=setTimeout(()=>{
+      if(!state.navigating||!state.navFollow||!state.map) return;
+      const bounds=state.map.getBounds();
+      const key=`${Math.round(state.map.getZoom())}:${bounds.getSouth().toFixed(3)}:${bounds.getWest().toFixed(3)}`;
+      if(key===state.navPinKey) return;
+      state.navPinKey=key;
+      syncPins({restyle:false});
+    }, 900);
+    return;
+  }
+  syncPins();
+}
+function syncPins(options={}){
   if(!state.map)return;
   if(!state.layerFlags.pins){hideStreetPins();state.pinClusters?.clearLayers();state.clusterSig='';state.clusterSource=null;return}
   const zoom=state.map.getZoom();
@@ -796,7 +1046,7 @@ function syncPins(){
     ensurePin(lead).addTo(state.markerLayer);
     state.pinShown.add(id);
   });
-  want.forEach(id=>{const lead=state.leadsById.get(id), marker=state.pinMarkers.get(id); if(lead&&marker) stylePin(marker, lead)});
+  if(options.restyle!==false) want.forEach(id=>{const lead=state.leadsById.get(id), marker=state.pinMarkers.get(id); if(lead&&marker) stylePin(marker, lead)});
 }
 function useDoorSheet(){return doorSheetMedia.matches;}
 function drawHeat(kind){
@@ -926,7 +1176,7 @@ function setFilterOpen(open){
   btn.setAttribute('aria-expanded',on?'true':'false');
   if(!on)return;
   setInfoOpen(false);
-  setWeatherOpen(false);
+  closeWeather();
   $('layerMenu')?.classList.remove('open');
   $('mapLegend')?.classList.remove('isOpen');
   $('legendKey')?.setAttribute('aria-expanded','false');
@@ -938,7 +1188,7 @@ function setInfoOpen(open){
   const on=!!open;
   panel.hidden=!on;
   btn.setAttribute('aria-expanded',on?'true':'false');
-  if(on){setFilterOpen(false);setWeatherOpen(false);}
+  if(on){setFilterOpen(false);closeWeather();}
 }
 function setListSheet(snap){
   const sheet=$('listSheet'); if(!sheet)return;
@@ -1562,7 +1812,7 @@ function locate(){
   navigator.geolocation.getCurrentPosition(pos=>{
     if(document.visibilityState==='hidden'||token!==locate._seq||!state.map)return;
     state.currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    setWeatherLocation(state.currentLocation);
+    weatherApi().then(mod=>mod.setWeatherLocation(state.currentLocation)).catch(()=>{});
     if(state.userMarker)state.userMarker.remove();
     state.userMarker=L.marker([pos.coords.latitude,pos.coords.longitude]).addTo(state.map).bindPopup('You are here').openPopup();
     state.map.setView([pos.coords.latitude,pos.coords.longitude],16);
@@ -1718,23 +1968,32 @@ function beginInAppNav(){
   if(!navigator.geolocation){$('routeTrayNote').textContent='This browser cannot share location. Use Google Maps for turn-by-turn.';toast('Location is unavailable. Open Google Maps instead.');return}
   if(state.navWatch!=null)navigator.geolocation.clearWatch(state.navWatch);
   state.navigating=true;state.navIndex=0;state.navFollow=true;state.navPrompted='';state.navLegStop='';state.navLegFrom=null;state.navLegGeometry=null;
+  state.navFilter=createGpsFilter();state.navInterp=createInterpolator();state.navGate=createRerouteGate();state.navTray=createReadoutThrottle();
+  state.navLine=null;state.navSteps=[];state.navStepIndex=-1;state.navZoomed=false;state.navPanUntil=0;state.navPinKey='';state.navOffShown=false;
   if(state.userMarker){state.userMarker.remove();state.userMarker=null}
   $('navBar').classList.remove('hidden');
   $('routeTray').classList.add('isNavHidden');
   $('navAppleLeg').classList.toggle('hidden', !isAppleDevice(navigator.userAgent, navigator.maxTouchPoints));
   syncRecenterButton();
-  $('navTitle').textContent='Next stop';
-  $('navMeta').textContent='Waiting for location…';
-  state.navWatch=navigator.geolocation.watchPosition(onNavPosition, onNavError, {enableHighAccuracy:true, maximumAge:2000, timeout:15000});
+  writeNavText('Next stop', 'Waiting for location…');
+  startNavLoop();
+  holdWakeLock();
+  document.addEventListener('visibilitychange', onNavVisibility);
+  state.navWatch=navigator.geolocation.watchPosition(onNavPosition, onNavError, {enableHighAccuracy:true, maximumAge:1000, timeout:15000});
 }
 function endNavigation(message){
   if(state.navWatch!=null&&navigator.geolocation)navigator.geolocation.clearWatch(state.navWatch);
-  state.navWatch=null;state.navigating=false;state.navLegGeometry=null;
+  state.navWatch=null;state.navigating=false;state.navLegGeometry=null;state.navLine=null;
+  cancelAnimationFrame(state.navFrame);clearTimeout(state.navPinTimer);
+  document.removeEventListener('visibilitychange', onNavVisibility);
+  releaseScreenWakeLock(state.navWake);state.navWake=null;
   clearNavLayers();
   $('navBar')?.classList.add('hidden');
   $('routeTray')?.classList.remove('isNavHidden');
   if(message)toast(message);
 }
+function onNavVisibility(){if(document.visibilityState==='visible'&&state.navigating)holdWakeLock()}
+async function holdWakeLock(){state.navWake=await acquireScreenWakeLock(navigator)}
 function onNavError(err){
   const denied=err&&err.code===1;
   const message=denied?'Location is blocked. Allow it in the browser, or use Google Maps.':'Location is unavailable right now. You can still open Google Maps.';
@@ -1744,71 +2003,176 @@ function onNavError(err){
 }
 function onNavPosition(pos){
   if(!state.navigating||!state.map)return;
-  const here={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy,heading:pos.coords.heading};
-  state.currentLocation=here;
+  const now=performance.now();
+  const heading=pos.coords?.heading;
+  const filtered=state.navFilter.push({lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy,heading:Number.isFinite(heading)?heading:null}, now);
+  if(!filtered)return;
   const stop=state.routeStops[state.navIndex];
   if(!stop){endNavigation('Route complete.');return}
-  const meters=metersBetween(here, stop);
-  drawNavOverlay();
-  if(state.navLegStop!==stop.id||!state.navLegFrom||metersBetween(here, state.navLegFrom)>30){
-    state.navLegStop=stop.id;state.navLegFrom={lat:here.lat,lng:here.lng};loadNavLeg(here, stop);
-  }else updateNavReadout(stop, state.navLegMeters, state.navLegSeconds, !state.navLegGeometry);
-  if(arrivedAtStop(here, stop)&&state.navPrompted!==stop.id){
+  const snap=snapToRoute(filtered, state.navLine, 22);
+  const display={lat:snap.snapped?snap.lat:filtered.lat,lng:snap.snapped?snap.lng:filtered.lng,heading:filtered.heading,accuracy:filtered.accuracy,interval:filtered.interval};
+  state.currentLocation=display;
+  state.navInterp.setTarget(display, now, reducedMotion());
+  if(state.navLegStop!==stop.id){state.navLegStop=stop.id;state.navLine=null;loadNavLeg(display, stop)}
+  else publishProgress(stop, display, snap, false);
+  const off=snap.snapped||!Number.isFinite(snap.distance)?0:snap.distance;
+  if((state.navLine?.length||0)>=2 && state.navGate.consider(off, now)) loadNavLeg(display, stop);
+  const meters=metersBetween(filtered, stop);
+  if(arrivedAtStop(filtered, stop)&&state.navPrompted!==stop.id){
     state.navPrompted=stop.id;openDoorSheet(stop.id);
     toast(`You're within ${ARRIVAL_METERS} m. Mark this door, and the route moves to the next stop.`);
   }else if(state.navPrompted===stop.id&&meters>ARRIVAL_METERS+25)state.navPrompted='';
-  if(state.navFollow)state.map.panTo([here.lat, here.lng],{animate:true});
+  maybeNavZoom(display);
 }
 let navLegToken=0;
 async function loadNavLeg(here, stop){
   const token=++navLegToken;
   const meters=metersBetween(here, stop);
-  state.navLegMeters=meters;state.navLegSeconds=etaSeconds(meters, state.routeMode);state.navLegGeometry=null;
-  updateNavReadout(stop, meters, state.navLegSeconds, true);
+  state.navLegMeters=meters;state.navLegSeconds=etaSeconds(meters, state.routeMode);
+  if(!state.navLine?.length) state.navLine=[{lat:here.lat,lng:here.lng},{lat:Number(stop.lat),lng:Number(stop.lng)}];
+  showNavVisuals();
+  state.navLegLine.setLatLngs(state.navLine.map(point=>[point.lat, point.lng]));
+  if(isCoords(stop)) state.navStopRing.setLatLng([Number(stop.lat), Number(stop.lng)]);
+  publishProgress(stop, here, snapToRoute(here, state.navLine, 22), true);
   try{
-    const r=await fetch('/api/route',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:osrmProfile(state.routeMode),service:'route',coordinates:[{lat:here.lat,lng:here.lng},{lat:Number(stop.lat),lng:Number(stop.lng)}]})});
+    const r=await fetch('/api/route',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:osrmProfile(state.routeMode),service:'route',steps:true,coordinates:[{lat:here.lat,lng:here.lng},{lat:Number(stop.lat),lng:Number(stop.lng)}]})});
     const data=await r.json();
-    if(!r.ok||token!==navLegToken||!state.navigating)throw new Error(data.error||'Route leg failed');
-    state.navLegGeometry=data.geometry||null;
-    state.navLegMeters=Number(data.distance)||meters;
-    state.navLegSeconds=Number(data.duration)||state.navLegSeconds;
-    updateNavReadout(stop, state.navLegMeters, state.navLegSeconds, false);
-    drawNavOverlay();
-  }catch{if(token===navLegToken)drawNavOverlay()}
+    if(!r.ok||token!==navLegToken||!state.navigating)return;
+    const line=lineLatLngs(data.geometry);
+    if(line.length>=2){
+      state.navLine=line;state.navLegGeometry=data.geometry;
+      state.navLegMeters=Number(data.distance)||meters;
+      state.navLegSeconds=Number(data.duration)||state.navLegSeconds;
+      state.navSteps=normalizeSteps(data.steps);state.navStepIndex=-1;
+      state.navLegLine.setLatLngs(line.map(point=>[point.lat, point.lng]));
+      publishProgress(stop, here, snapToRoute(here, line, 22), true);
+    }
+  }catch{/* keep the straight fallback already on the map */}
 }
-function updateNavReadout(stop, meters, seconds, estimate){
-  $('navTitle').textContent=`Next · ${stop.address||'Stop'} · ${state.navIndex+1} of ${state.routeStops.length}`;
+function publishProgress(stop, place, snap, immediate){
+  const total=snap?.total>1?snap.total:(state.navLegMeters||metersBetween(place, stop));
+  const along=snap?.snapped?snap.along:0;
+  const left=snap?.snapped?Math.max(0, total-along):metersBetween(place, stop);
+  const seconds=total>1&&state.navLegSeconds?state.navLegSeconds*(left/Math.max(total,1)):etaSeconds(left, state.routeMode);
+  const step=snap?.snapped?activeStep(state.navSteps, along):null;
+  if(step&&step.index!==state.navStepIndex) immediate=true;
+  if(step) state.navStepIndex=step.index;
+  const offRoute=Boolean(snap&&!snap.snapped&&Number.isFinite(snap.distance)&&snap.distance>40);
+  const title=offRoute?'Rejoining the route':(step?maneuverText(step.step):`Continue to ${stop.address||'the stop'}`);
   const mode=state.routeMode==='walking'?'walk':'drive';
-  $('navMeta').textContent=`${fmtDistance((Number(meters)||0)/1609.344)} · ${fmtDuration(seconds)} ${mode}${estimate?' · estimate':''}`;
+  const meta=`${fmtDistance(left/1609.344)} · ${fmtDuration(seconds)} ${mode} · ${state.navIndex+1} of ${state.routeStops.length}`;
+  const changedOff=offRoute!==state.navOffShown;
+  state.navOffShown=offRoute;
+  const write=state.navTray.push(title, meta, performance.now(), immediate||changedOff);
+  if(write) writeNavText(write.title, write.meta);
 }
-function clearNavLayers(){(state.navLayers||[]).forEach(layer=>{try{layer.remove()}catch{}});state.navLayers=[]}
+function writeNavText(title, meta){
+  const titleEl=$('navTitle'), metaEl=$('navMeta');
+  if(titleEl&&titleEl.textContent!==title) titleEl.textContent=title;
+  if(metaEl&&metaEl.textContent!==meta) metaEl.textContent=meta;
+}
+function showNavVisuals(){
+  if(!state.map)return;
+  if(!state.map.getPane('navPane')){
+    const pane=state.map.createPane('navPane');
+    pane.style.zIndex='680';
+    pane.style.pointerEvents='none';
+  }
+  if(!state.navRenderer) state.navRenderer=L.canvas({pane:'navPane'});
+  if(!state.navArrow){
+    const icon=L.divIcon({className:'navArrowIcon', html:'<div class="navArrow"></div>', iconSize:[28,28], iconAnchor:[14,14]});
+    state.navArrow=L.marker([HOME_BASE.lat, HOME_BASE.lng], {icon, interactive:false, keyboard:false, pane:'navPane', zIndexOffset:2000});
+  }
+  if(!state.navAccuracy) state.navAccuracy=L.circle([HOME_BASE.lat, HOME_BASE.lng], {radius:18, pane:'navPane', renderer:state.navRenderer, interactive:false, color:'#1e6bff', weight:1, fillColor:'#1e6bff', fillOpacity:.15});
+  if(!state.navLegLine) state.navLegLine=L.polyline([], {pane:'navPane', renderer:state.navRenderer, interactive:false, color:'#1e6bff', weight:6, opacity:.92, lineCap:'round', lineJoin:'round'});
+  if(!state.navStopRing) state.navStopRing=L.circleMarker([HOME_BASE.lat, HOME_BASE.lng], {pane:'navPane', renderer:state.navRenderer, interactive:false, radius:14, color:'#1e6bff', weight:3, fillColor:'#1e6bff', fillOpacity:.12});
+  if(state.currentLocation){
+    state.navArrow.setLatLng([state.currentLocation.lat, state.currentLocation.lng]);
+    state.navAccuracy.setLatLng([state.currentLocation.lat, state.currentLocation.lng]);
+  }
+  if(!state.map.hasLayer(state.navLegLine)) state.navLegLine.addTo(state.map);
+  if(!state.map.hasLayer(state.navAccuracy)) state.navAccuracy.addTo(state.map);
+  if(!state.map.hasLayer(state.navStopRing)) state.navStopRing.addTo(state.map);
+  if(!state.map.hasLayer(state.navArrow)) state.navArrow.addTo(state.map);
+}
+function paintNavFrame(sample){
+  if(!sample||!state.navArrow)return;
+  state.navArrow.setLatLng([sample.lat, sample.lng]);
+  const arrow=state.navArrow.getElement()?.querySelector('.navArrow');
+  if(arrow){
+    const heading=Math.round(Number(sample.heading)||0);
+    if(arrow.dataset.h!==String(heading)){arrow.dataset.h=String(heading);arrow.style.transform=`rotate(${heading}deg)`}
+  }
+  state.navDisplay=sample;
+  const now=performance.now();
+  if(state.navAccuracy&&now-(state.navAccuracyAt||0)>240){
+    state.navAccuracyAt=now;
+    state.navAccuracy.setLatLng([sample.lat, sample.lng]);
+    const acc=Number(state.currentLocation?.accuracy);
+    if(Number.isFinite(acc)) state.navAccuracy.setRadius(Math.max(8, Math.min(80, acc)));
+  }
+}
+function startNavLoop(){
+  cancelAnimationFrame(state.navFrame);
+  const loop=(now)=>{
+    if(!state.navigating)return;
+    const sample=state.navInterp?.sample(now);
+    if(sample){paintNavFrame(sample);if(state.navFollow)easeFollow(sample)}
+    const flushed=state.navTray?.flush(now);
+    if(flushed) writeNavText(flushed.title, flushed.meta);
+    state.navFrame=requestAnimationFrame(loop);
+  };
+  state.navFrame=requestAnimationFrame(loop);
+}
+function easeFollow(sample){
+  if(!state.map)return;
+  const now=performance.now();
+  if(state.navPanUntil&&now<state.navPanUntil)return;
+  const center=state.map.getCenter();
+  if(metersBetween({lat:center.lat,lng:center.lng}, sample)<12)return;
+  const animate=!reducedMotion();
+  const duration=animate?0.85:0;
+  state.navPanUntil=now+duration*1000+80;
+  state.map.panTo([sample.lat, sample.lng], {animate, duration, easeLinearity:0.22, noMoveStart:true});
+}
+function maybeNavZoom(sample){
+  if(state.navZoomed||!state.navFollow||!state.map)return;
+  state.navZoomed=true;
+  if(state.map.getZoom()>=16)return;
+  state.navAutoMove=true;
+  state.navPanUntil=performance.now()+900;
+  state.map.setView([sample.lat, sample.lng], 17, {animate:!reducedMotion()});
+  state.navAutoMove=false;
+}
+function clearNavLayers(){
+  [state.navArrow,state.navAccuracy,state.navLegLine,state.navStopRing].forEach(layer=>{try{layer?.remove()}catch{}});
+  state.navArrow=null;state.navAccuracy=null;state.navLegLine=null;state.navStopRing=null;state.navRenderer=null;
+}
 function drawNavOverlay(){
   if(!state.map||!state.navigating)return;
-  clearNavLayers();
-  const here=state.currentLocation;
+  showNavVisuals();
+  const here=state.navDisplay||state.currentLocation;
+  if(here) paintNavFrame({lat:here.lat,lng:here.lng,heading:here.heading||0});
   const stop=state.routeStops[state.navIndex];
-  if(here&&Number.isFinite(Number(here.lat))&&Number.isFinite(Number(here.lng))){
-    const radius=Math.max(8, Math.min(250, Number(here.accuracy)||30));
-    const circle=L.circle([here.lat, here.lng],{radius, color:'#1e6bff', weight:1, fillColor:'#1e6bff', fillOpacity:.18}).addTo(state.map);
-    const dot=L.circleMarker([here.lat, here.lng],{radius:8, color:'#fff', weight:3, fillColor:'#1e6bff', fillOpacity:1}).addTo(state.map);
-    state.navLayers.push(circle, dot);
-    if(Number.isFinite(Number(here.heading))){
-      const rad=Number(here.heading)*Math.PI/180; const reach=28;
-      const dLat=(reach*Math.cos(rad))/111320;
-      const dLng=(reach*Math.sin(rad))/(111320*Math.cos(Number(here.lat)*Math.PI/180));
-      state.navLayers.push(L.polyline([[here.lat, here.lng],[here.lat+dLat, here.lng+dLng]],{color:'#1e6bff', weight:5, opacity:.95}).addTo(state.map));
-    }
-  }
-  if(stop&&isCoords(stop)){
-    state.navLayers.push(L.circleMarker([Number(stop.lat), Number(stop.lng)],{radius:16, color:'#1e6bff', weight:3, fillColor:'#1e6bff', fillOpacity:.15}).addTo(state.map));
-    if(here){
-      if(state.navLegGeometry)state.navLayers.push(L.geoJSON(state.navLegGeometry,{style:{color:'#1e6bff', weight:6, opacity:.92}}).addTo(state.map));
-      else state.navLayers.push(L.polyline([[here.lat, here.lng],[Number(stop.lat), Number(stop.lng)]],{color:'#1e6bff', weight:5, opacity:.9}).addTo(state.map));
-    }
-  }
+  if(stop&&isCoords(stop)) state.navStopRing.setLatLng([Number(stop.lat), Number(stop.lng)]);
+  if(state.navLine?.length) state.navLegLine.setLatLngs(state.navLine.map(point=>[point.lat, point.lng]));
 }
-function syncRecenterButton(){const btn=$('navRecenter');if(!btn)return;btn.textContent=state.navFollow?'Following':'Recenter';btn.classList.toggle('isOn', state.navFollow)}
-function recenterNav(){state.navFollow=true;syncRecenterButton();if(state.currentLocation&&state.map)state.map.setView([state.currentLocation.lat, state.currentLocation.lng], Math.max(state.map.getZoom(),17))}
+function syncRecenterButton(){
+  const btn=$('navRecenter');if(!btn)return;
+  const paused=Boolean(state.navigating&&!state.navFollow);
+  btn.classList.toggle('hidden', !paused);
+  btn.textContent='Re-center';
+  btn.classList.toggle('isOn', paused);
+}
+function recenterNav(){
+  state.navFollow=true;syncRecenterButton();
+  const here=state.navDisplay||state.currentLocation;
+  if(!here||!state.map)return;
+  state.navAutoMove=true;
+  state.navPanUntil=performance.now()+900;
+  state.map.setView([here.lat, here.lng], Math.max(state.map.getZoom(),17), {animate:!reducedMotion()});
+  state.navAutoMove=false;
+}
 function openExternalLeg(kind){
   const stop=state.routeStops[state.navIndex];
   if(!stop){toast('No stop left on this route.');return}
@@ -1817,12 +2181,12 @@ function openExternalLeg(kind){
 }
 function advanceNavStop(){
   if(!state.navigating)return;
-  state.navIndex+=1;state.navPrompted='';state.navLegStop='';state.navLegGeometry=null;
+  state.navIndex+=1;state.navPrompted='';state.navLegStop='';state.navLegGeometry=null;state.navLine=null;state.navSteps=[];state.navStepIndex=-1;
   const stop=state.routeStops[state.navIndex];
   if(!stop){endNavigation('Route complete.');return}
   closeDoorSheet();
   toast(`Next stop · ${stop.address}`);
-  if(state.currentLocation)onNavPosition({coords:{latitude:state.currentLocation.lat,longitude:state.currentLocation.lng,accuracy:state.currentLocation.accuracy,heading:state.currentLocation.heading}});
+  if(state.currentLocation){state.navLegStop=stop.id;loadNavLeg(state.currentLocation, stop)}
 }
 function maybeAdvanceNav(id){
   if(!state.navigating)return;
