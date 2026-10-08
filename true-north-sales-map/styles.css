@@ -48,7 +48,7 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 /* MAP FIRST */
 #appShell{height:100%;min-height:0;display:flex;flex-direction:column}
 .mapShell{flex:1;height:auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 420px;grid-template-rows:minmax(0,1fr);position:relative;overflow:hidden}.mapCanvas{position:relative;min-width:0;min-height:0}.mapCanvas #map{height:100%;width:100%;background:#d8e0e3}.mapCanvas .leaflet-tile-pane{filter:saturate(.68) contrast(.98) brightness(1.02)}
-.mapTopOverlay{position:absolute;top:14px;left:14px;right:14px;z-index:700;display:flex;gap:8px;align-items:flex-start}.mapSearch{width:min(540px,63vw);display:flex;gap:8px;align-items:center;background:rgba(255,255,255,.97);border:1px solid #d9e0e3;border-radius:12px;padding:0 11px;box-shadow:var(--shadow-soft);backdrop-filter:blur(10px)}.mapSearch>span{font-size:20px;color:#77868f}.mapSearch input{width:100%;padding:12px 0;border:0;outline:0;background:transparent;font-size:13px;color:var(--ink)}.searchHint kbd{border-color:#d8e0e3;background:#f4f7f8;color:#6b7a83}.mapControl,.iconBtn{border:1px solid #d7dfe3;background:rgba(255,255,255,.97);border-radius:10px;padding:10px 12px;cursor:pointer;box-shadow:var(--shadow-soft);color:var(--slate);font-weight:800;font-size:10px}.mapControl:hover,.iconBtn:hover{border-color:#c1ccd1;transform:translateY(-1px)}.layerMenu{display:none;position:absolute;top:50px;right:0;background:#fff;border:1px solid #d5dfe4;border-radius:12px;padding:11px;width:228px;box-shadow:var(--shadow);overflow:hidden}.layerMenu.open{display:grid;gap:8px}.layerMenu label{font-size:11px;display:flex;gap:8px;align-items:center;padding:3px 2px}.layerMenu label:hover{background:#f5f7f8;border-radius:7px}.layerMenu input{accent-color:var(--orange)}
+.mapTopOverlay{position:absolute;top:14px;left:14px;right:14px;z-index:700;display:flex;gap:8px;align-items:flex-start}.mapSearch{width:min(540px,63vw);display:flex;gap:8px;align-items:center;background:rgba(255,255,255,.97);border:1px solid #d9e0e3;border-radius:12px;padding:0 11px;box-shadow:var(--shadow-soft);backdrop-filter:blur(10px)}.mapSearch>span{font-size:20px;color:#77868f}.mapSearch input{width:100%;padding:12px 0;border:0;outline:0;background:transparent;font-size:13px;color:var(--ink)}.searchHint kbd{border-color:#d8e0e3;background:#f4f7f8;color:#6b7a83}.mapControl,.iconBtn{border:1px solid #d7dfe3;background:rgba(255,255,255,.97);border-radius:10px;padding:10px 12px;cursor:pointer;box-shadow:var(--shadow-soft);color:var(--slate);font-weight:800;font-size:10px}.mapControl:hover,.iconBtn:hover{border-color:#c1ccd1;transform:translateY(-1px)}.layerMenu{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid #d5dfe4;border-radius:12px;padding:11px;width:228px;box-shadow:var(--shadow);overflow:hidden}.layerMenu.open{display:grid;gap:8px}.layerMenu label{font-size:11px;display:flex;gap:8px;align-items:center;padding:3px 2px}.layerMenu label:hover{background:#f5f7f8;border-radius:7px}.layerMenu input{accent-color:var(--orange)}
 .mapHud{position:absolute;top:82px;left:14px;z-index:650;background:rgba(255,255,255,.96);padding:11px 12px;border-radius:12px;box-shadow:var(--shadow-soft);min-width:335px;border:1px solid #d9e0e3}.hudTitle{font-size:9px;letter-spacing:1.4px;font-weight:900;color:var(--navy);display:flex;justify-content:space-between;gap:12px}.hudTitle span{font-weight:700;letter-spacing:.9px;color:#8a979e;font-size:7px}.stats{display:flex;gap:10px;margin-top:7px}.stat{min-width:72px}.stat b{display:block;font-size:19px;color:var(--navy)}.stat span{display:block;text-transform:uppercase;letter-spacing:.9px;font-size:7px;color:#7c8991}.hudProgress{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #e8edef}.hudProgress div{display:flex;align-items:baseline;gap:5px}.hudProgress b{font-size:11px;color:var(--slate)}.hudProgress span{font-size:7px;color:#89969d;text-transform:uppercase;letter-spacing:.65px}
 .mapLegend{position:absolute;left:14px;bottom:16px;z-index:650;background:rgba(255,255,255,.96);border:1px solid #d7dfe3;border-radius:10px;padding:8px 10px;display:flex;gap:10px;font-size:9px;box-shadow:var(--shadow-soft)}.legendPin{width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:4px}.pinNew{background:var(--orange)}.pinKnocked{background:#3E4E59}.pinNoAnswer{background:#A66B19}.pinInterested{background:#467c9e}.pinNot{background:#8c5e54}.pinDnk{background:#A44835}.pinAppt{background:var(--green)}.pinSelected{background:#c54f32}
 
@@ -138,6 +138,8 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
   .toast{bottom:78px}
 }
 
+.mapTools,.mapToolBtns{display:contents}
+#legendKey{display:none}
 .mapScope{display:flex;border-radius:10px;overflow:hidden;border:1px solid #d7dfe3;box-shadow:var(--shadow-soft);flex:none;background:#fff}
 .mapScope button{min-height:40px;border:0;background:#fff;color:var(--navy);font-weight:800;font-size:12px;padding:0 12px;cursor:pointer}
 .mapScope button.isOn{background:var(--navy);color:#fff}
@@ -156,18 +158,23 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
   .logoMark{width:32px;height:32px}
   .brandName{font-size:11px;letter-spacing:1.2px}
   .brandSub{display:none}
-  .cloudNotice{top:51px}
+  .cloudNotice{position:relative;top:auto;left:auto;right:auto}
+  .leaflet-control-zoom{display:none}
   .mapShell{grid-template-columns:1fr!important}
   .mapHud{display:none}
-  .mapTopOverlay{flex-wrap:wrap;align-items:stretch}
-  .mapSearch{width:calc(100% - 78px);order:1}
-  .mapTopOverlay #layerBtn{order:2;min-height:48px}
+  .mapTopOverlay{left:8px;right:8px;top:8px;flex-direction:column;align-items:stretch;gap:8px}
+  .mapTopOverlay .mapSearch{width:100%}
+  .mapTools{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%}
+  .mapToolBtns{display:flex;gap:6px;margin-left:auto;flex:none}
   .mapTopOverlay #fitBtn{display:none}
-  .mapScope{order:3;width:100%;margin-top:0}
-  .mapScope button{flex:1;min-height:48px;font-size:15px}
-  .mapLegend{left:8px;right:8px;bottom:calc(var(--list-sheet-peek) + 8px);max-width:none}
+  .mapTopOverlay #layerBtn,#legendKey{min-height:40px;height:40px;padding:0 12px;font-size:13px}
+  #legendKey{display:inline-flex;align-items:center;justify-content:center}
+  .mapScope{width:auto;flex:none;height:44px}
+  .mapScope button{flex:none;min-height:0;height:100%;padding:0 12px;font-size:13px}
+  .mapLegend{display:none;left:auto;right:8px;bottom:auto;top:116px;width:max-content;max-width:calc(100vw - 24px);flex-direction:column;align-items:flex-start;gap:6px;padding:10px 12px;font-size:13px;z-index:740}
+  .mapLegend.isOpen{display:flex}
   .routeTray{bottom:calc(var(--list-sheet-peek) + 8px)}
-  .pinBanner{top:118px;left:8px;right:8px;max-width:none}
+  .pinBanner{top:116px;left:8px;right:8px;max-width:none}
   #listSheet.sidePanel{position:fixed;left:0;right:0;top:auto;width:auto;bottom:var(--list-sheet-bottom);height:auto;max-height:none;border:0;border-radius:16px 16px 0 0;box-shadow:0 -10px 28px rgba(19,43,58,.22);z-index:900;overflow:hidden;display:flex;flex-direction:column}
   #listSheet .listSheetGrab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;min-height:48px;padding:6px 16px 8px;border:0;background:#fff;color:var(--navy);font-weight:800;font-size:15px;cursor:pointer;touch-action:none}
   .listSheetHandle{width:42px;height:5px;border-radius:999px;background:#c5d0d6;flex:none}

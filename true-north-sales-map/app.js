@@ -75,7 +75,19 @@ function bindStaticEvents(){
   ['statusFilter','repFilter','territoryFilter','sourceFilter'].forEach(id=>$(id).addEventListener('change',()=>{syncFilters();renderAll()}));
   $('mineToggle').addEventListener('change',()=>{syncFilters();renderAll()});
   $('layerBtn').onclick=()=>$('layerMenu').classList.toggle('open');
-  document.addEventListener('click',e=>{if(!$('layerMenu').contains(e.target)&&e.target!==$('layerBtn'))$('layerMenu').classList.remove('open')});
+  $('legendKey').onclick=()=>{
+    const legend=$('mapLegend');
+    const open=legend.classList.toggle('isOpen');
+    $('legendKey').setAttribute('aria-expanded',open?'true':'false');
+    if(!open||!useDoorSheet()){legend.style.top='';return;}
+    const canvas=document.querySelector('.mapCanvas').getBoundingClientRect();
+    const overlay=document.querySelector('.mapTopOverlay').getBoundingClientRect();
+    legend.style.top=`${Math.round(overlay.bottom-canvas.top+8)}px`;
+  };
+  document.addEventListener('click',e=>{
+    if(!$('layerMenu').contains(e.target)&&e.target!==$('layerBtn'))$('layerMenu').classList.remove('open');
+    if(!$('mapLegend').contains(e.target)&&e.target!==$('legendKey')){$('mapLegend').classList.remove('isOpen');$('legendKey').setAttribute('aria-expanded','false');}
+  });
   document.querySelectorAll('[data-layer]').forEach(el=>el.addEventListener('change',()=>{state.layerFlags[el.dataset.layer]=el.checked;refreshMapLayers()}));
   $('routeMode').addEventListener('change',e=>state.routeMode=e.target.value);
   $('routeCount').addEventListener('input',e=>$('routeCountValue').textContent=e.target.value); $('routeDistance').textContent='';
@@ -381,6 +393,11 @@ function updatePinBanner(){
   $('pinBannerText').textContent=admin?"Houses aren't pinned yet. Open Admin → Geocode missing house pins.":"Houses aren't pinned yet. Ask an admin to run the pin geocoder.";
   $('pinBannerAction').classList.toggle('hidden',!admin);
   el.classList.remove('hidden');
+  if(useDoorSheet()){
+    const canvas=document.querySelector('.mapCanvas')?.getBoundingClientRect();
+    const overlay=document.querySelector('.mapTopOverlay')?.getBoundingClientRect();
+    if(canvas&&overlay)el.style.top=`${Math.round(overlay.bottom-canvas.top+8)}px`;
+  }else el.style.top='';
 }
 function updateListSummary(){
   const el=$('listSheetSummary'); if(!el)return;
