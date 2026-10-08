@@ -150,6 +150,95 @@ function hostForWidget() {
   return document.querySelector('#topRight, .topRight, .headerLinks');
 }
 
+function mountPhoneMenu() {
+  const bar = document.querySelector('.topbar .topRight');
+  if (!bar || document.getElementById('tnMore')) return;
+  const seen = new Set();
+  const items = [];
+  document.querySelectorAll('.quickLinkBtn, .ribbonActions a').forEach(link => {
+    const href = link.getAttribute('href');
+    if (!href || seen.has(href)) return;
+    seen.add(href);
+    const short = href.includes('setter') ? 'Setter intake' : href.includes('homeowner') ? 'Homeowner form' : link.textContent.trim();
+    items.push({ href, label: short });
+  });
+  if (!items.length) return;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.id = 'tnMore';
+  button.className = 'tnMore';
+  button.textContent = 'More';
+  button.setAttribute('aria-expanded', 'false');
+  button.setAttribute('aria-controls', 'tnMoreMenu');
+  const menu = document.createElement('div');
+  menu.id = 'tnMoreMenu';
+  menu.className = 'tnMoreMenu';
+  menu.hidden = true;
+  menu.innerHTML = items.map(item => `<a href="${esc(item.href)}">${esc(item.label)}</a>`).join('');
+  const route = document.getElementById('routeBtn');
+  if (route) bar.insertBefore(button, route);
+  else bar.appendChild(button);
+  bar.appendChild(menu);
+  const close = () => {
+    menu.hidden = true;
+    button.setAttribute('aria-expanded', 'false');
+  };
+  button.onclick = event => {
+    event.stopPropagation();
+    menu.hidden = !menu.hidden;
+    button.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+  };
+  document.addEventListener('click', event => {
+    if (!menu.hidden && !menu.contains(event.target) && event.target !== button) close();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') close();
+  });
+}
+
+function doorSheetIsOpen() {
+  return [...document.querySelectorAll('#doorSheet, .doorSheet')].some(sheet => (
+    sheet.classList.contains('open') && !sheet.classList.contains('hidden')
+  ));
+}
+
+function syncSheetClass() {
+  const open = doorSheetIsOpen();
+  const body = document.body;
+  if (!body) return;
+  if (open) {
+    if (!body.classList.contains('sheet-open')) body.dataset.tnSheetHook = 'door';
+    else if (!body.dataset.tnSheetHook) body.dataset.tnSheetHook = 'external';
+    body.classList.add('sheet-open');
+  } else if (body.dataset.tnSheetHook === 'door') {
+    body.classList.remove('sheet-open');
+    delete body.dataset.tnSheetHook;
+  }
+}
+
+function watchSheets() {
+  const seen = new WeakSet();
+  const attach = () => {
+    document.querySelectorAll('#doorSheet, .doorSheet').forEach(sheet => {
+      if (seen.has(sheet)) return;
+      seen.add(sheet);
+      new MutationObserver(syncSheetClass).observe(sheet, { attributes: true, attributeFilter: ['class', 'aria-hidden'] });
+    });
+    syncSheetClass();
+  };
+  attach();
+  new MutationObserver(mutations => {
+    const added = mutations.some(mutation => [...mutation.addedNodes].some(node => (
+      node.nodeType === 1 && (
+        node.id === 'doorSheet'
+        || node.classList?.contains('doorSheet')
+        || node.querySelector?.('#doorSheet, .doorSheet')
+      )
+    )));
+    if (added) attach();
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
 function mountWidget() {
   const host = hostForWidget();
   if (!host || document.getElementById('tnFieldOps')) return;
@@ -790,6 +879,8 @@ function drawTrails() {
 async function boot() {
   try {
     ensureCss();
+    mountPhoneMenu();
+    watchSheets();
     if (document.getElementById('shiftsApp')) await bootShifts();
     else await bootWidget();
   } catch (error) {

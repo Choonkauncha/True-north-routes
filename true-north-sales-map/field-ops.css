@@ -13,6 +13,10 @@
 .tnClockBtn:disabled,.tnMsgBtn:disabled{opacity:.65;cursor:wait}
 #tnClockTimer{font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;letter-spacing:.3px}
 .tnMsgBtn,.tnShiftsLink{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff}
+.tnFieldOps [hidden]{display:none !important}
+.topRight .quickLinkBtn{color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.22);border-radius:9px;padding:9px 11px;font-weight:800;font-size:11px;white-space:nowrap}
+.tnMore{display:none}
+.tnMoreMenu[hidden]{display:none !important}
 .tnBadge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:99px;background:#fff;color:#132B3A;font-size:11px;font-weight:900;display:grid;place-items:center}
 .tnBadge.hidden{display:none}
 
@@ -74,13 +78,29 @@
   .tnSheet{border-radius:18px;padding:22px}
   #tnShiftBack{display:none}
 }
+body.sheet-open .tnFieldOps,
+body:has(#doorSheet.open) .tnFieldOps,
+body:has(.doorSheet.open) .tnFieldOps{
+  display:none !important;
+}
 @media(max-width:700px){
+  .brandRibbon{display:none !important}
+  .topRight > a.quickLinkBtn{display:none !important}
+  .topbar{flex-wrap:nowrap;overflow:hidden;gap:6px}
+  .topbar .brand{flex:1 1 auto;min-width:0;overflow:hidden}
+  .brandName{max-width:88px;overflow:hidden;text-overflow:ellipsis}
+  .topRight{flex:0 0 auto;flex-wrap:nowrap;min-width:0}
+  .topRight .primaryBtn,.userMenu button{padding:8px 10px;min-height:44px;white-space:nowrap}
+  .tnMore{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:0 10px;border-radius:10px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
+  .tnMoreMenu:not([hidden]){display:block;position:fixed;top:64px;right:8px;z-index:1800;min-width:210px;background:#fff;border-radius:14px;box-shadow:0 16px 40px rgba(19,43,58,.28);overflow:hidden}
+  .tnMoreMenu a{display:flex;align-items:center;min-height:48px;padding:0 16px;color:#132B3A;text-decoration:none;font-weight:800;font-size:16px;border-bottom:1px solid #E6EBEE}
+  .tnMoreMenu a:last-child{border-bottom:0}
   .tnFieldOps{position:fixed;z-index:1600;left:8px;right:8px;bottom:calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px}
   body:has(#mobileBar) .tnFieldOps{bottom:62px}
   body:has(.tnFieldOps) .mapLegend{bottom:132px}
   body:has(.tnFieldOps) .routeTray{bottom:132px}
   .tnClockBtn{flex:1;min-height:56px;font-size:18px;border-radius:14px}
-  .tnMsgBtn,.tnShiftsLink{min-height:56px;min-width:104px;font-size:15px;border-radius:14px}
+  .tnMsgBtn,.tnShiftsLink{min-height:56px;min-width:108px;padding:8px 14px;font-size:16px;border-radius:14px;background:#132B3A;color:#fff;border:0;box-shadow:0 8px 18px rgba(19,43,58,.28)}
   .tnShiftLayout{grid-template-columns:1fr}
   .tnShiftMap{height:68vh}
   .tnPhoneHide{display:none!important}
