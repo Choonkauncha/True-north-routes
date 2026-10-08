@@ -148,9 +148,88 @@ export function navZoomFor(mode, speedMps = 0) {
   return DRIVE_ZOOM;
 }
 
-export function navLookaheadPixels(mode, heading) {
+/** Pixels of forward offset so the puck sits in the lower third. Falls back when the map height is unknown. */
+export function navLookaheadPixels(mode, heading, mapHeight) {
   if (!Number.isFinite(Number(heading))) return 0;
+  const height = Number(mapHeight);
+  if (Number.isFinite(height) && height > 0) return Math.round(Math.max(72, Math.min(200, height * 0.18)));
   return mode === 'walking' || mode === 'foot' ? 112 : 148;
+}
+
+/** Clockwise rotation in a Y-down pixel space. */
+export function rotateOffset(x, y, degrees) {
+  const rad = (Number(degrees) || 0) * Math.PI / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return { x: x * cos - y * sin, y: x * sin + y * cos };
+}
+
+/** Where a layer offset lands on screen once `headingUp` is locked to the top of the map. */
+export function screenOffsetForLayerOffset(offset, headingUp) {
+  return rotateOffset(offset.x, offset.y, -(Number(headingUp) || 0));
+}
+
+/** Arrow rotation relative to the screen. Zero means the arrow points up. */
+export function arrowRotationDegrees(heading, headingUp) {
+  const from = Number.isFinite(Number(heading)) ? Number(heading) : 0;
+  const up = Number.isFinite(Number(headingUp)) ? Number(headingUp) : 0;
+  return (from - up + 360) % 360;
+}
+
+const MOVING_HEADING_MPS = 0.9;
+
+/** GPS course while moving, compass when slow, otherwise the road ahead. */
+export function chooseTravelHeading({ gpsHeading, speedMps, compassHeading, segmentBearing } = {}) {
+  const speed = Number(speedMps);
+  const moving = Number.isFinite(speed) && speed >= MOVING_HEADING_MPS;
+  if (moving && Number.isFinite(Number(gpsHeading))) return Number(gpsHeading);
+  if (Number.isFinite(Number(compassHeading))) return Number(compassHeading);
+  if (Number.isFinite(Number(segmentBearing))) return Number(segmentBearing);
+  if (Number.isFinite(Number(gpsHeading))) return Number(gpsHeading);
+  return null;
+}
+
+export function smoothBearing(current, target, dtSeconds, tau = 0.28) {
+  if (!Number.isFinite(Number(target))) return Number.isFinite(Number(current)) ? Number(current) : 0;
+  if (!Number.isFinite(Number(current))) return Number(target);
+  const step = 1 - Math.exp(-Math.max(0, Number(dtSeconds) || 0) / tau);
+  return lerpAngle(Number(current), Number(target), Math.min(1, Math.max(0, step)));
+}
+
+export function pointAlong(line, meters) {
+  if (!line || line.length < 2) return null;
+  const cut = Math.max(0, Number(meters) || 0);
+  let along = 0;
+  for (let i = 1; i < line.length; i++) {
+    const a = line[i - 1];
+    const b = line[i];
+    const seg = metersBetween(a, b);
+    if (along + seg >= cut || i === line.length - 1) {
+      const t = seg > 0 ? Math.min(1, Math.max(0, (cut - along) / seg)) : 0;
+      return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
+    }
+    along += seg;
+  }
+  return line[line.length - 1];
+}
+
+/** Device compass in degrees clockwise from north. iOS uses webkitCompassHeading. */
+export function compassHeadingFromOrientation(event, screenAngle = 0) {
+  if (!event) return null;
+  const angle = Number(screenAngle) || 0;
+  if (Number.isFinite(Number(event.webkitCompassHeading))) {
+    return (Number(event.webkitCompassHeading) - angle + 360) % 360;
+  }
+  if (event.absolute === true && Number.isFinite(Number(event.alpha))) {
+    return (360 - Number(event.alpha) - angle + 720) % 360;
+  }
+  return null;
+}
+
+export async function requestCompassPermission(orientationEvent = globalThis.DeviceOrientationEvent) {
+  if (!orientationEvent || typeof orientationEvent.requestPermission !== 'function') return 'unsupported';
+  try { return await orientationEvent.requestPermission(); }
+  catch { return 'denied'; }
 }
 
 /** Shift the camera forward along heading so the marker sits lower and the road ahead fills the view. */
@@ -190,10 +269,14 @@ export function splitRoute(line, alongMeters) {
 export function createGpsFilter({
   maxAccuracy = MAX_ACCURACY_METERS,
   deadbandMeters = 3.5,
-  maxSpeed = 45
+  maxSpeed = 45,
+  maxGain = 0.62,
+  accuracyDeadband = 0.3
 } = {}) {
   let lat = null;
   let lng = null;
+  let rawLat = null;
+  let rawLng = null;
   let variance = 30 * 30;
   let heading = null;
   let lastAt = 0;
@@ -201,6 +284,8 @@ export function createGpsFilter({
     reset() {
       lat = null;
       lng = null;
+      rawLat = null;
+      rawLng = null;
       variance = 30 * 30;
       heading = null;
       lastAt = 0;
@@ -215,21 +300,28 @@ export function createGpsFilter({
       if (lat == null) {
         lat = nextLat;
         lng = nextLng;
+        rawLat = nextLat;
+        rawLng = nextLng;
         variance = acc * acc;
         heading = Number.isFinite(fix.heading) ? fix.heading : null;
         lastAt = now;
         return { lat, lng, heading, accuracy: acc, at: now, interval: 700 };
       }
       const dt = Math.max(0.05, (now - lastAt) / 1000);
+      const rawJump = metersBetween({ lat: rawLat, lng: rawLng }, { lat: nextLat, lng: nextLng });
       const jump = metersBetween({ lat, lng }, { lat: nextLat, lng: nextLng });
-      if (jump > Math.max(80, acc * 3) && jump / dt > maxSpeed) return null;
-      if (jump < Math.max(deadbandMeters, Math.min(8, acc * 0.3)) && dt < 2.2) return null;
+      // Judge teleports against the last raw fix. Smoothed lag must not turn a steady course into a reject.
+      if (rawJump > Math.max(80, acc * 3) && rawJump / dt > maxSpeed) return null;
+      const quiet = Math.max(deadbandMeters, Math.min(8, acc * accuracyDeadband));
+      if (jump < quiet && dt < 2.2) return null;
       variance += (2.2 * dt) ** 2;
-      const gain = Math.min(0.62, variance / (variance + acc * acc));
+      const gain = Math.min(maxGain, variance / (variance + acc * acc));
       const prev = { lat, lng };
       lat += gain * (nextLat - lat);
       lng += gain * (nextLng - lng);
       variance *= (1 - gain);
+      rawLat = nextLat;
+      rawLng = nextLng;
       let course = heading;
       if (jump > 4) course = bearingDegrees(prev, { lat, lng });
       if (Number.isFinite(fix.heading) && jump > 3) course = fix.heading;
