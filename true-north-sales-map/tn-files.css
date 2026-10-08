@@ -102,6 +102,7 @@
 .tnMyForms,.tnFolder,.tnRecordCard,.tnRecordForm{min-width:0;max-width:100%}
 .tnFolder{border:1px solid #DCE3E7;border-radius:14px;padding:12px;background:#fff}
 .tnFolderHead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.tnFolderHead .tnIconBtns{flex:1 1 100%;min-width:0}
 .tnFolderHead b,.tnDocName{overflow-wrap:anywhere}
 .tnRecordForm{display:grid;gap:8px;margin:10px 0}
 .tnRecordActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
@@ -119,7 +120,7 @@
 .tnFilters{display:grid;gap:8px;margin-bottom:12px}
 .tnFieldCard{border:1px solid #DCE3E7;border-radius:14px;padding:12px;background:#fff;margin-bottom:10px}
 .tnFieldCard header{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
-.tnIconBtns{display:flex;gap:6px}
+.tnIconBtns{display:flex;gap:6px;flex-wrap:wrap;max-width:100%}
 .tnIconBtns button{min-width:44px;min-height:44px;border-radius:10px;border:1px solid #d5dee3;background:#fff;font-weight:800}
 .tnSuccess{text-align:center;padding:28px 8px}
 .tnSuccess .brandLogo{width:64px;height:64px;margin:0 auto 12px;display:block;object-fit:contain}
