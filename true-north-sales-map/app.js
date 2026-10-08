@@ -6,6 +6,8 @@ import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } 
 import { ROUTE_TRAY_KEY, routeTrayCollapsedByDefault, routeTraySummary, shouldExpandRouteTray } from './lib/route-tray.js';
 import { MAP_FACTS } from './lib/map-facts.js';
 import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
+import { HAIL_MILES, WARNING_COLORS, housesInStorm, readStormCache, reportMarkerText, writeStormCache } from './lib/storm-maps.js';
+import { setWeatherLocation, startMapWeather } from './weather-widget.js';
 import { roleLabel } from './lib/field-rules.js';
 import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/account-rules.js';
 
@@ -22,9 +24,10 @@ const state={
   mode:'local', supabase:null, session:null, user:null, currentRep:null,
   leads:[], filtered:[], reps:[], territories:[], appointments:[], activities:[], centers:{},
   selected:new Set(), active:null, map:null, markerLayer:null, heatLayers:[], stormLayer:null,
+  stormPack:null, stormHouseIds:null, stormToken:0, radarLayers:[], radarTimer:null, radarSignature:'', warningLayer:null, warningSignature:'', reportLayer:null, reportSignature:'',
   routeLine:null, userMarker:null, routeStops:[], currentLocation:null,
   filters:{q:'',status:'',rep:'',territory:'',source:'',mine:false},
-  layerFlags:{pins:true,density:false,opportunity:true,roofAge:false,storms:false,territories:true},
+  layerFlags:{pins:true,density:false,opportunity:true,roofAge:false,radar:false,warnings:true,reports:true,territories:true},
   routeMode:'driving', busy:false, config:null, realtimeChannel:null, refreshTimer:null,
   doorLeadId:null, doorSaving:false, doorUndo:null,
   homeArea:true, didFit:false, listSnap:'sheet-collapsed', pinBannerDismissed:false,
@@ -86,7 +89,7 @@ function bindStaticEvents(){
   $('adminBtn').onclick=(e)=>{ if(canOpenManagement({email:state.user?.email, rep:state.currentRep, adminEmails:state.config?.adminEmails})) return; e.preventDefault(); };
   $('postSignInContinue')?.addEventListener('click', ()=>$('postSignIn').classList.add('hidden'));
   $('locateBtn').onclick=locate;
-  $('clearBtn').onclick=()=>{['search','statusFilter','repFilter','territoryFilter','sourceFilter'].forEach(id=>$(id).value='');$('mineToggle').checked=false;syncFilters();renderAll()};
+  $('clearBtn').onclick=()=>{['search','statusFilter','repFilter','territoryFilter','sourceFilter'].forEach(id=>$(id).value='');$('mineToggle').checked=false;state.stormHouseIds=null;syncFilters();renderAll()};
   $('search').addEventListener('input',debounce(()=>{syncFilters();renderAll()},120));
   ['statusFilter','repFilter','territoryFilter','sourceFilter'].forEach(id=>$(id).addEventListener('change',()=>{syncFilters();renderAll()}));
   $('mineToggle').addEventListener('change',()=>{syncFilters();renderAll()});
@@ -104,7 +107,15 @@ function bindStaticEvents(){
     if(!$('layerMenu').contains(e.target)&&e.target!==$('layerBtn'))$('layerMenu').classList.remove('open');
     if(!$('mapLegend').contains(e.target)&&e.target!==$('legendKey')){$('mapLegend').classList.remove('isOpen');$('legendKey').setAttribute('aria-expanded','false');}
   });
-  document.querySelectorAll('[data-layer]').forEach(el=>el.addEventListener('change',()=>{state.layerFlags[el.dataset.layer]=el.checked;refreshMapLayers()}));
+  document.querySelectorAll('[data-layer]').forEach(el=>{
+    state.layerFlags[el.dataset.layer]=el.checked;
+    el.addEventListener('change',()=>{
+      state.layerFlags[el.dataset.layer]=el.checked;
+      if(el.dataset.layer==='radar'||el.dataset.layer==='warnings'||el.dataset.layer==='reports')syncStormOverlays();
+      else refreshMapLayers();
+    });
+  });
+  $('stormHousesBtn').onclick=housesInStormArea;
   $('routeMode').addEventListener('change',e=>setRouteMode(e.target.value));
   $('trayDrive').onclick=()=>setRouteMode('driving');
   $('trayWalk').onclick=()=>setRouteMode('walking');
@@ -239,6 +250,13 @@ function initMapOnce(){
   state.tileLayer.on('load',()=>settleMapLoader(state.mapLoaderGen));
   state.markerLayer=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:42,showCoverageOnHover:false,spiderfyOnMaxZoom:true}).addTo(state.map);
   state.map.on('dragstart',()=>{ if(state.navigating&&state.navFollow){state.navFollow=false;syncRecenterButton();} });
+  if(!state.map.getPane('radarPane')){
+    const pane=state.map.createPane('radarPane');
+    pane.style.zIndex='350';
+    pane.style.pointerEvents='none';
+  }
+  startMapWeather(state.map);
+  ensureStormMaps();
   requestAnimationFrame(()=>state.map?.invalidateSize());
 }
 function reducedMotion(){return window.matchMedia('(prefers-reduced-motion: reduce)').matches}
@@ -309,7 +327,9 @@ function fillSelect(id,first,items){$(id).innerHTML=`<option value="">${esc(firs
 
 function applyFilters(){
   const f=state.filters;
+  const storm=state.stormHouseIds;
   state.filtered=state.leads.filter(l=>{
+    if(storm&&!storm.has(l.id))return false;
     const blob=[l.name,l.address,l.city,l.state,l.zip,l.record_id,l.recordId,l.id,l.full_address,l.fullAddress].join(' ').toLowerCase();
     return (!f.q||blob.includes(f.q)) && (!f.status||leadStatus(l)===f.status) && (!f.rep||l.assignedRepId===f.rep) && (!f.territory||l.city===f.territory) && (!f.source||l.source===f.source) && (!f.mine||!state.currentRep||l.assignedRepId===state.currentRep.id||(state.territories.find(t=>t.name===l.city)?.assigned_rep_id===state.currentRep.id));
   });
@@ -343,7 +363,7 @@ function renderSidebarCounts(){
 function renderWorkList(){
   const list=$('workList');
   const sorted=state.filtered.slice().sort((a,b)=>scoreLead(b)-scoreLead(a));
-  const key=JSON.stringify(state.filters);
+  const key=JSON.stringify(state.filters)+':'+(state.stormHouseIds?'storm':'all');
   if(state.listFilterKey!==key){state.listFilterKey=key;state.listShown=180;}
   const shown=Math.min(sorted.length, state.listShown||180);
   const top=sorted.slice(0, shown);
@@ -423,14 +443,12 @@ function paintMapLayers(){
   (state._territoryLayers||[]).forEach(x=>x.remove());
   state._territoryLayers=[];
   state.heatLayers.forEach(layer=>layer.remove()); state.heatLayers=[]
-  if(state.stormLayer){state.map.removeLayer(state.stormLayer);state.stormLayer=null}
   if(state.routeLine){state.map.removeLayer(state.routeLine);state.routeLine=null}
   if(state.layerFlags.pins){drawLeadPins()}
   if(state.layerFlags.density)drawHeat('density');
   if(state.layerFlags.opportunity)drawHeat('opportunity');
   if(state.layerFlags.roofAge)drawHeat('roof');
   if(state.layerFlags.territories)drawTerritories();
-  if(state.layerFlags.storms && !state.stormLayer)loadStorms(false);
   if(state.routeStops?.length)drawRoutePreview(false);
   else if(state.navigating)drawNavOverlay();
   state.pinsPainted=true;
@@ -1000,12 +1018,132 @@ async function geocodeAll(){
   renderAll();$('adminMappedCount').textContent=fmt(state.leads.filter(isCoords).length);alert(`Geocoding complete: ${fmt(matched)} matched, ${fmt(missing.length-matched)} unmatched.`);
 }
 
-async function loadStorms(showAlert=true){
-  try{const r=await fetch('/api/storms?state=OH');const data=await r.json();if(!r.ok)throw new Error(data.error||'Storm feed failed');
-    if(state.stormLayer){state.map.removeLayer(state.stormLayer)}
-    state.stormLayer=L.geoJSON(data,{style:feature=>({color:'#9a3b20',weight:2,fillOpacity:.13}),pointToLayer:(_f,latlng)=>L.circleMarker(latlng,{radius:9,weight:2,color:'#9a3b20',fillOpacity:.2}),onEachFeature:(f,layer)=>layer.bindPopup(`<b>${esc(f.properties?.event||'NWS alert')}</b><br>${esc(f.properties?.headline||'')}<br><small>${esc(f.properties?.severity||'')}</small>`)}).addTo(state.map);
-    if(showAlert)alert(`Loaded ${fmt(data.features?.length||0)} active NWS alerts.`);
-  }catch(e){if(showAlert)alert(`Storm layer unavailable: ${e.message}`);else console.warn(e)}
+function emptyStormPack(){return {radar:[],warnings:[],reports:[]}}
+async function ensureStormMaps(force=false){
+  if(state.stormPack&&!force)return state.stormPack;
+  if(!force){
+    const cached=readStormCache(sessionStorage);
+    if(cached){state.stormPack=cached;syncStormOverlays();return cached;}
+  }
+  const mine=++state.stormToken;
+  try{
+    const response=await fetch('/api/storm-maps');
+    if(!response.ok)throw new Error('storm maps unavailable');
+    const data=await response.json();
+    if(mine!==state.stormToken)return state.stormPack;
+    const pack={
+      radar:Array.isArray(data.radar)?data.radar:[],
+      warnings:Array.isArray(data.warnings)?data.warnings:[],
+      reports:Array.isArray(data.reports)?data.reports:[]
+    };
+    state.stormPack=pack;
+    writeStormCache(sessionStorage, pack);
+  }catch(error){
+    console.warn(error);
+    if(mine===state.stormToken&&!state.stormPack)state.stormPack=emptyStormPack();
+  }
+  if(mine===state.stormToken)syncStormOverlays();
+  return state.stormPack||emptyStormPack();
+}
+function syncStormOverlays(){
+  if(!state.map||!state.stormPack)return;
+  syncRadar(state.layerFlags.radar?state.stormPack.radar:[]);
+  syncWarnings(state.layerFlags.warnings?state.stormPack.warnings:[]);
+  syncReports(state.layerFlags.reports?state.stormPack.reports:[]);
+}
+function stopRadar(){
+  clearInterval(state.radarTimer);state.radarTimer=null;
+  (state.radarLayers||[]).forEach(layer=>layer.remove());
+  state.radarLayers=[];state.radarSignature='';
+}
+function syncRadar(frames){
+  const list=Array.isArray(frames)?frames.filter(frame=>frame?.url):[];
+  const sig=list.map(frame=>`${frame.time}|${frame.url}`).join(',');
+  if(!list.length){stopRadar();return;}
+  if(sig===state.radarSignature&&state.radarLayers.length)return;
+  stopRadar();
+  state.radarSignature=sig;
+  state.radarLayers=list.map((frame,index)=>L.tileLayer(frame.url,{
+    pane:'radarPane',opacity:index===list.length-1?0.62:0,zIndex:index+1,maxZoom:20
+  }).addTo(state.map));
+  if(list.length<2)return;
+  let cursor=list.length-1;
+  state.radarTimer=setInterval(()=>{
+    cursor=(cursor+1)%state.radarLayers.length;
+    state.radarLayers.forEach((layer,index)=>layer.setOpacity(index===cursor?0.62:0));
+  },700);
+}
+function warningPopup(warning){
+  const lines=[`<b>${esc(warning.event||'Warning')}</b>`];
+  if(warning.headline)lines.push(esc(warning.headline));
+  if(warning.hail)lines.push(`Hail ${esc(warning.hail)}`);
+  if(warning.wind)lines.push(`Wind ${esc(warning.wind)}`);
+  if(warning.expiresLabel)lines.push(`Until ${esc(warning.expiresLabel)}`);
+  return `<div class="stormPopup">${lines.join('<br>')}</div>`;
+}
+function syncWarnings(warnings){
+  const list=Array.isArray(warnings)?warnings:[];
+  const sig=list.map(warning=>warning.id).join('|');
+  if(sig===state.warningSignature&&(list.length?state.warningLayer:!state.warningLayer))return;
+  if(state.warningLayer){state.map.removeLayer(state.warningLayer);state.warningLayer=null;}
+  state.warningSignature=sig;
+  if(!list.length)return;
+  state.warningLayer=L.geoJSON({type:'FeatureCollection',features:list.map(warning=>({type:'Feature',properties:warning,geometry:warning.geometry}))},{
+    style:feature=>{
+      const color=WARNING_COLORS[feature.properties?.kind]||WARNING_COLORS.thunderstorm;
+      return {color,weight:2,fillColor:color,fillOpacity:.28};
+    },
+    onEachFeature:(feature,layer)=>layer.bindPopup(warningPopup(feature.properties))
+  }).addTo(state.map);
+}
+function reportRadius(report){
+  const size=Number(report.measure);
+  if(report.kind==='hail')return Math.max(7,Math.min(16, (Number.isFinite(size)?size:1)*6));
+  if(report.kind==='wind')return Math.max(7,Math.min(16, (Number.isFinite(size)?size:40)/8));
+  return 11;
+}
+function syncReports(reports){
+  const list=Array.isArray(reports)?reports:[];
+  const sig=list.map(report=>`${report.kind}:${report.lat}:${report.lng}:${report.time}`).join('|');
+  if(sig===state.reportSignature&&(list.length?state.reportLayer:!state.reportLayer))return;
+  if(state.reportLayer){state.map.removeLayer(state.reportLayer);state.reportLayer=null;}
+  state.reportSignature=sig;
+  if(!list.length)return;
+  const group=L.layerGroup();
+  list.forEach(report=>{
+    if(!Number.isFinite(Number(report.lat))||!Number.isFinite(Number(report.lng)))return;
+    const color=report.kind==='torn'?WARNING_COLORS.tornado:report.kind==='wind'?WARNING_COLORS.wind:WARNING_COLORS.hail;
+    const marker=L.circleMarker([Number(report.lat),Number(report.lng)],{radius:reportRadius(report),color:'#fff',weight:2,fillColor:color,fillOpacity:.95});
+    const place=[report.location,report.county,report.state].filter(Boolean).join(', ');
+    marker.bindPopup(`<div class="stormPopup"><b>${esc(reportMarkerText(report))}</b>${place?`<br>${esc(place)}`:''}</div>`);
+    group.addLayer(marker);
+  });
+  state.reportLayer=group.addTo(state.map);
+}
+async function loadStorms(){
+  const box=document.querySelector('[data-layer="warnings"]');
+  if(box)box.checked=true;
+  state.layerFlags.warnings=true;
+  await ensureStormMaps(true);
+  const count=state.stormPack?.warnings?.length||0;
+  toast(count?`Showing ${fmt(count)} warning areas.`:'No active warning areas right now.');
+}
+async function housesInStormArea(){
+  const pack=await ensureStormMaps();
+  const hits=housesInStorm(state.leads, pack?.warnings||[], pack?.reports||[]);
+  if(!hits.length){toast(`No houses are inside a warning or within ${HAIL_MILES} miles of a hail report.`);return;}
+  state.stormHouseIds=new Set(hits.map(lead=>lead.id));
+  const ranked=hits.slice().sort((a,b)=>scoreLead(b)-scoreLead(a));
+  state.selected.clear();
+  const {chosen,leftOut}=pickRouteStops(ranked.map(lead=>lead.id), state.selected, ROUTE_STOP_LIMIT);
+  chosen.forEach(id=>state.selected.add(id));
+  const note=leftOut?`${fmt(hits.length)} houses in the storm area. ${fmt(chosen.length)} queued for the route.`:`${fmt(chosen.length)} storm-area houses queued for the route.`;
+  $('routeTrayNote').textContent=note;
+  $('routeWarning').textContent=leftOut?note:'';
+  toast(note);
+  renderAll();
+  fitMapToScope(true);
+  openRoutePanel();
 }
 
 function locate(){
@@ -1015,6 +1153,7 @@ function locate(){
   navigator.geolocation.getCurrentPosition(pos=>{
     if(document.visibilityState==='hidden'||token!==locate._seq||!state.map)return;
     state.currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    setWeatherLocation(state.currentLocation);
     if(state.userMarker)state.userMarker.remove();
     state.userMarker=L.marker([pos.coords.latitude,pos.coords.longitude]).addTo(state.map).bindPopup('You are here').openPopup();
     state.map.setView([pos.coords.latitude,pos.coords.longitude],16);
@@ -1089,7 +1228,7 @@ function selectVisibleForRoute(){
 }
 function clearRoute(){
   endNavigation('');
-  state.selected.clear();state.routeStops=[];state.routeGeometry=null;
+  state.selected.clear();state.stormHouseIds=null;state.routeStops=[];state.routeGeometry=null;
   $('routeWarning').textContent='';$('routeDistance').textContent='';$('routeTrayStats').textContent='';
   $('routeStops').innerHTML='<div class="empty">No route yet.</div>';
   $('routeTrayNote').textContent='Select homes, then build an optimized route.';
