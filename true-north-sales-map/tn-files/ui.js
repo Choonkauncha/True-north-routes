@@ -1,4 +1,5 @@
 import { putPending, leadQuery } from './store.js';
+import { forgotPasswordMarkup } from './password-reset.js';
 
 export function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -116,5 +117,5 @@ export function bindSignOut(ctx, button) {
 }
 
 export function signInCard() {
-  return `<div class="authCard card"><div class="pad"><img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242"><div class="eyebrow">TRUE NORTH</div><h1 style="font-size:24px">Sign in</h1><form id="tnLogin"><div class="field"><label>Email</label><input id="tnEmail" type="email" required autocomplete="email"></div><div class="field" style="margin-top:10px"><label>Password</label><input id="tnPassword" type="password" required autocomplete="current-password"></div><button class="tnTap dark" style="width:100%;margin-top:12px" type="submit">Sign in</button><div id="tnLoginError" class="tnError"></div></form></div></div>`;
+  return `<div class="authCard card"><div class="pad"><img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242"><div class="eyebrow">TRUE NORTH</div><h1 style="font-size:24px">Sign in</h1><form id="tnLogin"><div class="field"><label>Email</label><input id="tnEmail" type="email" required autocomplete="email"></div><div class="field" style="margin-top:10px"><label>Password</label><input id="tnPassword" type="password" required autocomplete="current-password"></div><button class="tnTap dark" style="width:100%;margin-top:12px" type="submit">Sign in</button><div id="tnLoginError" class="tnError"></div></form>${forgotPasswordMarkup()}</div></div>`;
 }

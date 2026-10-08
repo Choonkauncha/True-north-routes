@@ -1,5 +1,6 @@
 import { bootFiles, signIn, signOut } from './store.js';
 import { bindSignOut, esc, signInCard } from './ui.js';
+import { passwordChangeError } from '../lib/password-reset.js';
 
 const app = document.getElementById('app');
 
@@ -52,8 +53,8 @@ async function save(event, ctx) {
   const first = document.getElementById('pw1').value;
   const second = document.getElementById('pw2').value;
   msg.className = 'tnError';
-  if (first.length < 8 || first.length > 72) { msg.textContent = 'Use 8 to 72 characters.'; return; }
-  if (first !== second) { msg.textContent = 'Those passwords do not match.'; return; }
+  const problem = passwordChangeError(first, second);
+  if (problem) { msg.textContent = problem; return; }
   msg.className = 'tnHelp';
   msg.textContent = 'Saving…';
   const { error } = await ctx.sb.auth.updateUser({ password: first });

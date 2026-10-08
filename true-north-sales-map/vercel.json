@@ -10,7 +10,8 @@
     {"source":"/forms","destination":"/forms.html"},
     {"source":"/files","destination":"/files.html"},
     {"source":"/form-print","destination":"/form-print.html"},
-    {"source":"/account","destination":"/account.html"}
+    {"source":"/account","destination":"/account.html"},
+    {"source":"/reset-password","destination":"/reset-password.html"}
   ],
   "headers": [
     {"source":"/data/(.*)","headers":[{"key":"Cache-Control","value":"public, max-age=86400, stale-while-revalidate=604800"}]},

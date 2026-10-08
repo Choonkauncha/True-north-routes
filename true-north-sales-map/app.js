@@ -1,5 +1,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import './field-ops.js';
+import './tn-files/password-reset.js';
+import { PASSWORD_UPDATED } from './lib/password-reset.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -174,6 +176,8 @@ function normalizeLead(l){return {...l,status:l.status||'New',assignedRepId:l.as
 function showLogin(){
   $('loginModal').classList.remove('hidden'); $('appShell').classList.add('blurred');
   $('loginError').textContent='';
+  const note=$('loginNote');
+  if(note) note.textContent=new URLSearchParams(location.search).get('reset')==='1'?PASSWORD_UPDATED:'';
 }
 function hideLogin(){ $('loginModal').classList.add('hidden'); $('appShell').classList.remove('blurred'); }
 async function login(e){e.preventDefault();if(!state.supabase){return}
