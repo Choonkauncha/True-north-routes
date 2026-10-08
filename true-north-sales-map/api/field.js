@@ -154,15 +154,21 @@ async function viewStatus(ctx) {
   const shift = field ? await openShift(ctx) : null;
   let unread = 0;
   let threadId = null;
+  let latestIncoming = null;
   if (field) {
     const thread = await threadForRep(ctx, ctx.rep.id);
     threadId = thread?.id || null;
     if (thread) {
       const messages = await threadMessages(ctx, thread.id);
       unread = unreadCount(messages, thread, 'rep');
+      latestIncoming = [...messages].reverse().find((message) => message.sender_rep_id !== ctx.rep.id) || null;
     }
   } else if (admin) {
     unread = await adminUnreadTotal(ctx);
+    if (isUuid(ctx.rep.id)) {
+      const rows = await rest(ctx.token, `messages?sender_rep_id=neq.${ctx.rep.id}&select=id,thread_id,sender_rep_id,body,created_at&order=created_at.desc&limit=1`);
+      latestIncoming = Array.isArray(rows) ? rows[0] || null : null;
+    }
   }
   return {
     rep: { id: ctx.rep.id, name: ctx.rep.name, role: ctx.rep.role },
@@ -172,7 +178,8 @@ async function viewStatus(ctx) {
     consent: consent ? { consented_at: consent.consented_at, notice_version: consent.notice_version } : null,
     openShift: shift,
     unread,
-    threadId
+    threadId,
+    latestIncoming
   };
 }
 

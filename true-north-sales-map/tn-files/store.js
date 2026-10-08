@@ -480,6 +480,9 @@ export async function listCategories(ctx) {
 export async function saveCategory(ctx, category) {
   const name = String(category.name || '').trim();
   if (!name) throw new Error('Name the category.');
+  if (category.kind === 'inspection' || category.appointment_id) {
+    throw new Error('Completed inspection folders cannot be renamed.');
+  }
   if (ctx.mode === 'local') {
     const saved = {
       id: category.id || crypto.randomUUID(),
@@ -673,7 +676,7 @@ export async function saveEstimate(ctx, input) {
 
 async function deleteRecord(ctx, table, storeName, row) {
   const role = ctx.mode === 'local' ? 'admin' : ctx.rep?.role;
-  if (!canDeleteRecord(role, row, ctx.rep?.id)) throw new Error('You can only delete a record you uploaded.');
+  if (!canDeleteRecord(role)) throw new Error('Only management can delete a receipt or estimate.');
   if (ctx.mode === 'local') {
     await idbDelete(storeName, row.id);
     await removeStoredFile(ctx, row.storage_path);
@@ -710,6 +713,9 @@ export function groupPhotosByAddress(photos) {
 
 export function plainError(error) {
   const message = String(error?.message || error || 'Something went wrong.');
+  if (/sync_inspection_folder|inspection_folder_label|document_categories_kind|Completed inspection folders/i.test(message)) {
+    return 'Run supabase/migrations/20261008_library_admin_alerts.sql in the Supabase SQL editor, then try again.';
+  }
   if (/document_categories|receipt_records|estimate_records|guard_document_category|category_id/i.test(message)) {
     return 'Run supabase/migrations/20261008_document_library.sql in the Supabase SQL editor, then try again.';
   }

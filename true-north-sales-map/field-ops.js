@@ -1,6 +1,6 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import './tn-files/password-reset.js';
-import { formatHours, formatMiles, pointLabel, roleLabel } from './lib/field-rules.js';
+import { formatHours, formatMiles, incomingAlert, pointLabel, roleLabel } from './lib/field-rules.js';
 import { canUsePhotoBank, fieldHomeLinks } from './lib/role-access.js';
 
 const state = {
@@ -20,6 +20,10 @@ const state = {
   poll: null,
   ticker: null,
   channel: null,
+  alertsPrimed: false,
+  seenMessageIds: new Set(),
+  alertsUnlocked: false,
+  audioCtx: null,
   shifts: null,
   shiftDate: '',
   selectedRepId: null,
@@ -45,7 +49,7 @@ function ensureCss() {
   document.head.appendChild(link);
 }
 
-function toast(message) {
+function toast(message, { hold = 2800 } = {}) {
   let node = document.getElementById('tnToast');
   if (!node) {
     node = document.createElement('div');
@@ -57,7 +61,117 @@ function toast(message) {
   node.textContent = message;
   node.classList.add('show');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => node.classList.remove('show'), 2800);
+  toast._t = setTimeout(() => node.classList.remove('show'), hold);
+}
+
+function unlockAlertSound() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  if (!state.audioCtx) state.audioCtx = new Ctx();
+  state.audioCtx.resume?.();
+}
+
+function playAlertSound() {
+  const ctx = state.audioCtx;
+  if (!ctx || ctx.state === 'suspended') return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 880;
+    gain.gain.value = 0.05;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+    osc.stop(ctx.currentTime + 0.14);
+  } catch {
+    /* A blocked sound should not stop the on-screen alert. */
+  }
+}
+
+function announceMessage(text) {
+  toast(text, { hold: 6000 });
+  try { navigator.vibrate?.(80); } catch { /* vibration is optional */ }
+  playAlertSound();
+  if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try { new Notification('True North', { body: text }); } catch { /* permission can change under us */ }
+  }
+}
+
+function noteIncoming(message) {
+  const viewing = state.msgOpen && state.chatMode === 'chat' && state.thread?.id === message?.thread_id
+    ? state.thread.id
+    : null;
+  const decision = incomingAlert(message, {
+    meId: state.status?.rep?.id,
+    seenIds: state.seenMessageIds,
+    viewingThreadId: viewing
+  });
+  if (message?.id) state.seenMessageIds.add(message.id);
+  if (decision.quiet && state.activeRepId) {
+    loadThread(state.activeRepId, { quiet: true }).catch(() => {});
+    return;
+  }
+  if (!decision.notify) return;
+  const body = String(message.body || '').replace(/\s+/g, ' ').trim().slice(0, 140);
+  announceMessage(body ? `New message: ${body}` : 'New message');
+}
+
+function watchIncoming(status) {
+  const incoming = status?.latestIncoming;
+  if (!state.alertsPrimed) {
+    state.alertsPrimed = true;
+    if (incoming?.id) state.seenMessageIds.add(incoming.id);
+    return;
+  }
+  if (incoming) noteIncoming(incoming);
+}
+
+function stopAlerts() {
+  state.alertsPrimed = false;
+  state.seenMessageIds.clear();
+  if (state.channel && state.sb) state.sb.removeChannel(state.channel);
+  state.channel = null;
+}
+
+async function ensureRealtime() {
+  if (state.channel || !state.cfg?.url || !state.token) return;
+  try {
+    if (!state.sb) state.sb = createClient(state.cfg.url, state.cfg.publishableKey);
+    const existing = await state.sb.auth.getSession();
+    if (!existing.data?.session) {
+      const stored = readStoredSession();
+      if (stored?.access_token && stored.refresh_token) {
+        await state.sb.auth.setSession({
+          access_token: stored.access_token,
+          refresh_token: stored.refresh_token
+        });
+      }
+    }
+    state.channel = state.sb.channel(`tn-messages-${state.status?.rep?.id || 'office'}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        if (payload?.new) noteIncoming(payload.new);
+        refreshStatus().catch(() => {});
+      })
+      .subscribe();
+  } catch (error) {
+    console.warn('Message alerts are using refresh until realtime connects.', error);
+  }
+}
+
+function alertsNeedTap() {
+  if (typeof Notification === 'undefined') return !state.alertsUnlocked;
+  return Notification.permission === 'default';
+}
+
+async function enableMessageAlerts() {
+  state.alertsUnlocked = true;
+  unlockAlertSound();
+  if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+    try { await Notification.requestPermission(); } catch { /* the in-app banner still works */ }
+  }
+  const button = document.getElementById('tnAlerts');
+  if (button) button.hidden = !alertsNeedTap();
 }
 
 function easternStamp(iso) {
@@ -527,6 +641,8 @@ async function refreshStatus() {
   if (!state.token) return;
   state.status = await api('/api/field?view=status');
   renderWidget();
+  watchIncoming(state.status);
+  ensureRealtime().catch(() => {});
 }
 
 function askConsent() {
@@ -635,10 +751,13 @@ function renderPanelShell() {
         <h2 id="tnMsgTitle">Messages</h2>
         <button type="button" class="tnMsgClose" id="tnMsgClose">Close</button>
       </header>
+      <button type="button" id="tnAlerts" class="tnAlerts">Turn on alerts</button>
       <div id="tnMsgBody"></div>
     </section>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#tnMsgClose').onclick = closeMessages;
+  overlay.querySelector('#tnAlerts').onclick = () => { enableMessageAlerts().catch(() => {}); };
+  overlay.querySelector('#tnAlerts').hidden = !alertsNeedTap();
   overlay.querySelector('#tnMsgBack').onclick = () => {
     state.chatMode = 'list';
     state.activeRepId = null;
@@ -773,6 +892,7 @@ async function syncSession(session) {
   state.token = session?.access_token || null;
   if (!session) {
     state.status = null;
+    stopAlerts();
     document.getElementById('tnFieldOps')?.remove();
     closeMessages();
     return;
@@ -787,9 +907,26 @@ async function syncSession(session) {
   }
 }
 
+function showLocalNoticePreview() {
+  ensureCss();
+  mountWidget();
+  state.status = {
+    isField: true,
+    isAdmin: false,
+    unread: 1,
+    rep: { id: 'preview', name: 'Preview', role: 'appointment_setter' }
+  };
+  renderWidget();
+  announceMessage('New message from the office');
+}
+
 async function bootWidget() {
   const cfg = await loadConfig();
-  if (!cfg) return;
+  const preview = new URLSearchParams(location.search).get('previewNotice') === '1';
+  if (!cfg) {
+    if (preview) showLocalNoticePreview();
+    return;
+  }
   state.cfg = cfg;
   await syncSession(readStoredSession());
   if (new URLSearchParams(location.search).get('open') === 'messages' && state.status?.rep) openMessages();
@@ -902,6 +1039,7 @@ async function enterShifts(session) {
   if (!session) {
     state.token = null;
     state.status = null;
+    stopAlerts();
     document.getElementById('tnFieldOps')?.remove();
     renderShiftsLogin();
     return;
@@ -910,6 +1048,8 @@ async function enterShifts(session) {
   mountWidget();
   try {
     state.status = await api('/api/field?view=status');
+    watchIncoming(state.status);
+    ensureRealtime().catch(() => {});
   } catch (error) {
     if (stale()) return;
     document.getElementById('tnFieldOps')?.remove();
