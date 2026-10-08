@@ -4,6 +4,7 @@ import './tn-files/password-reset.js';
 import { PASSWORD_UPDATED } from './lib/password-reset.js';
 import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } from './lib/route-picks.js';
 import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
+import { setWeatherLocation, startMapWeather } from './weather-widget.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -214,6 +215,7 @@ function initMapOnce(){
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap contributors'}).addTo(state.map);
   state.markerLayer=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:42,showCoverageOnHover:false,spiderfyOnMaxZoom:true}).addTo(state.map);
   state.map.on('dragstart',()=>{ if(state.navigating&&state.navFollow){state.navFollow=false;syncRecenterButton();} });
+  startMapWeather(state.map);
 }
 
 function syncFilters(){
@@ -908,6 +910,7 @@ function locate(){
   navigator.geolocation.getCurrentPosition(pos=>{
     if(document.visibilityState==='hidden'||token!==locate._seq||!state.map)return;
     state.currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    setWeatherLocation(state.currentLocation);
     if(state.userMarker)state.userMarker.remove();
     state.userMarker=L.marker([pos.coords.latitude,pos.coords.longitude]).addTo(state.map).bindPopup('You are here').openPopup();
     state.map.setView([pos.coords.latitude,pos.coords.longitude],16);

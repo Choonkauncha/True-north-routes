@@ -212,3 +212,22 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
   #listSheet .filterBar .mine{min-height:48px;font-size:14px}
 }
 @media(prefers-reduced-motion:reduce){#listSheet.sidePanel{transition:none}}
+
+.weatherStack{position:absolute;z-index:660;top:82px;right:14px;width:min(280px,calc(100% - 28px));display:grid;gap:8px;pointer-events:none}
+.weatherStack.hidden{display:none!important}
+.weatherWidget,.weatherAlert{pointer-events:auto;box-sizing:border-box;max-width:100%;min-width:0}
+.weatherWidget{background:rgba(255,255,255,.97);border:1px solid #d9e0e3;border-radius:14px;padding:10px 12px;box-shadow:var(--shadow-soft);color:#0c1424}
+.weatherTop{display:flex;gap:10px;align-items:center}
+.weatherTop b{font-size:28px;line-height:1;color:#0c1424}
+#weatherPlace{display:block;color:#5c6d76;font-size:11px;font-weight:800}
+#weatherNow{display:block;font-weight:800;font-size:15px;line-height:1.2}
+.weatherMeta,.weatherRange{margin:6px 0 0;font-size:13px;font-weight:700;color:#3E4E59}
+.weatherHours{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-top:8px}
+.weatherHours div{min-width:0;text-align:center;background:#F3F5F6;border-radius:8px;padding:6px 2px}
+.weatherHours span{display:block;font-size:11px;color:#5c6d76}
+.weatherHours b{display:block;font-size:13px;color:#0c1424}
+.weatherAlert{background:#3a1d16;color:#fff;border-radius:12px;padding:10px 12px;font-size:14px;font-weight:800;line-height:1.35}
+.weatherAlert[hidden]{display:none!important}
+@media(max-width:960px){
+  .weatherStack{top:118px;left:8px;right:8px;width:auto}
+}

@@ -19,6 +19,7 @@ Map-first canvassing operations for Vercel. The supplied dataset contains **17,2
 - Territory ownership by city/market.
 - Heat layers for lead density, opportunity score, and roof-age proxy / verified roof age.
 - Active storm alerts from the National Weather Service. This is a **current warning layer**, not a historical hail-damage archive.
+- A small weather widget on the map for the current spot: temperature, conditions, wind, rain chance, the next few hours, and today's high and low. It uses Open-Meteo and needs no API key. Active storm, hail, and wind alerts from the National Weather Service show as a banner.
 - Appointment handoff queue for salesperson transfer.
 - 7-day canvasser leaderboard based on recorded field activity.
 - Admin/manager tools to seed the source rows, initialize territories, run batch geocoding, load storm alerts, and export lead state.
@@ -56,9 +57,11 @@ The source PDF supplies construction year for the Knox owner-occupied set, not t
 
 The NWS layer shows currently active Ohio weather alerts filtered to storm/wind/hail/tornado-related products. It does not assert that a particular property suffered storm damage.
 
+The map also shows a live widget from `/api/weather`. Open-Meteo supplies the forecast for the phone's location, or the map center if location is denied. The National Weather Service point alerts feed supplies the banner. Responses are cached for about 10 minutes. If either service is down, that part stays hidden.
+
 ## Vercel architecture
 
-This remains a static-first site, with Vercel Functions only for `/api/config`, `/api/geocode`, and `/api/storms`. Supabase is the shared database/auth layer. The server-only Supabase secret is used only to validate authenticated requests to the geocoding endpoint.
+This remains a static-first site, with Vercel Functions only for `/api/config`, `/api/geocode`, `/api/storms`, and `/api/weather`. Supabase is the shared database/auth layer. The server-only Supabase secret is used only to validate authenticated requests to the geocoding endpoint.
 
 ## Clock in, location, and office messages
 

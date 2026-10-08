@@ -30,6 +30,15 @@
     </div></div>
     <div class="mapHud"><div class="hudTitle">FIELD BOARD <span>INSPECT HONESTLY · DOCUMENT CLEARLY · EARN THE JOB</span></div><div id="stats" class="stats"></div><div class="hudProgress"><div><b id="todayWorked">0</b><span>worked today</span></div><div><b id="todayAppts">0</b><span>appointments</span></div><div><b id="highPriorityCount">0</b><span>high priority</span></div></div></div>
     <div class="mapLegend" id="mapLegend"><span><i class="legendPin pinNew"></i>New</span><span><i class="legendPin pinKnocked"></i>Knocked</span><span><i class="legendPin pinNoAnswer"></i>No answer</span><span><i class="legendPin pinInterested"></i>Interested</span><span><i class="legendPin pinNot"></i>Not interested</span><span><i class="legendPin pinDnk"></i>Do not knock</span><span><i class="legendPin pinAppt"></i>Appointment</span><span><i class="legendPin pinSelected"></i>Selected</span></div>
+    <div id="weatherStack" class="weatherStack hidden">
+      <div id="weatherAlert" class="weatherAlert" hidden></div>
+      <section id="weatherWidget" class="weatherWidget" aria-label="Weather">
+        <div class="weatherTop"><b id="weatherTemp"></b><div><span id="weatherPlace"></span><span id="weatherNow"></span></div></div>
+        <p id="weatherMeta" class="weatherMeta"></p>
+        <p id="weatherRange" class="weatherRange"></p>
+        <div id="weatherHours" class="weatherHours"></div>
+      </section>
+    </div>
     <div id="pinBanner" class="pinBanner hidden" role="status">
       <p id="pinBannerText"></p>
       <button type="button" id="pinBannerAction" class="hidden">Open Admin</button>
