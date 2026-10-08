@@ -104,7 +104,7 @@ assert.equal(earlyManagementDecision(memoryStorage({
 assert.equal(earlyManagementDecision(memoryStorage({
   'sb-qdovtewieuojjsebipex-auth-token': sessionJson('user-pat'),
   'tn-role:user-pat': 'manager'
-})), 'wait');
+})), 'redirect');
 assert.equal(earlyManagementDecision(memoryStorage({
   'sb-qdovtewieuojjsebipex-auth-token': sessionJson('user-new')
 })), 'wait');
@@ -162,8 +162,10 @@ for (const [path, snippet] of Object.entries(pages)) {
 }
 assert.equal(read('reset-password.html').includes('/admin'), false);
 assert.ok(read('setter.html').includes("manageLink.hidden=!office"));
-assert.ok(read('setter.html').includes("rep.role==='admin'||rep.role==='manager'"));
+assert.ok(read('setter.html').includes("const office=rep.role==='admin'"));
+assert.ok(read('field-ops.js').includes("state.status?.rep?.role === 'admin'"));
 assert.ok(read('field-ops.js').includes('link.hidden = !allowed'));
+assert.ok(read('admin.html').includes("decision=role&&role!=='admin'?'redirect':'wait'"));
 assert.ok(read('app.js').includes("$('adminBtn').hidden = !open"));
 assert.ok(read('tn-files/accounts-admin.js').includes('Only this admin can open this account.'));
 assert.ok(read('tn-files/account-page.js').includes('clear_must_change_password'));

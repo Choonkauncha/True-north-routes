@@ -92,11 +92,11 @@ export function managementProfile({ email, rep, userId, name } = {}) {
   return rep || null;
 }
 
-/** Allow-list first, then admin or manager. An empty list allows every management role. */
+/** Allow-list first, then role admin only. An empty list still requires admin. Managers do not see Management. */
 export function canOpenManagement({ email, rep, adminEmails } = {}) {
   const list = Array.isArray(adminEmails) ? adminEmails.map(normalizeEmail).filter(Boolean) : [];
   const normalized = normalizeEmail(email || rep?.email);
   if (list.length && !list.includes(normalized)) return false;
   const profile = managementProfile({ email: normalized, rep, name: rep?.name });
-  return profile?.role === 'admin' || profile?.role === 'manager';
+  return profile?.role === 'admin';
 }

@@ -86,7 +86,7 @@ export async function bootFiles() {
 
 export async function attachSession(ctx, session) {
   ctx.session = session;
-  const result = await ctx.sb.from('reps').select('*').eq('user_id', session.user.id).eq('active', true).maybeSingle();
+  const result = await ctx.sb.from('reps').select('id,user_id,name,role,active,created_at').eq('user_id', session.user.id).eq('active', true).maybeSingle();
   ctx.rep = managementProfile({
     email: session.user.email,
     rep: result.data,

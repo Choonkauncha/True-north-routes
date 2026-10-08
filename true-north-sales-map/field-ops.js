@@ -331,7 +331,7 @@ function showManagementLink(link, allowed) {
 }
 
 function syncHeaderManagement() {
-  const allowed = managementAllowed() || Boolean(state.status?.isAdmin);
+  const allowed = managementAllowed() || state.status?.rep?.role === 'admin';
   document.querySelectorAll('a.tnManageLink').forEach((link) => showManagementLink(link, allowed));
 }
 

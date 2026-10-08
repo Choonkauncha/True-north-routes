@@ -256,7 +256,7 @@ assert.equal(canOpenManagement({
   email: 'mgr@example.com',
   rep: { role: 'manager', email: 'mgr@example.com' },
   adminEmails: [...BOOTSTRAP_ADMIN_EMAILS, 'mgr@example.com']
-}), true);
+}), false);
 assert.equal(canOpenManagement({
   email: 'boss@example.com',
   rep: { role: 'admin', email: 'boss@example.com' },
