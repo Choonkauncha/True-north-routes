@@ -1,0 +1,89 @@
+.tnFieldOps{display:inline-flex;align-items:center;gap:8px}
+.tnClockBtn,.tnMsgBtn,.tnShiftsLink{
+  min-height:44px;min-width:44px;border-radius:12px;padding:8px 14px;border:0;cursor:pointer;
+  font-weight:800;font-size:15px;text-decoration:none;position:relative;line-height:1.1;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;color:#fff
+}
+.headerLinks .tnFieldOps .tnClockBtn,.headerLinks .tnFieldOps .tnMsgBtn,.headerLinks .tnFieldOps .tnShiftsLink,
+.topRight .tnFieldOps .tnClockBtn,.topRight .tnFieldOps .tnMsgBtn,.topRight .tnFieldOps .tnShiftsLink{
+  min-height:44px;color:#fff;font-size:14px;font-weight:800
+}
+.tnClockBtn{flex-direction:column;gap:0;background:#2E6B4B}
+.tnClockBtn.isOut{background:#A44835}
+.tnClockBtn:disabled,.tnMsgBtn:disabled{opacity:.65;cursor:wait}
+#tnClockTimer{font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;letter-spacing:.3px}
+.tnMsgBtn,.tnShiftsLink{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff}
+.tnBadge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:99px;background:#fff;color:#132B3A;font-size:11px;font-weight:900;display:grid;place-items:center}
+.tnBadge.hidden{display:none}
+
+.tnConsent{position:fixed;inset:0;z-index:3200;background:rgba(8,22,29,.62);display:flex;align-items:flex-end;justify-content:center}
+.tnSheet{width:min(560px,100%);background:#fff;color:#17252D;border-radius:18px 18px 0 0;padding:22px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(7,23,31,.28)}
+.tnSheet h2{margin:0 0 8px;color:#132B3A;font-size:22px;line-height:1.2}
+.tnSheet p{margin:0;color:#3E4E59;font-size:16px;line-height:1.45}
+.tnSheet button{width:100%;min-height:52px;margin-top:16px;border:0;border-radius:12px;background:#2E6B4B;color:#fff;font-size:18px;font-weight:800;cursor:pointer}
+
+.tnMsgOverlay{position:fixed;inset:0;z-index:3000;background:#fff;display:flex}
+.tnMsgPanel{width:100%;height:100%;display:flex;flex-direction:column;background:#fff;color:#17252D}
+.tnMsgHead{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #DCE3E7;min-height:56px}
+.tnMsgHead h2{margin:0;font-size:20px;color:#132B3A;flex:1}
+.tnMsgHead p{display:none}
+.tnBack,.tnMsgClose{min-width:44px;min-height:44px;border:0;background:#F3F5F6;color:#132B3A;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;padding:0 12px}
+.tnMsgLayout{display:flex;flex-direction:column;min-height:0;flex:1}
+.tnThreadList{overflow:auto;background:#fff}
+.tnThreadBtn{display:flex;flex-direction:column;justify-content:center;width:100%;min-height:64px;text-align:left;border:0;border-bottom:1px solid #E6EBEE;background:#fff;padding:12px 16px;cursor:pointer}
+.tnThreadBtn b{display:block;color:#132B3A;font-size:17px}
+.tnThreadBtn small{display:block;color:#6C7A83;font-size:13px;margin-top:3px}
+.tnThreadBtn .tnDot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#E5722A;margin-right:8px}
+.tnConvo{display:flex;flex-direction:column;min-width:0;min-height:0;flex:1}
+.tnMsgLayout.listOnly .tnConvo{display:none}
+.tnMsgLayout.chatOnly .tnThreadList{display:none}
+.tnBubbles{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#F3F5F6}
+.tnBubble{max-width:min(520px,88%);padding:10px 12px;border-radius:16px;background:#fff;border:1px solid #E1E7EA}
+.tnBubble.mine{align-self:flex-end;background:#132B3A;color:#fff;border-color:#132B3A}
+.tnBubble b{display:block;font-size:12px;margin-bottom:4px}
+.tnBubble p{margin:0;font-size:16px;line-height:1.4;white-space:pre-wrap}
+.tnBubble time{display:block;margin-top:4px;font-size:11px;opacity:.7}
+.tnComposer{display:flex;gap:8px;padding:10px;border-top:1px solid #DCE3E7;background:#fff;align-items:flex-end}
+.tnComposer .srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.tnComposer textarea{flex:1;border:1px solid #D4DEE2;border-radius:12px;padding:12px;min-height:52px;max-height:140px;resize:vertical;font:inherit;font-size:16px}
+.tnComposer button{min-height:52px;min-width:88px;border:0;background:#E5722A;color:#fff;border-radius:12px;font-weight:800;font-size:16px;cursor:pointer}
+.tnComposer button:disabled{opacity:.55;cursor:wait}
+.tnEmpty{padding:28px 16px;color:#7C8990;font-size:16px;line-height:1.45}
+
+.tnNow{margin:8px 0 16px}
+.tnNow h2,.tnDayList h2{margin:0 0 8px;font-size:18px;color:#132B3A}
+.tnPersonBtn{display:block;width:100%;min-height:60px;text-align:left;border:1px solid #DCE3E7;border-radius:14px;background:#fff;padding:12px 14px;margin:0 0 8px;cursor:pointer}
+.tnPersonBtn.selected{border-color:#E5722A;box-shadow:inset 4px 0 0 #E5722A}
+.tnPersonBtn strong{display:block;font-size:17px;color:#132B3A}
+.tnPersonBtn span{display:block;margin-top:3px;font-size:14px;color:#6C7A83}
+.tnLive{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2E6B4B;margin-right:6px}
+.tnMilesBig{font-size:32px;line-height:1.1;font-weight:800;color:#132B3A;margin:6px 0}
+.tnShiftLayout{display:grid;grid-template-columns:minmax(280px,.9fr) minmax(0,1.15fr);gap:14px;align-items:start}
+.tnShiftMap{height:540px;border-radius:16px;border:1px solid #DCE3E7;overflow:hidden;background:#d8e0e3}
+.tnShiftNote{font-size:14px;color:#6C7A83;line-height:1.45;margin:6px 0 0}
+.tnDayBar{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:12px 0}
+.tnDayBar input{border:1px solid #D4DEE2;border-radius:12px;padding:12px;min-height:44px;font-size:16px}
+.tnDayBar .btn{min-height:44px}
+.tnPointMeta{font-size:13px;color:#6C7A83}
+
+.tnToast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,12px);z-index:3400;opacity:0;pointer-events:none;background:#132B3A;color:#fff;border-left:3px solid #E5722A;padding:12px 14px;border-radius:12px;font-size:14px;transition:.2s ease}
+.tnToast.show{opacity:1;transform:translate(-50%,0)}
+
+@media(min-width:701px){
+  .tnConsent{align-items:center;padding:16px}
+  .tnSheet{border-radius:18px;padding:22px}
+  #tnShiftBack{display:none}
+}
+@media(max-width:700px){
+  .tnFieldOps{position:fixed;z-index:1600;left:8px;right:8px;bottom:calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px}
+  body:has(#mobileBar) .tnFieldOps{bottom:62px}
+  body:has(.tnFieldOps) .mapLegend{bottom:132px}
+  body:has(.tnFieldOps) .routeTray{bottom:132px}
+  .tnClockBtn{flex:1;min-height:56px;font-size:18px;border-radius:14px}
+  .tnMsgBtn,.tnShiftsLink{min-height:56px;min-width:104px;font-size:15px;border-radius:14px}
+  .tnShiftLayout{grid-template-columns:1fr}
+  .tnShiftMap{height:68vh}
+  .tnPhoneHide{display:none!important}
+  .tnToast,.toast.show{bottom:132px}
+  body:has(.tnFieldOps) .container{padding-bottom:96px}
+}
