@@ -30,7 +30,7 @@ The live project is `https://ztdnpbrhiudklfqzgcbd.supabase.co`. Paste one file, 
 
 1. Supabase → SQL Editor → New query. Paste the whole file `supabase/setup_all.sql` and run it once. It is idempotent and already ordered: `schema.sql`, then Cam’s `supabase/migrations/20261008_access_clockin.sql`, then `supabase/forms_photos.sql`, then `supabase/accounts.sql` (audit log, role guard, and the first-admin trigger). Regenerate it with `node scripts/build-setup-sql.mjs` if one of those four files changes.
 2. Supabase → Authentication → Add user. Create a user with email `travisbishopmackie@gmail.com` or `truenorthrestorationss@gmail.com` and a password you choose. The `reps_bootstrap_admin` trigger inserts an active `public.reps` row with role `admin`. If that Auth user already existed before the SQL ran, the same script’s backfill insert attaches the admin row. Either order works.
-3. Authentication → URL Configuration. Set Site URL to the Vercel app origin, and add that origin plus `http://localhost:4173` to Redirect URLs. “Open as this user” sends a one-time magic link back to `/`.
+3. Authentication → URL Configuration. Set Site URL to the Vercel app origin, and add that origin, `http://localhost:4173`, and `<origin>/reset-password` to Redirect URLs. “Open as this user” sends a one-time magic link back to `/`. Forgot password sends the reset link to `/reset-password`.
 4. Vercel project Root Directory is `true-north-sales-map`. Environment variables:
    - `SUPABASE_URL` — `https://ztdnpbrhiudklfqzgcbd.supabase.co`
    - `SUPABASE_PUBLISHABLE_KEY` — browser-safe publishable key. `SUPABASE_ANON_KEY` is accepted if the publishable name is unset.
@@ -174,7 +174,8 @@ Admins and managers create logins from `/admin` → **Accounts**: name, email, r
 - Turning a login off sets `reps.active` to false and bans the Auth user. Turning it on clears the ban. You cannot turn off your own login.
 - **Open as this user** asks the server for a one-time magic link and shows **Copy link** and **Open in new tab**. Open that link in a private window so the admin’s own session stays put. Every open-as and every admin password reset is written to `public.account_audit` with the admin’s rep id and the time. Browsers cannot insert that table.
 - **Activity, files, forms** on the same card lists that person’s recent `lead_activity`, photos, and form submissions.
-- Every signed-in person changes their own password at `/account` (**My account**). That uses their own session (`auth.updateUser`) and does not use the secret key.
+- Every signed-in person changes their own password at `/account` (**My account**). That uses their own session (`auth.updateUser`) and does not use the secret key. The new password is 8 to 72 characters.
+- **Forgot password?** on the map and admin sign-in screens calls `resetPasswordForEmail` and always shows the same confirmation. The email link opens `/reset-password`, which reads the recovery tokens from the URL hash and saves the new password with the same 8 to 72 character rule.
 
 A database trigger also blocks a manager from promoting themselves to admin through the client. Service-role and SQL-editor writes are allowed, which is how the API and the first-admin bootstrap work.
 

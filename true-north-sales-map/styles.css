@@ -32,6 +32,16 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 .logoMark{display:none;width:36px;height:36px;object-fit:contain;flex:none}
 .brandWords{display:none}
 .signInLogo{display:block;width:min(320px,88%);height:auto;margin:0 auto 16px}
+.tnForgot{display:inline-flex;align-items:center;min-height:44px;margin-top:4px;padding:0;border:0;background:transparent;color:#1e6bff;font-weight:800;font-size:16px;cursor:pointer}
+.tnForgotForm{display:grid;gap:8px;margin-top:4px}
+.tnForgotForm.hidden{display:none}
+.loginCard input{min-height:44px;font-size:16px}
+.loginCard .darkBtn{min-height:44px;font-size:16px}
+.tnResetMsg{font-size:14px;line-height:1.4;margin:8px 0 0}
+.tnResetMsg.isOk{color:#16315f}
+.tnResetMsg.isBad{color:#A44835;font-weight:700}
+.tnResetNote{color:#2E6B4B;font-size:14px;font-weight:700;margin:8px 0 0;min-height:0}
+.tnResetNote:empty{display:none}
 .brandName{font-size:12px;font-weight:900;letter-spacing:2.2px;white-space:nowrap}.brandName span{font-weight:650;letter-spacing:1.1px;opacity:.72}
 .brandSub{font-size:8px;letter-spacing:1.7px;color:#b9c6cc;margin-top:2px;white-space:nowrap}
 .topRight{display:flex;align-items:center;gap:7px}.chip{border:1px solid rgba(255,255,255,.22);padding:7px 10px;border-radius:999px;font-size:9px;letter-spacing:1px}.chip.live{background:var(--orange);color:#fff;border-color:var(--orange)}.chip.local{background:#314852;color:#fff}.datasetCount{font-size:10px;color:#b6c3ca}.ghostBtn,.primaryBtn,.adminBtn,.userMenu button{border-radius:9px;padding:9px 11px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;cursor:pointer;font-weight:800;font-size:11px}.ghostBtn:hover,.adminBtn:hover{background:rgba(255,255,255,.07)}.primaryBtn{background:var(--orange);border-color:var(--orange);box-shadow:0 5px 16px rgba(30,107,255,.28)}.primaryBtn:hover{filter:brightness(1.04)}.primaryBtn kbd{border-color:rgba(19,43,58,.22);background:rgba(19,43,58,.1);color:#fff}.adminBtn{background:rgba(255,255,255,.08)}.userMenu{display:flex;gap:6px;align-items:center;font-size:10px}.userMenu button{padding:7px 8px}

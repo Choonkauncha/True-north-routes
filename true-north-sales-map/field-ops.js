@@ -1,4 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import './tn-files/password-reset.js';
 import { formatHours, formatMiles, pointLabel, roleLabel } from './lib/field-rules.js';
 
 const state = {
@@ -764,6 +765,12 @@ function renderShiftsLogin(message = '') {
         <button class="btn dark" type="submit">Sign in</button>
       </form>
       <div class="error" id="shiftsLoginError">${esc(message)}</div>
+      <button type="button" class="tnForgot" data-forgot>Forgot password?</button>
+      <form data-forgot-form class="tnForgotForm hidden">
+        <div class="field"><label for="shiftsForgotEmail">Email</label><input id="shiftsForgotEmail" data-forgot-email type="email" autocomplete="email" required></div>
+        <button class="btn dark" type="submit">Send reset link</button>
+        <p data-forgot-msg class="tnResetMsg"></p>
+      </form>
     </div></div>`);
   document.getElementById('shiftsLogin').onsubmit = async event => {
     event.preventDefault();
