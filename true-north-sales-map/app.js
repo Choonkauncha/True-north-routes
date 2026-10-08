@@ -1962,7 +1962,7 @@ function showNavVisuals(){
   }
   if(!state.navAccuracy) state.navAccuracy=L.circle([HOME_BASE.lat, HOME_BASE.lng], {radius:18, pane:'navPane', renderer:state.navRenderer, interactive:false, color:'#1e6bff', weight:1, fillColor:'#1e6bff', fillOpacity:.12});
   if(!state.navCasing) state.navCasing=L.polyline([], lineOpts('#0c1424', 11, .55));
-  if(!state.navTraveled) state.navTraveled=L.polyline([], lineOpts('#8ea0b3', 5, .35));
+  if(!state.navTraveled) state.navTraveled=L.polyline([], lineOpts('#5d6d7e', 5, .72));
   if(!state.navLegLine) state.navLegLine=L.polyline([], lineOpts('#1e6bff', 6, .98));
   if(!state.navStop){
     const icon=L.divIcon({className:'navStopIcon', html:'<div class="navStop"><span>1</span></div>', iconSize:[34,34], iconAnchor:[17,17]});
