@@ -87,7 +87,7 @@ const adminHtml = read('admin.html');
 assert.equal(adminHtml.includes('value="canvasser"'), false);
 assert.equal(adminHtml.includes('Canvassers'), false);
 assert.ok(adminHtml.includes('id="openMessages"'));
-assert.ok(adminHtml.includes('appointment_setter') && adminHtml.includes("x.r.role==='canvasser'"));
+assert.ok(adminHtml.includes('appointment_setter') && read('admin-dashboard.js').includes('x.r.role === "canvasser"'));
 
 const indexHtml = read('index.html');
 assert.equal(indexHtml.includes('Canvasser'), false);

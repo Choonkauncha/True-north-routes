@@ -139,7 +139,7 @@ assert.ok(sql.includes('and password_changed_at is null'));
 const backfill = sql.slice(sql.lastIndexOf('update public.reps'));
 assert.equal(backfill.includes('travisbishopmackie'), false);
 
-const adminHtml = read('admin.html');
+const adminHtml = read('admin.html') + read('admin-dashboard.js');
 assert.ok(adminHtml.includes('#auth{display:none!important}'));
 assert.ok(adminHtml.includes("location.replace('/')"));
 assert.ok(adminHtml.includes('tn-role:'));
@@ -147,8 +147,8 @@ assert.ok(adminHtml.includes("key+'.'+n"));
 assert.equal(adminHtml.toLowerCase().includes('not authorized'), false);
 const leave = adminHtml.slice(adminHtml.indexOf('function leaveAdmin'), adminHtml.indexOf('function rememberAdminRole'));
 assert.equal(leave.includes('signOut'), false);
-assert.ok(leave.includes("location.replace('/')"));
-assert.ok(adminHtml.includes('if(!canOpenManagement({email,rep:profile,adminEmails:cfg.adminEmails})){leaveAdmin();return}'));
+assert.ok(/location\.replace\(["']\/["']\)/.test(leave));
+assert.ok(/if\s*\(\s*!canOpenManagement\([\s\S]*?adminEmails: cfg\.adminEmails[\s\S]*?leaveAdmin\(\);\s*return;/.test(read('admin-dashboard.js')));
 
 const pages = {
   'index.html': 'id="adminBtn" href="/admin" class="adminBtn hidden" hidden>Management</a>',
@@ -163,7 +163,7 @@ for (const [path, snippet] of Object.entries(pages)) {
 assert.equal(read('reset-password.html').includes('/admin'), false);
 const inspectionForm = read('tn-files/inspection-form.js');
 assert.ok(inspectionForm.includes('manageLink.hidden = !office'));
-assert.ok(inspectionForm.includes("const office = rep.role === 'admin'"));
+assert.ok(/const office = rep\.role === ["']admin["']/.test(inspectionForm));
 assert.ok(read('field-ops.js').includes("state.status?.rep?.role === 'admin'"));
 assert.ok(read('field-ops.js').includes('link.hidden = !allowed'));
 assert.ok(read('admin.html').includes("decision=role&&role!=='admin'?'redirect':'wait'"));
