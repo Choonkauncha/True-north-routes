@@ -3,7 +3,7 @@ import { bindSignOut, esc, mountSignIn, revealApp } from './ui.js';
 import { passwordChangeError } from '../lib/password-reset.js';
 import { passwordUpdateError } from '../lib/must-change-password.js';
 import { forgetRole, rememberRole } from '../lib/management-gate.js';
-import { roleLabel } from '../lib/role-access.js';
+import { roleLabel, fieldHomeLinks } from '../lib/role-access.js';
 import { MANAGEMENT_LINKS, canOpenManagement } from '../lib/account-rules.js';
 import { mountAccountTraining } from './training-account.js';
 
@@ -39,23 +39,24 @@ function renderSignIn(ctx) {
 function managementCard(ctx) {
   const email = ctx.session?.user?.email || ctx.rep?.email || '';
   if (!canOpenManagement({ email, rep: ctx.rep, adminEmails: ctx.cfg?.adminEmails })) return '';
-  const links = MANAGEMENT_LINKS.map((link) => `<a class="tnTap" href="${esc(link.href)}">${esc(link.label)}</a>`).join('');
-  return `<section class="tnCard tnManageCard" id="managementDashboard" data-tn-panel="account-management" data-tn-rank="secondary"><div class="eyebrow">MANAGEMENT</div><b>Management dashboard</b><span>Accounts, the team, documents, messages, and forms. These open the office tools with this same login.</span><div class="tnStack">${links}</div></section>`;
+  const links = MANAGEMENT_LINKS.map((link) => `<a class="profileAction" href="${esc(link.href)}"><b>${esc(link.label)}</b><span>${esc(link.hint)}</span><i aria-hidden="true">↗</i></a>`).join('');
+  return `<section class="profileSection" id="managementDashboard" data-tn-panel="account-management" data-tn-rank="secondary"><div class="profileSectionHead formHeader"><h2>Management tools</h2><span>Your office workspace</span></div><div class="profileActionGrid">${links}</div></section>`;
 }
 
 function renderForm(ctx) {
   const who = ctx.rep?.name || ctx.session.user.email || 'Signed in';
-  const role = ctx.rep?.role ? ` · ${roleLabel(ctx.rep.role)}` : '';
-  app.innerHTML = `<h1 class="tnTitle">My account</h1>
-    <p class="tnSub">${esc(who)}${esc(role)}</p>
+  const initials = who.split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase();
+  const guidance = ['appointment_setter', 'canvasser'].includes(ctx.rep?.role) ? 'Find the homeowner. Book the inspection. Leave a clear handoff.' : ctx.rep?.role === 'salesperson' ? 'Inspect the property. Document what you find. Keep the homeowner informed.' : 'Keep the team, inspections, and paperwork moving.';
+  const actions = fieldHomeLinks(ctx.rep?.role).filter(link => !['account', 'message'].includes(link.id)).map(link => `<a class="profileAction" href="${esc(link.href)}"><b>${esc(link.label)}</b><i aria-hidden="true">↗</i></a>`).join('');
+  app.innerHTML = `<section class="profileHero"><div class="profileAvatar" aria-hidden="true">${esc(initials)}</div><div><div class="eyebrow">MY WORKSPACE</div><h1 class="tnTitle">${esc(who)}</h1><span class="profileRole">${esc(roleLabel(ctx.rep?.role) || 'Team member')}</span><p>${guidance}</p></div></section>
     ${managementCard(ctx)}
-    <p class="tnAccountBtns"><a class="tnTap" href="/training.html">Training</a><a class="tnTap" href="/forms.html">My forms</a></p>
+    <section class="profileSection"><div class="profileSectionHead"><h2>Your field tools</h2><span>Pick up where you need to work</span></div><div class="profileActionGrid">${actions}</div></section>
     <div id="tnAccountTraining"></div>
     <form id="pwForm" class="tnCard" data-tn-panel="account-password" data-tn-rank="primary">
-      <h2>Password</h2>
+      <div class="eyebrow">ACCOUNT SECURITY</div><h2>Update your password</h2>
       <label class="tnLabel" for="pw1">New password</label>
       <input class="tnInput" id="pw1" type="password" autocomplete="new-password" minlength="8" required>
-      <label class="tnLabel" for="pw2">Type it again</label>
+      <label class="tnLabel" for="pw2">Confirm new password</label>
       <input class="tnInput" id="pw2" type="password" autocomplete="new-password" minlength="8" required>
       <p class="tnHelp">At least 8 characters. Use this the next time you sign in.</p>
       <button class="tnTap dark" type="submit">Change password</button>

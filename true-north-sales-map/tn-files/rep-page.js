@@ -39,21 +39,25 @@ function render() {
     app.innerHTML = `<p class="tnProgress">${esc(who)}</p><h1 class="tnTitle">Appointment setter</h1><p class="tnSub">Photos are for sales reps. You can still send inspections, fill forms assigned to you, and message management.</p><div class="tnStack">${homeLinks(role)}</div>`;
     return;
   }
-  app.innerHTML = `${ctx.mode === 'local' ? '<div class="tnBanner">Saved on this phone until Supabase storage is connected.</div>' : ''}<p class="tnProgress">${esc(who)}</p><section data-tn-panel="rep-search" data-tn-rank="primary"><h1 class="tnTitle">Sales</h1><p class="tnSub">Search the house, then add a roof photo or fill a form.</p><label class="tnLabel" for="q">House</label><input class="tnInput" id="q" placeholder="Address or homeowner"><div id="hits" class="tnStack" style="margin-top:10px"></div></section><section data-tn-panel="rep-photos" data-tn-rank="secondary"><h2>Photos by house</h2><div id="groups" class="tnStack"></div></section><div class="tnStack" style="margin-top:16px">${homeLinks(role)}${ctx.rep && (ctx.rep.role === 'admin' || ctx.rep.role === 'manager') ? '<a class="tnTap" href="/files.html">Files & Forms</a>' : ''}</div>`;
+  app.innerHTML = `${ctx.mode === 'local' ? '<div class="tnBanner">Saved on this phone until Supabase storage is connected.</div>' : ''}<section class="profileHero"><div><div class="eyebrow">SALES WORKSPACE</div><h1 class="tnTitle">Every inspection, documented.</h1><p>${esc(who)} · Search a property to add photos or complete a form.</p></div></section><section class="tnCard propertySearchCard" data-tn-panel="rep-search" data-tn-rank="primary"><h2>Find a property</h2><label class="tnLabel" for="q">Find a property</label><input class="tnInput" id="q" placeholder="Search address or homeowner" autocomplete="off"><p class="tnHelp">Enter at least two characters. Your photos and forms stay attached to the property.</p><div id="hits" class="tnStack" aria-live="polite"></div></section><section data-tn-panel="rep-photos" data-tn-rank="secondary"><div class="profileSectionHead"><h2>Property photo bank</h2><span>Organized by address</span></div><div id="groups" class="tnStack"></div></section><section class="profileSection"><div class="profileSectionHead"><h2>Field tools</h2></div><div class="roleToolsGrid">${homeLinks(role)}${ctx.rep && (ctx.rep.role === 'admin' || ctx.rep.role === 'manager') ? '<a class="tnTap" href="/files.html">Files & Forms</a>' : ''}</div></section>`;
   const input = document.getElementById('q');
   let timer;
   input.oninput = () => { clearTimeout(timer); timer = setTimeout(() => runSearch(input.value), 200); };
-  input.focus();
   loadGroups();
 }
 
+let searchGeneration = 0;
 async function runSearch(query) {
+  const generation = ++searchGeneration;
   const hits = document.getElementById('hits');
   if (!hits) return;
-  if (query.trim().length < 2) { hits.innerHTML = ''; return; }
+  if (query.trim().length < 2) { hits.innerHTML = ''; hits.removeAttribute('aria-busy'); return; }
   let rows = [];
+  hits.setAttribute('aria-busy', 'true');
   try { rows = await searchLeads(ctx, query); }
-  catch (error) { hits.innerHTML = `<p class="tnError">${esc(error.message)}</p>`; return; }
+  catch (error) { if (generation === searchGeneration) { hits.innerHTML = `<p class="tnError">${esc(error.message)}</p>`; hits.removeAttribute('aria-busy'); } return; }
+  if (generation !== searchGeneration) return;
+  hits.removeAttribute('aria-busy');
   hits.innerHTML = '';
   if (!rows.length) { hits.innerHTML = '<p class="tnSub">No matching house.</p>'; return; }
   rows.forEach((lead) => {
@@ -70,7 +74,8 @@ async function loadGroups() {
   if (!groups) return;
   try {
     const grouped = groupPhotosByAddress(await listPhotos(ctx));
-    groups.innerHTML = grouped.length ? grouped.map((group) => `<a class="tnCard" href="/photo.html?lead=${esc(group.lead_id)}&address=${esc(group.address)}"><b>${esc(group.address)}</b><span>${group.photos.length} photo${group.photos.length === 1 ? '' : 's'}</span></a>`).join('') : '<p class="tnSub">No photos yet. Search a house and tap Add Photo.</p>';
+    groups.classList.add('propertyPhotoGrid');
+    groups.innerHTML = grouped.length ? grouped.map((group) => `<a class="tnCard" href="/photo.html?lead=${encodeURIComponent(group.lead_id)}&address=${encodeURIComponent(group.address)}"><b>${esc(group.address)}</b><span>${group.photos.length} photo${group.photos.length === 1 ? '' : 's'} · Open property →</span></a>`).join('') : '<div class="profileEmpty"><b>Your photo bank starts with a property.</b><p>Search an address above, then choose Add Photo. Each inspection will have its own photo history.</p></div>';
   } catch (error) {
     groups.innerHTML = `<p class="tnError">${esc(error.message)}</p>`;
   }
