@@ -6,11 +6,14 @@ import {
   LIBRARY_LIMIT,
   addCategory,
   canDeleteRecord,
+  customCategories,
   filterRecords,
   formatMoney,
   groupLibrary,
   libraryFileKind,
   parseAmount,
+  inspectionFolders,
+  isInspectionFolder,
   removeCategory,
   renameCategory,
   reorderCategory,
@@ -72,9 +75,28 @@ assert.equal(libraryFileKind({ name: 'photo.jpg', type: 'image/jpeg', size: LIBR
 assert.equal(libraryFileKind({ name: 'sheet.xlsx', type: '', size: 20 }, { imagesAndPdfOnly: true }).error.includes('PDF'), true);
 
 const setter = '33333333-3333-4333-8333-333333333333';
-assert.equal(canDeleteRecord('admin', { uploaded_by: setter }, 'other'), true);
-assert.equal(canDeleteRecord('appointment_setter', { uploaded_by: setter }, setter), true);
-assert.equal(canDeleteRecord('salesperson', { uploaded_by: setter }, 'rep-1'), false);
+assert.equal(canDeleteRecord('admin'), true);
+assert.equal(canDeleteRecord('manager'), true);
+assert.equal(canDeleteRecord('appointment_setter'), false);
+assert.equal(canDeleteRecord('salesperson'), false);
+assert.equal(setter.length > 0, true);
+
+const inspection = {
+  id: 'insp',
+  name: 'Alex Morgan · 18 Public Square · Oct 8, 2026',
+  slug: 'inspection-appt',
+  system: true,
+  kind: 'inspection',
+  appointment_id: 'appt',
+  sort_order: 50,
+  scheduled_at: '2026-10-08T18:00:00Z'
+};
+assert.equal(isInspectionFolder(inspection), true);
+assert.equal(isInspectionFolder(seeded[0]), false);
+assert.equal(removeCategory([...seeded, inspection], [], inspection.id).error.includes('inspection folders stay'), true);
+assert.equal(renameCategory([...seeded, inspection], inspection.id, 'Renamed').error.includes('cannot be renamed'), true);
+assert.equal(customCategories([...seeded, inspection]).some((row) => row.kind === 'inspection'), false);
+assert.equal(inspectionFolders([...seeded, inspection])[0].id, 'insp');
 
 const sql = read('supabase/migrations/20261008_document_library.sql');
 assert.ok(sql.includes('document_categories'));
@@ -87,18 +109,47 @@ assert.ok(sql.includes("status in ('draft', 'sent', 'accepted', 'declined')"));
 assert.equal(/reps_role|alter table public\.reps drop constraint/i.test(sql), false);
 assert.equal(sql.includes('20261008_role_form_library.sql'), false);
 
+const alerts = read('supabase/migrations/20261008_library_admin_alerts.sql');
+assert.ok(alerts.includes('is_admin_or_manager()'));
+assert.ok(alerts.includes("kind in ('custom', 'inspection')"));
+assert.ok(alerts.includes('sync_inspection_folder'));
+assert.ok(alerts.includes("new.stage is distinct from 'Completed'"));
+assert.ok(alerts.includes('Completed inspection folders stay in the library.'));
+assert.ok(alerts.includes('Completed inspection folders cannot be renamed.'));
+assert.ok(alerts.includes('Uncategorized stays so documents always have a folder.'));
+assert.ok(alerts.includes("coalesce(t.kind, 'builder') <> 'file'"));
+assert.ok(alerts.includes("'canvasser'"));
+assert.ok(alerts.includes("split_part(name, '/', 1) not in ('receipts', 'estimates', 'library')"));
+assert.ok(alerts.includes('alter publication supabase_realtime add table public.messages'));
+assert.equal(/alter table public\.reps drop constraint/i.test(alerts), false);
+assert.ok(alerts.includes('Do not remove `canvasser`'));
+
 const setup = read('supabase/setup_all.sql');
 assert.ok(setup.indexOf('guard_document_review') < setup.indexOf('document_categories'));
 assert.ok(setup.includes('receipt_records'));
+assert.ok(setup.indexOf('20261008_document_library.sql') < setup.indexOf('20261008_library_admin_alerts.sql'));
+assert.ok(setup.includes('sync_inspection_folder'));
 
 const page = read('tn-files/my-forms.js');
 assert.ok(page.includes('capture="environment"'));
-assert.ok(page.includes('Library'));
 assert.ok(page.includes('Receipts'));
 assert.ok(page.includes('Estimates'));
+assert.ok(page.includes('Completed inspections'));
+assert.ok(page.includes('data-open-folder'));
+assert.equal(page.includes('data-mytab'), false);
 assert.ok(page.includes(read('lib/records.js').includes('RECORD_ACCEPT') ? 'RECORD_ACCEPT' : 'image/*'));
-assert.ok(read('tn-files/form-wizard.js').includes('mountMyForms'));
+assert.equal(read('tn-files/form-wizard.js').includes('mountMyForms'), false);
+assert.ok(read('tn-files/form-wizard.js').includes('Which house?'));
 assert.ok(read('tn-files/admin-app.js').includes('data-view="library"'));
 assert.ok(read('forms.html').includes('MY FORMS'));
+assert.ok(read('account.html').includes('field-ops.js'));
+assert.ok(read('field-ops.js').includes('postgres_changes'));
+assert.ok(read('field-ops.js').includes('Notification'));
+assert.ok(read('field-ops.js').includes('previewNotice'));
+assert.ok(read('field-ops.js').includes('incomingAlert'));
+assert.ok(read('app.js').includes('field-ops.js'));
+assert.ok(read('admin.html').includes('field-ops.js'));
+assert.ok(read('setter.html').includes('field-ops.js'));
+assert.ok(read('rep.html').includes('field-ops.js'));
 
 console.log('records.test.mjs ok');

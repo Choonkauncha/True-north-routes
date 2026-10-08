@@ -20,6 +20,7 @@ import {
   quotedTime,
   summarizeDay,
   trailMiles,
+  incomingAlert,
   unreadCount
 } from '../lib/field-rules.js';
 
@@ -99,6 +100,13 @@ const messages = [
 ];
 assert.equal(unreadCount(messages, thread, 'rep'), 1);
 assert.equal(unreadCount(messages, thread, 'admin'), 1);
+
+const seen = new Set(['m1']);
+assert.equal(incomingAlert({ id: 'm1', sender_rep_id: 'admin', thread_id: 't1' }, { meId: 'rep', seenIds: seen }).reason, 'seen');
+assert.equal(incomingAlert({ id: 'm2', sender_rep_id: 'rep', thread_id: 't1' }, { meId: 'rep', seenIds: seen }).reason, 'self');
+assert.equal(incomingAlert({ id: 'm3', sender_rep_id: 'admin', thread_id: 't1' }, { meId: 'rep', seenIds: seen, viewingThreadId: 't1' }).quiet, true);
+assert.equal(incomingAlert({ id: 'm4', sender_rep_id: 'admin', thread_id: 't1', body: 'On my way' }, { meId: 'rep', seenIds: seen }).notify, true);
+assert.equal(incomingAlert({}, { meId: 'rep' }).reason, 'empty');
 
 assert.equal(quotedTime('2026-10-08T04:00:00.000Z'), '"2026-10-08T04:00:00.000Z"');
 assert.throws(() => quotedTime('yesterday'), /timestamp/);

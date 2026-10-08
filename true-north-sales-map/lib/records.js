@@ -111,6 +111,10 @@ export function addCategory(categories, name) {
 }
 
 export function renameCategory(categories, id, name) {
+  const current = (categories || []).find((row) => row.id === id);
+  if (isInspectionFolder(current)) {
+    return { error: 'Completed inspection folders cannot be renamed.' };
+  }
   const cleaned = cleanName(name);
   if (cleaned.error) return cleaned;
   if ((categories || []).some((row) => row.id !== id && row.name.toLowerCase() === cleaned.name.toLowerCase())) {
@@ -138,9 +142,27 @@ export function reorderCategory(categories, id, direction) {
   return sortCategories(sorted);
 }
 
+export function isInspectionFolder(row) {
+  return row?.kind === 'inspection' || Boolean(row?.appointment_id);
+}
+
+export function inspectionFolders(categories) {
+  return (categories || []).filter(isInspectionFolder).sort((a, b) => {
+    const left = String(a.scheduled_at || '');
+    const right = String(b.scheduled_at || '');
+    if (left !== right) return right.localeCompare(left);
+    return (Number(b.sort_order) || 0) - (Number(a.sort_order) || 0) || String(a.name).localeCompare(String(b.name));
+  });
+}
+
+export function customCategories(categories) {
+  return sortCategories((categories || []).filter((row) => !isInspectionFolder(row)));
+}
+
 export function removeCategory(categories, documents, id) {
   const target = (categories || []).find((row) => row.id === id);
   if (!target) return { error: 'That category is already gone.' };
+  if (isInspectionFolder(target)) return { error: 'Completed inspection folders stay in the library.' };
   if (target.system || target.slug === UNCATEGORIZED_SLUG) {
     return { error: `${target.name} stays so documents always have a folder.` };
   }
@@ -185,7 +207,6 @@ export function filterRecords(rows, { query = '', from = '', to = '', status = '
   }).sort((a, b) => String(b.record_date || b.created_at || '').localeCompare(String(a.record_date || a.created_at || '')));
 }
 
-export function canDeleteRecord(role, record, repId) {
-  if (role === 'admin' || role === 'manager') return true;
-  return Boolean(repId && record?.uploaded_by && record.uploaded_by === repId);
+export function canDeleteRecord(role) {
+  return role === 'admin' || role === 'manager';
 }

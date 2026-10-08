@@ -208,6 +208,17 @@ export function unreadCount(messages, thread, audience) {
   }).length;
 }
 
+/** Decide whether a newly seen message should toast. Never alerts the sender. */
+export function incomingAlert(message, { meId, seenIds, viewingThreadId } = {}) {
+  if (!message?.id) return { notify: false, quiet: false, reason: 'empty' };
+  if (seenIds?.has?.(message.id)) return { notify: false, quiet: false, reason: 'seen' };
+  if (meId && message.sender_rep_id === meId) return { notify: false, quiet: false, reason: 'self' };
+  if (viewingThreadId && message.thread_id === viewingThreadId) {
+    return { notify: false, quiet: true, reason: 'open' };
+  }
+  return { notify: true, quiet: false, reason: 'new' };
+}
+
 export function latestMessage(messages, threadId) {
   let best = null;
   for (const message of messages || []) {
