@@ -45,10 +45,16 @@ let detail = null;
 let notice = '';
 let openLink = null;
 let resetId = '';
+let accountsCacheReady = false;
 
-async function show() {
+async function show(force) {
   const root = document.getElementById('tnAccounts');
   if (!root) return;
+  if (accountsCacheReady && !force) {
+    render();
+    revealAccounts();
+    return;
+  }
   root.innerHTML = '<div class="tnSkeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
   try {
     if (!sb) {
@@ -80,6 +86,7 @@ async function show() {
     const listed = await sb.from('reps').select('id,user_id,name,email,role,active').order('name');
     if (listed.error) throw listed.error;
     people = listed.data || [];
+    accountsCacheReady = true;
     render();
     revealAccounts();
   } catch (error) {
@@ -187,7 +194,8 @@ async function createAccount(event) {
     resetId = '';
     detail = null;
     openLink = null;
-    await show();
+    accountsCacheReady = false;
+    await show(true);
   } catch (error) {
     notice = error.message;
     render();

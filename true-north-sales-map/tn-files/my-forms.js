@@ -43,6 +43,11 @@ import {
 } from './store.js';
 
 let mountToken = 0;
+const formDataCache = new Map();
+
+function formCacheKey(ctx) {
+  return `${ctx?.mode || 'local'}:${ctx?.rep?.id || 'none'}`;
+}
 
 const DEMO_LEAD = 'demo-inspection-lead';
 const DEMO_FOLDER = {
@@ -151,47 +156,44 @@ export async function mountMyForms(container, ctx, options = {}) {
     return;
   }
   const role = ctx.rep?.role || (ctx.mode === 'local' ? 'admin' : '');
-  container.innerHTML = '<div class="tnSkeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
-  let categories = [];
-  let templates = [];
-  let receipts = [];
-  let estimates = [];
-  let assignments = [];
-  let photos = [];
-  let submissions = [];
-  let intakes = [];
-  try {
-    [categories, templates, receipts, estimates, assignments, photos, submissions, intakes] = await Promise.all([
-      listCategories(ctx),
-      listTemplates(ctx),
-      listReceipts(ctx),
-      listEstimates(ctx),
-      listAssignments(ctx).catch(() => []),
-      listPhotos(ctx).catch(() => []),
-      listSubmissions(ctx).catch(() => []),
-      listIntakes(ctx).catch(() => [])
-    ]);
-  } catch (error) {
+  let data = formDataCache.get(formCacheKey(ctx));
+  if (!data) {
+    container.innerHTML = '<div class="tnSkeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
+    let categories = [];
+    let templates = [];
+    let receipts = [];
+    let estimates = [];
+    let assignments = [];
+    let photos = [];
+    let submissions = [];
+    let intakes = [];
+    try {
+      [categories, templates, receipts, estimates, assignments, photos, submissions, intakes] = await Promise.all([
+        listCategories(ctx),
+        listTemplates(ctx),
+        listReceipts(ctx),
+        listEstimates(ctx),
+        listAssignments(ctx).catch(() => []),
+        listPhotos(ctx).catch(() => []),
+        listSubmissions(ctx).catch(() => []),
+        listIntakes(ctx).catch(() => [])
+      ]);
+    } catch (error) {
+      if (mine !== mountToken) return;
+      container.innerHTML = `<p class="tnError">${esc(plainError(error))}</p>`;
+      return;
+    }
     if (mine !== mountToken) return;
-    container.innerHTML = `<p class="tnError">${esc(plainError(error))}</p>`;
-    return;
-  }
-  if (mine !== mountToken) return;
-  if (ctx.mode === 'local') {
-    ({ categories, receipts, estimates, photos, submissions, intakes } = withLocalSamples(
-      categories, receipts, estimates, photos, submissions, intakes
-    ));
+    if (ctx.mode === 'local') {
+      ({ categories, receipts, estimates, photos, submissions, intakes } = withLocalSamples(
+        categories, receipts, estimates, photos, submissions, intakes
+      ));
+    }
+    data = { categories, templates, receipts, estimates, assignments, photos, submissions, intakes };
+    formDataCache.set(formCacheKey(ctx), data);
   }
 
-  const ui = {
-    categories,
-    templates,
-    receipts,
-    estimates,
-    assignments,
-    photos,
-    submissions,
-    intakes,
+  const ui = Object.assign(data, {
     notice: '',
     error: '',
     renaming: '',
@@ -199,7 +201,7 @@ export async function mountMyForms(container, ctx, options = {}) {
     openId: '',
     receipt: blankDraft(false),
     estimate: blankDraft(true)
-  };
+  });
 
   const render = () => {
     if (mine !== mountToken) return;

@@ -6,6 +6,7 @@ import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } 
 import { ROUTE_TRAY_KEY, routeTrayCollapsedByDefault, routeTraySummary, shouldExpandRouteTray } from './lib/route-tray.js';
 import { MAP_FACTS } from './lib/map-facts.js';
 import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaSeconds, googleDirectionsUrl, googleTravelMode, isAppleDevice, metersBetween, osrmProfile, readNavChoice } from './lib/route-nav.js';
+import { acquireScreenWakeLock, activeStep, createGpsFilter, createInterpolator, createReadoutThrottle, createRerouteGate, lineLatLngs, maneuverText, normalizeSteps, releaseScreenWakeLock, snapToRoute } from './lib/nav-motion.js';
 import { createArrayCursor, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, parseJsonArraySlice, planLeadSync } from './lib/lead-cache.js';
 import { readLeadCache, writeLeadCache } from './lib/lead-store.js';
 import { STREET_ZOOM, clusterLeads, pinDiff, sampleHeat } from './lib/pin-layer.js';
@@ -403,8 +404,9 @@ function initMapOnce(){
   state.pinRenderer=L.canvas({padding:.5});
   state.markerLayer=L.layerGroup().addTo(state.map);
   state.pinClusters=L.layerGroup().addTo(state.map);
-  state.map.on('dragstart',()=>{ if(state.navigating&&state.navFollow){state.navFollow=false;syncRecenterButton();} });
-  state.map.on('moveend',()=>{ if(state.layerFlags.pins) syncPins(); });
+  state.map.on('dragstart',()=>{ if(state.navigating&&state.navFollow){state.navFollow=false;state.navPanUntil=0;state.map.stop();syncRecenterButton();} });
+  state.map.on('zoomstart',()=>{ if(state.navigating&&state.navFollow&&!state.navAutoMove){state.navFollow=false;syncRecenterButton();} });
+  state.map.on('moveend',()=>{ if(state.layerFlags.pins) onNavMapMove(); });
   if(!state.map.getPane('radarPane')){
     const pane=state.map.createPane('radarPane');
     pane.style.zIndex='350';
@@ -728,7 +730,22 @@ function hideStreetPins(){
   state.pinShown.forEach(id=>state.pinMarkers.get(id)?.remove());
   state.pinShown.clear();
 }
-function syncPins(){
+function onNavMapMove(){
+  if(state.navigating&&state.navFollow){
+    clearTimeout(state.navPinTimer);
+    state.navPinTimer=setTimeout(()=>{
+      if(!state.navigating||!state.navFollow||!state.map) return;
+      const bounds=state.map.getBounds();
+      const key=`${Math.round(state.map.getZoom())}:${bounds.getSouth().toFixed(3)}:${bounds.getWest().toFixed(3)}`;
+      if(key===state.navPinKey) return;
+      state.navPinKey=key;
+      syncPins({restyle:false});
+    }, 900);
+    return;
+  }
+  syncPins();
+}
+function syncPins(options={}){
   if(!state.map)return;
   if(!state.layerFlags.pins){hideStreetPins();state.pinClusters?.clearLayers();state.clusterSig='';state.clusterSource=null;return}
   const zoom=state.map.getZoom();
@@ -759,7 +776,7 @@ function syncPins(){
     ensurePin(lead).addTo(state.markerLayer);
     state.pinShown.add(id);
   });
-  want.forEach(id=>{const lead=state.leadsById.get(id), marker=state.pinMarkers.get(id); if(lead&&marker) stylePin(marker, lead)});
+  if(options.restyle!==false) want.forEach(id=>{const lead=state.leadsById.get(id), marker=state.pinMarkers.get(id); if(lead&&marker) stylePin(marker, lead)});
 }
 function useDoorSheet(){return doorSheetMedia.matches;}
 function drawHeat(kind){
@@ -1582,23 +1599,32 @@ function beginInAppNav(){
   if(!navigator.geolocation){$('routeTrayNote').textContent='This browser cannot share location. Use Google Maps for turn-by-turn.';toast('Location is unavailable. Open Google Maps instead.');return}
   if(state.navWatch!=null)navigator.geolocation.clearWatch(state.navWatch);
   state.navigating=true;state.navIndex=0;state.navFollow=true;state.navPrompted='';state.navLegStop='';state.navLegFrom=null;state.navLegGeometry=null;
+  state.navFilter=createGpsFilter();state.navInterp=createInterpolator();state.navGate=createRerouteGate();state.navTray=createReadoutThrottle();
+  state.navLine=null;state.navSteps=[];state.navStepIndex=-1;state.navZoomed=false;state.navPanUntil=0;state.navPinKey='';state.navOffShown=false;
   if(state.userMarker){state.userMarker.remove();state.userMarker=null}
   $('navBar').classList.remove('hidden');
   $('routeTray').classList.add('isNavHidden');
   $('navAppleLeg').classList.toggle('hidden', !isAppleDevice(navigator.userAgent, navigator.maxTouchPoints));
   syncRecenterButton();
-  $('navTitle').textContent='Next stop';
-  $('navMeta').textContent='Waiting for location…';
-  state.navWatch=navigator.geolocation.watchPosition(onNavPosition, onNavError, {enableHighAccuracy:true, maximumAge:2000, timeout:15000});
+  writeNavText('Next stop', 'Waiting for location…');
+  startNavLoop();
+  holdWakeLock();
+  document.addEventListener('visibilitychange', onNavVisibility);
+  state.navWatch=navigator.geolocation.watchPosition(onNavPosition, onNavError, {enableHighAccuracy:true, maximumAge:1000, timeout:15000});
 }
 function endNavigation(message){
   if(state.navWatch!=null&&navigator.geolocation)navigator.geolocation.clearWatch(state.navWatch);
-  state.navWatch=null;state.navigating=false;state.navLegGeometry=null;
+  state.navWatch=null;state.navigating=false;state.navLegGeometry=null;state.navLine=null;
+  cancelAnimationFrame(state.navFrame);clearTimeout(state.navPinTimer);
+  document.removeEventListener('visibilitychange', onNavVisibility);
+  releaseScreenWakeLock(state.navWake);state.navWake=null;
   clearNavLayers();
   $('navBar')?.classList.add('hidden');
   $('routeTray')?.classList.remove('isNavHidden');
   if(message)toast(message);
 }
+function onNavVisibility(){if(document.visibilityState==='visible'&&state.navigating)holdWakeLock()}
+async function holdWakeLock(){state.navWake=await acquireScreenWakeLock(navigator)}
 function onNavError(err){
   const denied=err&&err.code===1;
   const message=denied?'Location is blocked. Allow it in the browser, or use Google Maps.':'Location is unavailable right now. You can still open Google Maps.';
@@ -1608,71 +1634,176 @@ function onNavError(err){
 }
 function onNavPosition(pos){
   if(!state.navigating||!state.map)return;
-  const here={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy,heading:pos.coords.heading};
-  state.currentLocation=here;
+  const now=performance.now();
+  const heading=pos.coords?.heading;
+  const filtered=state.navFilter.push({lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy,heading:Number.isFinite(heading)?heading:null}, now);
+  if(!filtered)return;
   const stop=state.routeStops[state.navIndex];
   if(!stop){endNavigation('Route complete.');return}
-  const meters=metersBetween(here, stop);
-  drawNavOverlay();
-  if(state.navLegStop!==stop.id||!state.navLegFrom||metersBetween(here, state.navLegFrom)>30){
-    state.navLegStop=stop.id;state.navLegFrom={lat:here.lat,lng:here.lng};loadNavLeg(here, stop);
-  }else updateNavReadout(stop, state.navLegMeters, state.navLegSeconds, !state.navLegGeometry);
-  if(arrivedAtStop(here, stop)&&state.navPrompted!==stop.id){
+  const snap=snapToRoute(filtered, state.navLine, 22);
+  const display={lat:snap.snapped?snap.lat:filtered.lat,lng:snap.snapped?snap.lng:filtered.lng,heading:filtered.heading,accuracy:filtered.accuracy,interval:filtered.interval};
+  state.currentLocation=display;
+  state.navInterp.setTarget(display, now, reducedMotion());
+  if(state.navLegStop!==stop.id){state.navLegStop=stop.id;state.navLine=null;loadNavLeg(display, stop)}
+  else publishProgress(stop, display, snap, false);
+  const off=snap.snapped||!Number.isFinite(snap.distance)?0:snap.distance;
+  if((state.navLine?.length||0)>=2 && state.navGate.consider(off, now)) loadNavLeg(display, stop);
+  const meters=metersBetween(filtered, stop);
+  if(arrivedAtStop(filtered, stop)&&state.navPrompted!==stop.id){
     state.navPrompted=stop.id;openDoorSheet(stop.id);
     toast(`You're within ${ARRIVAL_METERS} m. Mark this door, and the route moves to the next stop.`);
   }else if(state.navPrompted===stop.id&&meters>ARRIVAL_METERS+25)state.navPrompted='';
-  if(state.navFollow)state.map.panTo([here.lat, here.lng],{animate:true});
+  maybeNavZoom(display);
 }
 let navLegToken=0;
 async function loadNavLeg(here, stop){
   const token=++navLegToken;
   const meters=metersBetween(here, stop);
-  state.navLegMeters=meters;state.navLegSeconds=etaSeconds(meters, state.routeMode);state.navLegGeometry=null;
-  updateNavReadout(stop, meters, state.navLegSeconds, true);
+  state.navLegMeters=meters;state.navLegSeconds=etaSeconds(meters, state.routeMode);
+  if(!state.navLine?.length) state.navLine=[{lat:here.lat,lng:here.lng},{lat:Number(stop.lat),lng:Number(stop.lng)}];
+  showNavVisuals();
+  state.navLegLine.setLatLngs(state.navLine.map(point=>[point.lat, point.lng]));
+  if(isCoords(stop)) state.navStopRing.setLatLng([Number(stop.lat), Number(stop.lng)]);
+  publishProgress(stop, here, snapToRoute(here, state.navLine, 22), true);
   try{
-    const r=await fetch('/api/route',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:osrmProfile(state.routeMode),service:'route',coordinates:[{lat:here.lat,lng:here.lng},{lat:Number(stop.lat),lng:Number(stop.lng)}]})});
+    const r=await fetch('/api/route',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:osrmProfile(state.routeMode),service:'route',steps:true,coordinates:[{lat:here.lat,lng:here.lng},{lat:Number(stop.lat),lng:Number(stop.lng)}]})});
     const data=await r.json();
-    if(!r.ok||token!==navLegToken||!state.navigating)throw new Error(data.error||'Route leg failed');
-    state.navLegGeometry=data.geometry||null;
-    state.navLegMeters=Number(data.distance)||meters;
-    state.navLegSeconds=Number(data.duration)||state.navLegSeconds;
-    updateNavReadout(stop, state.navLegMeters, state.navLegSeconds, false);
-    drawNavOverlay();
-  }catch{if(token===navLegToken)drawNavOverlay()}
+    if(!r.ok||token!==navLegToken||!state.navigating)return;
+    const line=lineLatLngs(data.geometry);
+    if(line.length>=2){
+      state.navLine=line;state.navLegGeometry=data.geometry;
+      state.navLegMeters=Number(data.distance)||meters;
+      state.navLegSeconds=Number(data.duration)||state.navLegSeconds;
+      state.navSteps=normalizeSteps(data.steps);state.navStepIndex=-1;
+      state.navLegLine.setLatLngs(line.map(point=>[point.lat, point.lng]));
+      publishProgress(stop, here, snapToRoute(here, line, 22), true);
+    }
+  }catch{/* keep the straight fallback already on the map */}
 }
-function updateNavReadout(stop, meters, seconds, estimate){
-  $('navTitle').textContent=`Next · ${stop.address||'Stop'} · ${state.navIndex+1} of ${state.routeStops.length}`;
+function publishProgress(stop, place, snap, immediate){
+  const total=snap?.total>1?snap.total:(state.navLegMeters||metersBetween(place, stop));
+  const along=snap?.snapped?snap.along:0;
+  const left=snap?.snapped?Math.max(0, total-along):metersBetween(place, stop);
+  const seconds=total>1&&state.navLegSeconds?state.navLegSeconds*(left/Math.max(total,1)):etaSeconds(left, state.routeMode);
+  const step=snap?.snapped?activeStep(state.navSteps, along):null;
+  if(step&&step.index!==state.navStepIndex) immediate=true;
+  if(step) state.navStepIndex=step.index;
+  const offRoute=Boolean(snap&&!snap.snapped&&Number.isFinite(snap.distance)&&snap.distance>40);
+  const title=offRoute?'Rejoining the route':(step?maneuverText(step.step):`Continue to ${stop.address||'the stop'}`);
   const mode=state.routeMode==='walking'?'walk':'drive';
-  $('navMeta').textContent=`${fmtDistance((Number(meters)||0)/1609.344)} · ${fmtDuration(seconds)} ${mode}${estimate?' · estimate':''}`;
+  const meta=`${fmtDistance(left/1609.344)} · ${fmtDuration(seconds)} ${mode} · ${state.navIndex+1} of ${state.routeStops.length}`;
+  const changedOff=offRoute!==state.navOffShown;
+  state.navOffShown=offRoute;
+  const write=state.navTray.push(title, meta, performance.now(), immediate||changedOff);
+  if(write) writeNavText(write.title, write.meta);
 }
-function clearNavLayers(){(state.navLayers||[]).forEach(layer=>{try{layer.remove()}catch{}});state.navLayers=[]}
+function writeNavText(title, meta){
+  const titleEl=$('navTitle'), metaEl=$('navMeta');
+  if(titleEl&&titleEl.textContent!==title) titleEl.textContent=title;
+  if(metaEl&&metaEl.textContent!==meta) metaEl.textContent=meta;
+}
+function showNavVisuals(){
+  if(!state.map)return;
+  if(!state.map.getPane('navPane')){
+    const pane=state.map.createPane('navPane');
+    pane.style.zIndex='680';
+    pane.style.pointerEvents='none';
+  }
+  if(!state.navRenderer) state.navRenderer=L.canvas({pane:'navPane'});
+  if(!state.navArrow){
+    const icon=L.divIcon({className:'navArrowIcon', html:'<div class="navArrow"></div>', iconSize:[28,28], iconAnchor:[14,14]});
+    state.navArrow=L.marker([HOME_BASE.lat, HOME_BASE.lng], {icon, interactive:false, keyboard:false, pane:'navPane', zIndexOffset:2000});
+  }
+  if(!state.navAccuracy) state.navAccuracy=L.circle([HOME_BASE.lat, HOME_BASE.lng], {radius:18, pane:'navPane', renderer:state.navRenderer, interactive:false, color:'#1e6bff', weight:1, fillColor:'#1e6bff', fillOpacity:.15});
+  if(!state.navLegLine) state.navLegLine=L.polyline([], {pane:'navPane', renderer:state.navRenderer, interactive:false, color:'#1e6bff', weight:6, opacity:.92, lineCap:'round', lineJoin:'round'});
+  if(!state.navStopRing) state.navStopRing=L.circleMarker([HOME_BASE.lat, HOME_BASE.lng], {pane:'navPane', renderer:state.navRenderer, interactive:false, radius:14, color:'#1e6bff', weight:3, fillColor:'#1e6bff', fillOpacity:.12});
+  if(state.currentLocation){
+    state.navArrow.setLatLng([state.currentLocation.lat, state.currentLocation.lng]);
+    state.navAccuracy.setLatLng([state.currentLocation.lat, state.currentLocation.lng]);
+  }
+  if(!state.map.hasLayer(state.navLegLine)) state.navLegLine.addTo(state.map);
+  if(!state.map.hasLayer(state.navAccuracy)) state.navAccuracy.addTo(state.map);
+  if(!state.map.hasLayer(state.navStopRing)) state.navStopRing.addTo(state.map);
+  if(!state.map.hasLayer(state.navArrow)) state.navArrow.addTo(state.map);
+}
+function paintNavFrame(sample){
+  if(!sample||!state.navArrow)return;
+  state.navArrow.setLatLng([sample.lat, sample.lng]);
+  const arrow=state.navArrow.getElement()?.querySelector('.navArrow');
+  if(arrow){
+    const heading=Math.round(Number(sample.heading)||0);
+    if(arrow.dataset.h!==String(heading)){arrow.dataset.h=String(heading);arrow.style.transform=`rotate(${heading}deg)`}
+  }
+  state.navDisplay=sample;
+  const now=performance.now();
+  if(state.navAccuracy&&now-(state.navAccuracyAt||0)>240){
+    state.navAccuracyAt=now;
+    state.navAccuracy.setLatLng([sample.lat, sample.lng]);
+    const acc=Number(state.currentLocation?.accuracy);
+    if(Number.isFinite(acc)) state.navAccuracy.setRadius(Math.max(8, Math.min(80, acc)));
+  }
+}
+function startNavLoop(){
+  cancelAnimationFrame(state.navFrame);
+  const loop=(now)=>{
+    if(!state.navigating)return;
+    const sample=state.navInterp?.sample(now);
+    if(sample){paintNavFrame(sample);if(state.navFollow)easeFollow(sample)}
+    const flushed=state.navTray?.flush(now);
+    if(flushed) writeNavText(flushed.title, flushed.meta);
+    state.navFrame=requestAnimationFrame(loop);
+  };
+  state.navFrame=requestAnimationFrame(loop);
+}
+function easeFollow(sample){
+  if(!state.map)return;
+  const now=performance.now();
+  if(state.navPanUntil&&now<state.navPanUntil)return;
+  const center=state.map.getCenter();
+  if(metersBetween({lat:center.lat,lng:center.lng}, sample)<12)return;
+  const animate=!reducedMotion();
+  const duration=animate?0.85:0;
+  state.navPanUntil=now+duration*1000+80;
+  state.map.panTo([sample.lat, sample.lng], {animate, duration, easeLinearity:0.22, noMoveStart:true});
+}
+function maybeNavZoom(sample){
+  if(state.navZoomed||!state.navFollow||!state.map)return;
+  state.navZoomed=true;
+  if(state.map.getZoom()>=16)return;
+  state.navAutoMove=true;
+  state.navPanUntil=performance.now()+900;
+  state.map.setView([sample.lat, sample.lng], 17, {animate:!reducedMotion()});
+  state.navAutoMove=false;
+}
+function clearNavLayers(){
+  [state.navArrow,state.navAccuracy,state.navLegLine,state.navStopRing].forEach(layer=>{try{layer?.remove()}catch{}});
+  state.navArrow=null;state.navAccuracy=null;state.navLegLine=null;state.navStopRing=null;state.navRenderer=null;
+}
 function drawNavOverlay(){
   if(!state.map||!state.navigating)return;
-  clearNavLayers();
-  const here=state.currentLocation;
+  showNavVisuals();
+  const here=state.navDisplay||state.currentLocation;
+  if(here) paintNavFrame({lat:here.lat,lng:here.lng,heading:here.heading||0});
   const stop=state.routeStops[state.navIndex];
-  if(here&&Number.isFinite(Number(here.lat))&&Number.isFinite(Number(here.lng))){
-    const radius=Math.max(8, Math.min(250, Number(here.accuracy)||30));
-    const circle=L.circle([here.lat, here.lng],{radius, color:'#1e6bff', weight:1, fillColor:'#1e6bff', fillOpacity:.18}).addTo(state.map);
-    const dot=L.circleMarker([here.lat, here.lng],{radius:8, color:'#fff', weight:3, fillColor:'#1e6bff', fillOpacity:1}).addTo(state.map);
-    state.navLayers.push(circle, dot);
-    if(Number.isFinite(Number(here.heading))){
-      const rad=Number(here.heading)*Math.PI/180; const reach=28;
-      const dLat=(reach*Math.cos(rad))/111320;
-      const dLng=(reach*Math.sin(rad))/(111320*Math.cos(Number(here.lat)*Math.PI/180));
-      state.navLayers.push(L.polyline([[here.lat, here.lng],[here.lat+dLat, here.lng+dLng]],{color:'#1e6bff', weight:5, opacity:.95}).addTo(state.map));
-    }
-  }
-  if(stop&&isCoords(stop)){
-    state.navLayers.push(L.circleMarker([Number(stop.lat), Number(stop.lng)],{radius:16, color:'#1e6bff', weight:3, fillColor:'#1e6bff', fillOpacity:.15}).addTo(state.map));
-    if(here){
-      if(state.navLegGeometry)state.navLayers.push(L.geoJSON(state.navLegGeometry,{style:{color:'#1e6bff', weight:6, opacity:.92}}).addTo(state.map));
-      else state.navLayers.push(L.polyline([[here.lat, here.lng],[Number(stop.lat), Number(stop.lng)]],{color:'#1e6bff', weight:5, opacity:.9}).addTo(state.map));
-    }
-  }
+  if(stop&&isCoords(stop)) state.navStopRing.setLatLng([Number(stop.lat), Number(stop.lng)]);
+  if(state.navLine?.length) state.navLegLine.setLatLngs(state.navLine.map(point=>[point.lat, point.lng]));
 }
-function syncRecenterButton(){const btn=$('navRecenter');if(!btn)return;btn.textContent=state.navFollow?'Following':'Recenter';btn.classList.toggle('isOn', state.navFollow)}
-function recenterNav(){state.navFollow=true;syncRecenterButton();if(state.currentLocation&&state.map)state.map.setView([state.currentLocation.lat, state.currentLocation.lng], Math.max(state.map.getZoom(),17))}
+function syncRecenterButton(){
+  const btn=$('navRecenter');if(!btn)return;
+  const paused=Boolean(state.navigating&&!state.navFollow);
+  btn.classList.toggle('hidden', !paused);
+  btn.textContent='Re-center';
+  btn.classList.toggle('isOn', paused);
+}
+function recenterNav(){
+  state.navFollow=true;syncRecenterButton();
+  const here=state.navDisplay||state.currentLocation;
+  if(!here||!state.map)return;
+  state.navAutoMove=true;
+  state.navPanUntil=performance.now()+900;
+  state.map.setView([here.lat, here.lng], Math.max(state.map.getZoom(),17), {animate:!reducedMotion()});
+  state.navAutoMove=false;
+}
 function openExternalLeg(kind){
   const stop=state.routeStops[state.navIndex];
   if(!stop){toast('No stop left on this route.');return}
@@ -1681,12 +1812,12 @@ function openExternalLeg(kind){
 }
 function advanceNavStop(){
   if(!state.navigating)return;
-  state.navIndex+=1;state.navPrompted='';state.navLegStop='';state.navLegGeometry=null;
+  state.navIndex+=1;state.navPrompted='';state.navLegStop='';state.navLegGeometry=null;state.navLine=null;state.navSteps=[];state.navStepIndex=-1;
   const stop=state.routeStops[state.navIndex];
   if(!stop){endNavigation('Route complete.');return}
   closeDoorSheet();
   toast(`Next stop · ${stop.address}`);
-  if(state.currentLocation)onNavPosition({coords:{latitude:state.currentLocation.lat,longitude:state.currentLocation.lng,accuracy:state.currentLocation.accuracy,heading:state.currentLocation.heading}});
+  if(state.currentLocation){state.navLegStop=stop.id;loadNavLeg(state.currentLocation, stop)}
 }
 function maybeAdvanceNav(id){
   if(!state.navigating)return;
