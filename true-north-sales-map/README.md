@@ -55,13 +55,13 @@ The live project is `https://ztdnpbrhiudklfqzgcbd.supabase.co`. Paste one file, 
 
 The source PDF supplies construction year for the Knox owner-occupied set, not the date the roof was last replaced. The map therefore labels construction-year visualization as a **roof-age proxy** unless a verified `roof_age_years` value is entered by the team.
 
-The NWS layer shows currently active Ohio weather alerts filtered to storm/wind/hail/tornado-related products. It does not assert that a particular property suffered storm damage.
+The map has three storm layers setters and reps can turn on or off: live RainViewer radar for the last 30 to 60 minutes, active National Weather Service warning polygons for Ohio (severe thunderstorm, tornado, hail, and wind, colored by type), and recent NOAA Storm Prediction Center hail, wind, and tornado reports around Knox County. Tap a warning for the headline, hail size, wind, and expiry. **Houses in storm area** filters and queues houses inside a warning polygon or within 3 miles of a hail report so a route can be built from that tap. These feeds need no API key. `/api/storm-maps` caches them for about 10 minutes and returns empty layers if a source is down. The layers show current warnings and reports. They do not assert that a particular property suffered storm damage.
 
 The map also shows a live widget from `/api/weather`. Open-Meteo supplies the forecast for the phone's location, or the map center if location is denied. The National Weather Service point alerts feed supplies the banner. Responses are cached for about 10 minutes. If either service is down, that part stays hidden.
 
 ## Vercel architecture
 
-This remains a static-first site, with Vercel Functions only for `/api/config`, `/api/geocode`, `/api/storms`, and `/api/weather`. Supabase is the shared database/auth layer. The server-only Supabase secret is used only to validate authenticated requests to the geocoding endpoint.
+This remains a static-first site, with Vercel Functions only for `/api/config`, `/api/geocode`, `/api/storms`, `/api/storm-maps`, and `/api/weather`. Supabase is the shared database/auth layer. The server-only Supabase secret is used only to validate authenticated requests to the geocoding endpoint.
 
 ## Clock in, location, and office messages
 

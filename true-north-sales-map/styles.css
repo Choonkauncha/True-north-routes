@@ -191,7 +191,7 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
   .mapLegend.isOpen{display:flex}
   .routeTray{bottom:calc(var(--list-sheet-peek) + 8px);left:8px;right:8px;transform:none;min-width:0;width:auto;align-items:stretch;flex-direction:column}
   .routeTrayActions{width:100%;display:grid;grid-template-columns:1fr 1fr}
-  .routeTrayActions #routeTrayBtn,.routeTrayActions #startRouteBtn,.routeTrayActions #navChoiceBtn{grid-column:1 / -1}
+  .routeTrayActions #stormHousesBtn,.routeTrayActions #routeTrayBtn,.routeTrayActions #startRouteBtn,.routeTrayActions #navChoiceBtn{grid-column:1 / -1}
   .routeTray button,.routeTray .routeModeToggle button{min-height:44px;font-size:14px}
   .routeTray .routeModeToggle{width:100%}
   .routeTray .routeModeToggle button{flex:1}
@@ -228,6 +228,9 @@ kbd{font-size:9px;line-height:1;border:1px solid rgba(255,255,255,.24);border-bo
 .weatherHours b{display:block;font-size:13px;color:#0c1424}
 .weatherAlert{background:#3a1d16;color:#fff;border-radius:12px;padding:10px 12px;font-size:14px;font-weight:800;line-height:1.35}
 .weatherAlert[hidden]{display:none!important}
+.stormPopup{max-width:240px;font-size:13px;line-height:1.35}
+.stormPopup b{color:#0c1424}
+.leaflet-radarPane-pane{pointer-events:none}
 @media(max-width:960px){
   .weatherStack{top:118px;left:8px;right:8px;width:auto}
 }
