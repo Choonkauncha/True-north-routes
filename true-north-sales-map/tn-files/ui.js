@@ -76,18 +76,24 @@ export function houseBackHref(lead) {
   return query ? `/?${query}` : '/';
 }
 
-/** Two primary actions. Add Photo opens the camera on the first tap. */
-export function actionRow(lead, { photos = true } = {}) {
+/** House sheet: Add Photo, Fill Form, View photos. Door sheet: one outline row, no gallery link. */
+export function actionRow(lead, { photos = true, variant = 'house' } = {}) {
   const query = leadQuery(lead).toString();
   const formHref = `/forms.html${query ? `?${query}` : ''}`;
   const viewHref = `/photo.html${query ? `?${query}` : ''}`;
-  const row = el(`<div class="tnSheetActions" data-lead="${esc(lead?.id || '')}" data-v="1">
+  const door = variant === 'door';
+  const row = el(door
+    ? `<div class="tnSheetActions tnDoorActions" data-lead="${esc(lead?.id || '')}" data-v="door">
+    <label class="tnTap tnOutline" data-photo-only>Add Photo<input type="file" accept="image/*" capture="environment"></label>
+    <a class="tnTap tnOutline" href="${esc(formHref)}">Fill Form</a>
+  </div>`
+    : `<div class="tnSheetActions" data-lead="${esc(lead?.id || '')}" data-v="1">
     <label class="tnTap primary" data-photo-only>Add Photo<input type="file" accept="image/*" capture="environment"></label>
     <a class="tnTap dark" href="${esc(formHref)}">Fill Form</a>
     <a class="tnTap tnWide" data-photo-only href="${esc(viewHref)}">View photos</a>
   </div>`);
   const input = row.querySelector('input');
-  input.addEventListener('change', async () => {
+  input?.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
     input.disabled = true;

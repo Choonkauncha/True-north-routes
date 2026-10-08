@@ -18,17 +18,6 @@ function readDrawerLead(top) {
   };
 }
 
-function placeRow(container, lead, className) {
-  let row = container.querySelector(':scope > .tnSheetActions');
-  const flag = showPhotos ? '1' : '0';
-  if (row?.dataset.lead === (lead.id || '') && row.dataset.photos === flag) return;
-  row?.remove();
-  row = actionRow(lead, { photos: showPhotos });
-  row.dataset.photos = flag;
-  if (className) row.classList.add(className);
-  container.prepend(row);
-}
-
 function syncDrawer() {
   const top = document.querySelector('#drawerContent .drawerTop');
   if (!top) return;
@@ -44,16 +33,21 @@ function syncDrawer() {
 }
 
 function syncDoor() {
-  const footer = document.querySelector('#doorSheet .doorSheetFooter');
   const book = document.getElementById('doorSheetBook');
-  if (!footer || !book) return;
+  if (!book?.parentElement) return;
   let id = '';
   try { id = new URL(book.getAttribute('href') || book.href, location.origin).searchParams.get('lead') || ''; } catch { id = ''; }
-  placeRow(footer, {
+  const flag = showPhotos ? '1' : '0';
+  const current = book.previousElementSibling;
+  if (current?.classList.contains('tnDoorActions') && current.dataset.lead === id && current.dataset.photos === flag) return;
+  document.querySelectorAll('#doorSheet .tnDoorActions').forEach((node) => node.remove());
+  const row = actionRow({
     id,
     name: document.getElementById('doorSheetName')?.textContent?.trim() || '',
     address: document.getElementById('doorSheetAddress')?.textContent?.trim() || ''
-  }, 'tnDoorActions');
+  }, { photos: showPhotos, variant: 'door' });
+  row.dataset.photos = flag;
+  book.parentElement.insertBefore(row, book);
 }
 
 function openHouseFromQuery() {

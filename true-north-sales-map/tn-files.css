@@ -14,10 +14,16 @@
 .tnTap input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
 .tnSheetActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
 .tnSheetActions .tnWide{grid-column:1/-1}
-.tnDoorActions{margin:0 0 8px}
-#drawerContent .tnTap,.doorSheetFooter .tnTap{font-size:16px;min-height:48px;margin-top:0}
+.tnTap.tnOutline{background:#fff;color:#132B3A;border:2px solid #132B3A;min-height:44px;padding:8px 10px}
+.tnDoorActions{margin:0;gap:8px}
+.tnDoorActions .tnTap:only-child{grid-column:1/-1}
+#drawerContent .tnTap{font-size:16px;min-height:48px;margin-top:0}
 #drawerContent label.tnTap{display:flex}
-#drawerContent label.tnTap.primary,.doorSheetFooter label.tnTap.primary{color:#fff;background:#E5722A}
+#drawerContent label.tnTap.primary{color:#fff;background:#E5722A}
+.doorSheetFooter .tnDoorActions .tnTap{
+  min-height:44px;padding:8px 10px;font-size:15px;font-weight:800;
+  background:#fff;color:#132B3A;border:2px solid #132B3A;box-shadow:none
+}
 #fillFormLink{min-height:48px;font-size:16px;display:inline-flex;align-items:center}
 .tnApp{width:min(720px,100%);margin:0 auto;padding:16px 16px 32px}
 .tnBanner{background:#FFF0E7;border:1px solid #f3d0bd;color:#6d4a34;border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.4;margin-bottom:12px}
