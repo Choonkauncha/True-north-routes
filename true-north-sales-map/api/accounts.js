@@ -50,7 +50,7 @@ async function caller(request, env, fetchImpl) {
   if (!userResponse.ok) throw fail('Sign in required.', 401);
   const user = await readJson(userResponse);
   if (!user?.id) throw fail('Sign in required.', 401);
-  const repsResponse = await fetchImpl(`${base}/rest/v1/reps?user_id=eq.${user.id}&active=eq.true&select=id,name,email,role&limit=1`, {
+  const repsResponse = await fetchImpl(`${base}/rest/v1/reps?user_id=eq.${user.id}&active=eq.true&select=id,name,role&limit=1`, {
     headers: { ...authHeaders(apikey), Authorization: `Bearer ${token}` }
   });
   if (!repsResponse.ok) throw fail('Sign in required.', 401);
@@ -127,7 +127,7 @@ async function saveRep(env, fetchImpl, row) {
     if (!found?.id) throw fail('That email already has a login.', 409);
     const rows = await serviceFetch(env, fetchImpl, `/reps?id=eq.${found.id}`, {
       method: 'PATCH',
-      body: { name: row.name, email: row.email, role: row.role, active: true }
+      body: { name: row.name, email: row.email, role: row.role, active: true, must_change_password: true, must_change_set_at: new Date(0).toISOString() }
     });
     return Array.isArray(rows) ? rows[0] : rows;
   }
@@ -141,7 +141,7 @@ async function createLogin(actor, body, env, fetchImpl) {
   if (!name) throw fail('Enter the person’s name.', 400);
   if (!email) throw fail('Enter a valid email.', 400);
   if (!password) throw fail('Use a password of 8 to 72 characters.', 400);
-  if (!canManageAccount(actor.rep.role, role, 'create')) throw fail('You cannot create that kind of account.', 403);
+  if (!canManageAccount(actor.rep.role, role, 'create', { samePerson: false })) throw fail('You cannot create that kind of account.', 403);
   const existingRep = await serviceFetch(env, fetchImpl, `/reps?email=eq.${encodeURIComponent(email)}&select=id&limit=1`);
   if (Array.isArray(existingRep) && existingRep.length) throw fail('That email already has a login.', 409);
 
@@ -156,7 +156,14 @@ async function createLogin(actor, body, env, fetchImpl) {
   else authUser = await findAuthUser(env, fetchImpl, email);
   if (!authUser?.id) throw fail(createdBody?.msg || createdBody?.message || 'Could not create that login.', 400);
 
-  const rep = await saveRep(env, fetchImpl, { user_id: authUser.id, name, email, role, active: true });
+  const rep = await saveRep(env, fetchImpl, {
+    user_id: authUser.id,
+    name,
+    email,
+    role,
+    active: true,
+    must_change_password: true
+  });
   await audit(env, fetchImpl, {
     actor_rep_id: actor.rep.id,
     target_rep_id: rep?.id || null,
@@ -172,11 +179,17 @@ async function resetPassword(actor, body, env, fetchImpl) {
   if (!password) throw fail('Use a password of 8 to 72 characters.', 400);
   const target = await repById(env, fetchImpl, body.repId);
   if (!target) throw fail('That person was not found.', 404);
-  if (!canManageAccount(actor.rep.role, target.role, 'reset')) throw fail('You cannot reset that password.', 403);
+  if (!canManageAccount(actor.rep.role, target.role, 'reset', { samePerson: samePerson(actor, target) })) {
+    throw fail('You cannot reset that password.', 403);
+  }
   await serviceFetch(env, fetchImpl, `/admin/users/${target.user_id}`, {
     admin: true,
     method: 'PUT',
     body: { password }
+  });
+  await serviceFetch(env, fetchImpl, `/reps?id=eq.${target.id}`, {
+    method: 'PATCH',
+    body: { must_change_password: true, must_change_set_at: new Date(0).toISOString() }
   });
   await audit(env, fetchImpl, {
     actor_rep_id: actor.rep.id,
@@ -194,7 +207,9 @@ async function setActive(actor, body, env, fetchImpl) {
   if (!target) throw fail('That person was not found.', 404);
   if (target.id === actor.rep.id) throw fail('You cannot turn off your own login.', 400);
   const action = active ? 'reactivate' : 'deactivate';
-  if (!canManageAccount(actor.rep.role, target.role, action)) throw fail('You cannot change that login.', 403);
+  if (!canManageAccount(actor.rep.role, target.role, action, { samePerson: samePerson(actor, target) })) {
+    throw fail('You cannot change that login.', 403);
+  }
   await serviceFetch(env, fetchImpl, `/admin/users/${target.user_id}`, {
     admin: true,
     method: 'PUT',
@@ -216,12 +231,20 @@ async function openAs(actor, body, request, env, fetchImpl) {
   if (!target) throw fail('That person was not found.', 404);
   if (!target.active) throw fail('Turn this login back on before opening it.', 400);
   if (target.id === actor.rep.id) throw fail('You are already signed in as yourself.', 400);
-  if (!canManageAccount(actor.rep.role, target.role, 'open_as')) throw fail('Only an admin can open another account.', 403);
+  if (!canManageAccount(actor.rep.role, target.role, 'open_as', { samePerson: samePerson(actor, target) })) {
+    throw fail('Only an admin can open another account.', 403);
+  }
   const origin = new URL(request.url).origin;
+  const grantRows = await serviceFetch(env, fetchImpl, '/impersonation_grants', {
+    method: 'POST',
+    body: { user_id: target.user_id, expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() }
+  });
+  const grant = Array.isArray(grantRows) ? grantRows[0] : grantRows;
+  if (!grant?.id) throw fail('Could not create a one-time sign-in link.', 502);
   const link = await serviceFetch(env, fetchImpl, '/admin/generate_link', {
     admin: true,
     method: 'POST',
-    body: { type: 'magiclink', email: target.email, options: { redirect_to: `${origin}/` } }
+    body: { type: 'magiclink', email: target.email, options: { redirect_to: `${origin}/?tn_open=${grant.id}` } }
   });
   const url = link?.action_link || '';
   if (!url) throw fail('Could not create a one-time sign-in link.', 502);
@@ -233,6 +256,11 @@ async function openAs(actor, body, request, env, fetchImpl) {
     metadata: { role: target.role }
   });
   return { ok: true, url, email: target.email, name: target.name };
+}
+
+function samePerson(actor, target) {
+  if (!target) return false;
+  return target.user_id === actor.user.id || target.id === actor.rep.id;
 }
 
 export default {

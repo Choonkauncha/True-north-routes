@@ -32,14 +32,22 @@ export function isFieldRole(role) {
   return FIELD_ROLES.includes(role);
 }
 
-/** Managers can create and reset setters and sales reps, and can still reset or turn off an older canvasser login. Only an admin can touch admin or manager accounts, or open as someone. New canvasser logins are not created. */
-export function canManageAccount(actorRole, targetRole, action) {
+/**
+ * Managers can create and reset setters and sales reps, and can still reset or turn off an older canvasser login.
+ * Only an admin can create a manager or a new admin, or open as someone who is not an admin.
+ * An existing admin account can be reset only by that same admin. Nobody else can view, reset,
+ * disable, flag, or open that admin. New canvasser logins are not created.
+ * Pass `{ samePerson: true }` when the actor is the target account.
+ */
+export function canManageAccount(actorRole, targetRole, action, { samePerson = false } = {}) {
   if (!MANAGEMENT_ROLES.includes(actorRole)) return false;
   if (!ALL_ROLES.includes(targetRole)) return false;
-  if (action === 'open_as') return actorRole === 'admin';
+  if (targetRole === 'admin' && action !== 'create' && !samePerson) return false;
+  if (action === 'open_as') return actorRole === 'admin' && !samePerson && targetRole !== 'admin';
   if (!['create', 'reset', 'deactivate', 'reactivate'].includes(action)) return false;
   if (action === 'create' && targetRole === 'canvasser') return false;
-  if (targetRole === 'admin' || targetRole === 'manager') return actorRole === 'admin';
+  if (targetRole === 'admin') return actorRole === 'admin' && (action === 'create' || samePerson);
+  if (targetRole === 'manager') return actorRole === 'admin';
   return true;
 }
 

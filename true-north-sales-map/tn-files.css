@@ -158,6 +158,8 @@ a.tnAccountLink{display:inline-flex!important;align-items:center;min-height:44px
 .tnAccountCard>span{display:block;color:#5c6d76;font-size:14px;margin:4px 0 10px}
 .tnAccountBtns{display:flex;flex-wrap:wrap;gap:8px}
 .tnAccountBtns button,.tnAccountBtns a{min-height:48px;flex:1 1 140px}
+.tnAccountLocked{background:#f4f7f8}
+.tnAccountLocked .tnHelp{margin:8px 0 0}
 .tnAccountCard .tnTap,.tnAccountBtns button{
   min-height:48px;border-radius:12px;border:2px solid #0c1424;background:#fff;color:#0c1424;
   font-weight:800;font-size:15px;padding:8px 12px

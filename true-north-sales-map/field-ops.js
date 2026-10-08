@@ -325,9 +325,14 @@ function managementAllowed() {
   return Boolean(admin && !admin.classList.contains('hidden'));
 }
 
+function showManagementLink(link, allowed) {
+  link.hidden = !allowed;
+  link.classList.toggle('hidden', !allowed);
+}
+
 function syncHeaderManagement() {
   const allowed = managementAllowed() || Boolean(state.status?.isAdmin);
-  document.querySelectorAll('a.tnManageLink').forEach((link) => link.classList.toggle('hidden', !allowed));
+  document.querySelectorAll('a.tnManageLink').forEach((link) => showManagementLink(link, allowed));
 }
 
 function syncMoreManagement() {

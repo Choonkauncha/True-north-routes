@@ -1,6 +1,8 @@
 import { bootFiles, signIn, signOut } from './store.js';
 import { bindSignOut, esc, signInCard } from './ui.js';
 import { passwordChangeError } from '../lib/password-reset.js';
+import { passwordUpdateError } from '../lib/must-change-password.js';
+import { forgetRole, rememberRole } from '../lib/management-gate.js';
 import { roleLabel } from '../lib/role-access.js';
 import { MANAGEMENT_LINKS, canOpenManagement } from '../lib/account-rules.js';
 import { mountAccountTraining } from './training-account.js';
@@ -58,7 +60,12 @@ function renderForm(ctx) {
     <p class="tnAccountBtns" style="margin-top:16px"><a class="tnTap tnOutline" href="/">Back to map</a><button id="accountSignOut" class="tnTap" type="button">Sign out</button></p>`;
   document.getElementById('pwForm').onsubmit = (event) => save(event, ctx);
   mountAccountTraining(document.getElementById('tnAccountTraining'), ctx).catch(() => {});
-  document.getElementById('accountSignOut').onclick = async () => { await signOut(ctx); location.href = '/'; };
+  if (ctx.rep?.role && ctx.session?.user?.id) rememberRole(localStorage, ctx.session.user.id, ctx.rep.role);
+  document.getElementById('accountSignOut').onclick = async () => {
+    forgetRole(localStorage, ctx.session?.user?.id);
+    await signOut(ctx);
+    location.href = '/';
+  };
 }
 
 async function save(event, ctx) {
@@ -72,7 +79,9 @@ async function save(event, ctx) {
   msg.className = 'tnHelp';
   msg.textContent = 'Saving…';
   const { error } = await ctx.sb.auth.updateUser({ password: first });
-  if (error) { msg.className = 'tnError'; msg.textContent = error.message; return; }
+  if (error) { msg.className = 'tnError'; msg.textContent = passwordUpdateError(error, first); return; }
+  const cleared = await ctx.sb.rpc('clear_must_change_password');
+  if (cleared.error) { msg.className = 'tnError'; msg.textContent = passwordUpdateError(cleared.error, first); return; }
   document.getElementById('pw1').value = '';
   document.getElementById('pw2').value = '';
   msg.className = 'tnHelp';

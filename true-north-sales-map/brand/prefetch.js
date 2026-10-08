@@ -1,4 +1,24 @@
 /** Prefetch same-origin pages on hover, touch, and for the likely next screens. */
+(function holdForPasswordCheck() {
+  try {
+    if (/\/reset-password\/?$/.test(location.pathname) || location.pathname.endsWith('/reset-password.html')) return;
+    let found = false;
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && /^sb-.+-auth-token$/.test(key) && localStorage.getItem(key)) found = true;
+    }
+    if (!found || document.getElementById('tnPasswordHold')) return;
+    const hold = document.createElement('div');
+    hold.id = 'tnPasswordHold';
+    hold.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#0c1424';
+    (document.body || document.documentElement).appendChild(hold);
+  } catch { /* storage unavailable */ }
+}());
+const gate = document.createElement('script');
+gate.type = 'module';
+gate.src = '/tn-files/password-gate.js';
+document.head.appendChild(gate);
+
 const LIKELY = {
   '/': ['/setter.html', '/rep.html', '/account.html', '/admin.html', '/homeowner.html', '/forms.html'],
   '/index.html': ['/setter.html', '/rep.html', '/account.html', '/admin.html', '/homeowner.html', '/forms.html'],

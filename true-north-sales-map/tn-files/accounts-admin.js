@@ -1,6 +1,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { esc } from './ui.js';
 import { canManageAccount, managementProfile, roleLabel } from '../lib/account-rules.js';
+import { isOtherAdmin } from '../lib/must-change-password.js';
 import { CREATABLE_FIELD_ROLES } from '../lib/role-access.js';
 
 const FIELD = CREATABLE_FIELD_ROLES;
@@ -72,7 +73,7 @@ async function show(force) {
       root.innerHTML = '<h1 class="tnTitle">Accounts</h1><p class="tnSub">Sign in as an admin or manager.</p>';
       return;
     }
-    const row = await sb.from('reps').select('id,name,email,role').eq('user_id', session.user.id).eq('active', true).maybeSingle();
+    const row = await sb.from('reps').select('id,name,role').eq('user_id', session.user.id).eq('active', true).maybeSingle();
     me = managementProfile({
       email: session.user.email,
       rep: row.data,
@@ -83,9 +84,7 @@ async function show(force) {
       root.innerHTML = '<h1 class="tnTitle">Accounts</h1><p class="tnSub">Only an admin or manager can manage logins.</p>';
       return;
     }
-    const listed = await sb.from('reps').select('id,user_id,name,email,role,active').order('name');
-    if (listed.error) throw listed.error;
-    people = listed.data || [];
+    people = await loadPeople(sb);
     accountsCacheReady = true;
     render();
     revealAccounts();
@@ -102,10 +101,19 @@ function render() {
   const root = document.getElementById('tnAccounts');
   const options = rolesForMe().map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
   const cards = people.map((person) => {
-    const mine = person.id === me.id;
-    const can = canManageAccount(me.role, person.role, 'reset');
-    const canOff = canManageAccount(me.role, person.role, person.active ? 'deactivate' : 'reactivate') && !mine;
-    const canOpen = canManageAccount(me.role, person.role, 'open_as') && person.active && !mine;
+    const mine = person.id === me.id || person.user_id === session.user.id;
+    const actor = { id: me.id, userId: session.user.id, role: me.role };
+    if (isOtherAdmin(actor, person)) {
+      return `<article class="tnAccountCard tnAccountLocked" data-rep="${esc(person.id)}">
+        <b>${esc(person.name)}</b>
+        <span>${esc(roleLabel(person.role))}</span>
+        <p class="tnHelp">Only this admin can open this account.</p>
+      </article>`;
+    }
+    const opts = { samePerson: mine };
+    const can = canManageAccount(me.role, person.role, 'reset', opts);
+    const canOff = canManageAccount(me.role, person.role, person.active ? 'deactivate' : 'reactivate', opts) && !mine;
+    const canOpen = canManageAccount(me.role, person.role, 'open_as', opts) && person.active && !mine;
     return `<article class="tnAccountCard" data-rep="${esc(person.id)}">
       <b>${esc(person.name)}</b>
       <span>${esc(person.email || 'No email')} · ${esc(roleLabel(person.role))} · ${person.active ? 'Active' : 'Off'}</span>
@@ -120,7 +128,7 @@ function render() {
       ${openLink?.id === person.id ? linkHtml() : ''}
     </article>`;
   }).join('');
-  root.innerHTML = `<div class="dashTitle"><div><div class="eyebrow">LOGINS</div><h1 class="tnTitle">Accounts</h1><p class="tnSub">Create a login, reset a password, or turn a person off. They change their own password under My account.</p></div></div>
+  root.innerHTML = `<div class="dashTitle"><div><div class="eyebrow">LOGINS</div><h1 class="tnTitle">Accounts</h1><p class="tnSub">Create a login, reset a password, or turn a person off. They choose their own password the next time they sign in.</p></div></div>
     ${notice ? `<p class="tnBanner">${esc(notice)}</p>` : ''}
     <form id="tnCreateAccount" class="tnCard">
       <label class="tnLabel" for="acctName">Name</label>
@@ -190,7 +198,7 @@ async function createAccount(event) {
       role: document.getElementById('acctRole').value,
       password: document.getElementById('acctPassword').value
     });
-    notice = 'Login created. Ask them to change the password under My account.';
+    notice = 'Login created. They choose their own password when they sign in.';
     resetId = '';
     detail = null;
     openLink = null;
@@ -253,9 +261,16 @@ async function saveReset(event, repId, password) {
   }
 }
 
+async function loadPeople(client) {
+  const listed = await client.rpc('account_directory');
+  const rows = !listed.error && Array.isArray(listed.data)
+    ? listed.data
+    : (await client.from('reps').select('id,user_id,name,role,active').order('name')).data || [];
+  return rows.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+}
+
 async function refreshPeople() {
-  const listed = await sb.from('reps').select('id,user_id,name,email,role,active').order('name');
-  if (!listed.error) people = listed.data || [];
+  people = await loadPeople(sb);
 }
 
 async function copyLink() {
