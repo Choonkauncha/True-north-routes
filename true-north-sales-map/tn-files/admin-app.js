@@ -3,6 +3,8 @@ import { esc, bindSignOut, signInCard } from './ui.js';
 import { FIELD_TYPES, PREFILLS, blankField, isManagement, DRAFT_NOTICE, audienceLabel } from './logic.js';
 import { roleLabel } from '../lib/role-access.js';
 import { DOC_TYPES, collectDocuments, formatWhen, propertyGroups, sectionDocuments, sectionGroups, typeLabel, visibleDocuments } from '../lib/documents.js';
+import { LIBRARY_ACCEPT } from '../lib/records.js';
+import { mountMyForms } from './my-forms.js';
 
 const root = document.getElementById('tnFilesRoot');
 if (root) boot();
@@ -59,11 +61,13 @@ async function loadAndRender() {
     return;
   }
   const saved = sessionStorage.getItem('tn-form-editor');
-  if (location.hash === '#builder' || location.hash === '#library') {
+  if (location.hash === '#builder') {
     view = 'builder';
     if (saved) {
       try { editor = JSON.parse(saved); } catch { editor = null; }
     }
+  } else if (location.hash === '#library' || location.hash === '#receipts' || location.hash === '#estimates') {
+    view = 'library';
   }
   const propertyHash = decodeURIComponent(location.hash.replace(/^#property=/, ''));
   if (location.hash.startsWith('#property=') && propertyHash) {
@@ -79,18 +83,22 @@ function allDocuments() {
 
 function render() {
   const local = ctx.mode === 'local' ? '<div class="tnBanner">This browser only, until Supabase is connected.</div>' : '';
-  const body = view === 'builder' ? builderHtml() : view === 'property' ? propertyHtml() : documentsHtml();
-  root.innerHTML = `${local}<div class="dashTitle"><div><div class="eyebrow">DOCUMENTS</div><h1 class="tnTitle">Paperwork by property</h1></div></div>
-    <div class="tnSeg tnSegTwo"><button type="button" data-view="documents" class="${view !== 'builder' ? 'on' : ''}">Documents</button><button type="button" data-view="builder" class="${view === 'builder' ? 'on' : ''}">Form builder</button></div>
+  const body = view === 'builder' ? builderHtml() : view === 'library' ? '<div id="tnMyForms"></div>' : view === 'property' ? propertyHtml() : documentsHtml();
+  const title = view === 'library' ? 'Document library' : 'Paperwork by property';
+  root.innerHTML = `${local}<div class="dashTitle"><div><div class="eyebrow">DOCUMENTS</div><h1 class="tnTitle">${title}</h1></div></div>
+    <div class="tnSeg"><button type="button" data-view="documents" class="${view === 'documents' || view === 'property' ? 'on' : ''}">Documents</button><button type="button" data-view="builder" class="${view === 'builder' ? 'on' : ''}">Form builder</button><button type="button" data-view="library" class="${view === 'library' ? 'on' : ''}">Library</button></div>
     ${body}
   `;
   root.querySelectorAll('[data-view]').forEach((button) => button.onclick = () => {
     view = button.dataset.view;
     if (view !== 'builder') editor = null;
     if (view === 'documents') propertyKeyOpen = '';
+    const hash = view === 'builder' ? '#builder' : view === 'library' ? '#library' : '#files';
+    history.replaceState(null, '', `${location.pathname}${location.search}${hash}`);
     render();
   });
   if (view === 'builder') bindBuilder();
+  else if (view === 'library') mountMyForms(document.getElementById('tnMyForms'), ctx, { embedded: true });
   else if (view === 'property') bindProperty();
   else bindDocuments();
 }
@@ -191,7 +199,7 @@ function assigneeIds(templateId) {
 
 function builderHtml() {
   if (!editor) {
-    return `<div class="tnStack"><label class="tnTap primary">Upload a PDF or image<input id="uploadForm" type="file" accept="application/pdf,image/*"></label><button class="tnTap" id="newForm" type="button">New form</button></div><p class="tnSub">Uploaded files and forms you build here can go to all setters, all sales reps, or specific people.</p><div class="tnStack" style="margin-top:10px">${templates.map((item) => `<button type="button" class="tnCard" data-edit="${esc(item.id)}"><b>${esc(item.name)}</b><span>${esc(audienceLabel(item.audience))}${item.kind === 'file' ? ' · File' : ''}${item.active === false ? ' · Hidden' : ''}${item.is_draft ? ' · Draft' : ''}</span></button>`).join('') || '<p class="tnSub">No forms yet.</p>'}</div>`;
+    return `<div class="tnStack"><label class="tnTap primary">Upload a PDF, image, or office file<input id="uploadForm" type="file" accept="${LIBRARY_ACCEPT}"></label><button class="tnTap" id="newForm" type="button">New form</button></div><p class="tnSub">Uploaded files and forms you build here can go to all setters, all sales reps, or specific people. Folder them from the Library tab.</p><div class="tnStack" style="margin-top:10px">${templates.map((item) => `<button type="button" class="tnCard" data-edit="${esc(item.id)}"><b>${esc(item.name)}</b><span>${esc(audienceLabel(item.audience))}${item.kind === 'file' ? ' · File' : ''}${item.active === false ? ' · Hidden' : ''}${item.is_draft ? ' · Draft' : ''}</span></button>`).join('') || '<p class="tnSub">No forms yet.</p>'}</div>`;
   }
   const people = fieldPeople();
   const chosen = new Set(editor.assignee_ids || []);
@@ -199,7 +207,7 @@ function builderHtml() {
     ? people.map((rep) => `<button type="button" class="tnCheck ${chosen.has(rep.id) ? 'on' : ''}" data-assignee="${esc(rep.id)}">${esc(rep.name)} · ${esc(roleLabel(rep.role))}</button>`).join('')
     : '<p class="tnSub">Named people show up here after setters and sales reps have logins. All setters and all sales reps still work from the buttons above.</p>';
   const fileBlock = editor.kind === 'file'
-    ? `<p class="tnSub">${esc(pendingFile?.name || editor.file_name || 'No file chosen yet')}</p><label class="tnTap">Replace file<input id="replaceFile" type="file" accept="application/pdf,image/*"></label>`
+    ? `<p class="tnSub">${esc(pendingFile?.name || editor.file_name || 'No file chosen yet')}</p><label class="tnTap">Replace file<input id="replaceFile" type="file" accept="${LIBRARY_ACCEPT}"></label>`
     : '';
   const fields = (editor.fields || []).map((field, index) => `<div class="tnFieldCard" data-index="${index}">
       <header><b>Field ${index + 1}</b><div class="tnIconBtns"><button type="button" data-up="${index}" aria-label="Move up">Up</button><button type="button" data-down="${index}" aria-label="Move down">Down</button><button type="button" data-remove="${index}" aria-label="Remove field">Remove</button></div></header>
@@ -332,7 +340,7 @@ async function onSave() {
         editor.file_name = uploaded.file_name;
         pendingFile = null;
       }
-      if (!editor.storage_path) throw new Error('Choose a PDF or an image.');
+      if (!editor.storage_path) throw new Error('Choose a PDF, an image, or an office document.');
     }
     const saved = await saveTemplate(ctx, editor);
     await replaceAssignments(ctx, saved.id, editor.assignee_ids || []);

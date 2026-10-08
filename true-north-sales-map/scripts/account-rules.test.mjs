@@ -243,7 +243,8 @@ assert.deepEqual(MANAGEMENT_LINKS.map((link) => [link.href, link.label]), [
   ['/admin#team', 'Team & roles'],
   ['/admin#files', 'Documents'],
   ['/admin#messages', 'Messages from the field'],
-  ['/admin#builder', 'Form library']
+  ['/admin#builder', 'Form library'],
+  ['/admin#library', 'Document folders']
 ]);
 assert.deepEqual(adminHashTarget('#accounts'), { tab: 'accounts', messages: false, builder: false });
 assert.deepEqual(adminHashTarget('#team'), { tab: 'team', messages: false, builder: false });
