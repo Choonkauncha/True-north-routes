@@ -148,9 +148,88 @@ export function navZoomFor(mode, speedMps = 0) {
   return DRIVE_ZOOM;
 }
 
-export function navLookaheadPixels(mode, heading) {
+/** Pixels of forward offset so the puck sits in the lower third. Falls back when the map height is unknown. */
+export function navLookaheadPixels(mode, heading, mapHeight) {
   if (!Number.isFinite(Number(heading))) return 0;
+  const height = Number(mapHeight);
+  if (Number.isFinite(height) && height > 0) return Math.round(Math.max(72, Math.min(200, height * 0.18)));
   return mode === 'walking' || mode === 'foot' ? 112 : 148;
+}
+
+/** Clockwise rotation in a Y-down pixel space. */
+export function rotateOffset(x, y, degrees) {
+  const rad = (Number(degrees) || 0) * Math.PI / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return { x: x * cos - y * sin, y: x * sin + y * cos };
+}
+
+/** Where a layer offset lands on screen once `headingUp` is locked to the top of the map. */
+export function screenOffsetForLayerOffset(offset, headingUp) {
+  return rotateOffset(offset.x, offset.y, -(Number(headingUp) || 0));
+}
+
+/** Arrow rotation relative to the screen. Zero means the arrow points up. */
+export function arrowRotationDegrees(heading, headingUp) {
+  const from = Number.isFinite(Number(heading)) ? Number(heading) : 0;
+  const up = Number.isFinite(Number(headingUp)) ? Number(headingUp) : 0;
+  return (from - up + 360) % 360;
+}
+
+const MOVING_HEADING_MPS = 0.9;
+
+/** GPS course while moving, compass when slow, otherwise the road ahead. */
+export function chooseTravelHeading({ gpsHeading, speedMps, compassHeading, segmentBearing } = {}) {
+  const speed = Number(speedMps);
+  const moving = Number.isFinite(speed) && speed >= MOVING_HEADING_MPS;
+  if (moving && Number.isFinite(Number(gpsHeading))) return Number(gpsHeading);
+  if (Number.isFinite(Number(compassHeading))) return Number(compassHeading);
+  if (Number.isFinite(Number(segmentBearing))) return Number(segmentBearing);
+  if (Number.isFinite(Number(gpsHeading))) return Number(gpsHeading);
+  return null;
+}
+
+export function smoothBearing(current, target, dtSeconds, tau = 0.28) {
+  if (!Number.isFinite(Number(target))) return Number.isFinite(Number(current)) ? Number(current) : 0;
+  if (!Number.isFinite(Number(current))) return Number(target);
+  const step = 1 - Math.exp(-Math.max(0, Number(dtSeconds) || 0) / tau);
+  return lerpAngle(Number(current), Number(target), Math.min(1, Math.max(0, step)));
+}
+
+export function pointAlong(line, meters) {
+  if (!line || line.length < 2) return null;
+  const cut = Math.max(0, Number(meters) || 0);
+  let along = 0;
+  for (let i = 1; i < line.length; i++) {
+    const a = line[i - 1];
+    const b = line[i];
+    const seg = metersBetween(a, b);
+    if (along + seg >= cut || i === line.length - 1) {
+      const t = seg > 0 ? Math.min(1, Math.max(0, (cut - along) / seg)) : 0;
+      return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
+    }
+    along += seg;
+  }
+  return line[line.length - 1];
+}
+
+/** Device compass in degrees clockwise from north. iOS uses webkitCompassHeading. */
+export function compassHeadingFromOrientation(event, screenAngle = 0) {
+  if (!event) return null;
+  const angle = Number(screenAngle) || 0;
+  if (Number.isFinite(Number(event.webkitCompassHeading))) {
+    return (Number(event.webkitCompassHeading) - angle + 360) % 360;
+  }
+  if (event.absolute === true && Number.isFinite(Number(event.alpha))) {
+    return (360 - Number(event.alpha) - angle + 720) % 360;
+  }
+  return null;
+}
+
+export async function requestCompassPermission(orientationEvent = globalThis.DeviceOrientationEvent) {
+  if (!orientationEvent || typeof orientationEvent.requestPermission !== 'function') return 'unsupported';
+  try { return await orientationEvent.requestPermission(); }
+  catch { return 'denied'; }
 }
 
 /** Shift the camera forward along heading so the marker sits lower and the road ahead fills the view. */

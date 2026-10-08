@@ -13,9 +13,16 @@ import {
   lerpAngle,
   lineLatLngs,
   maneuverText,
+  arrowRotationDegrees,
+  chooseTravelHeading,
+  compassHeadingFromOrientation,
+  navLookaheadPixels,
   navZoomFor,
   normalizeSteps,
   offsetCameraPoint,
+  pointAlong,
+  screenOffsetForLayerOffset,
+  smoothBearing,
   snapToRoute,
   splitRoute
 } from '../lib/nav-motion.js';
@@ -83,6 +90,25 @@ assert.equal(activeStep(steps, 50).step.type, 'turn');
 assert.equal(activeStep(steps, 140).step.type, 'arrive');
 assert.deepEqual(lineLatLngs({ type: 'LineString', coordinates: [[-82, 40], [-82, 40.1]] }), [{ lng: -82, lat: 40 }, { lng: -82, lat: 40.1 }]);
 
+assert.equal(chooseTravelHeading({ gpsHeading: 90, speedMps: 4, compassHeading: 10, segmentBearing: 180 }), 90);
+assert.equal(chooseTravelHeading({ gpsHeading: 90, speedMps: 0.2, compassHeading: 10, segmentBearing: 180 }), 10);
+assert.equal(chooseTravelHeading({ speedMps: 0, segmentBearing: 45 }), 45);
+assert.ok(Math.abs(smoothBearing(0, 90, 0.01) - 0) < 20);
+assert.ok(Math.abs(smoothBearing(0, 90, 5) - 90) < 1);
+const ahead = pointAlong([{ lat: 40, lng: -82 }, { lat: 40.001, lng: -82 }], 40);
+assert.ok(ahead.lat > 40 && ahead.lat < 40.001);
+const eastUp = screenOffsetForLayerOffset({ x: 40, y: 0 }, 90);
+assert.ok(Math.abs(eastUp.x) < 0.01);
+assert.ok(eastUp.y < -39);
+assert.equal(Math.round(arrowRotationDegrees(90, 90)), 0);
+assert.equal(Math.round(arrowRotationDegrees(0, 90)), 270);
+const compass = compassHeadingFromOrientation({ webkitCompassHeading: 90 }, 0);
+assert.equal(compass, 90);
+assert.equal(compassHeadingFromOrientation({ absolute: true, alpha: 90 }, 0), 270);
+assert.equal(navLookaheadPixels('driving', 20, 700) / 700 > 0.15, true);
+assert.ok(navLookaheadPixels('driving', 20, 700) < 700 * 0.25);
+assert.equal(navLookaheadPixels('walking', NaN, 700), 0);
+
 assert.equal(navZoomFor('walking', 0), 18);
 assert.equal(navZoomFor('foot', 3), 17.5);
 assert.equal(navZoomFor('driving', 0), 16);
@@ -138,6 +164,13 @@ assert.ok(app.includes('restyle:false'));
 assert.ok(app.includes('flyTo'));
 assert.ok(app.includes('navZoomFor'));
 assert.ok(app.includes('splitRoute'));
+assert.ok(app.includes('maximumAge:0'));
+assert.ok(app.includes('requestFullscreen'));
+assert.ok(app.includes('setMapHeading'));
+assert.ok(app.includes('webkitCompassHeading') || fs.readFileSync(new URL('../lib/nav-motion.js', import.meta.url), 'utf8').includes('webkitCompassHeading'));
+assert.ok(css.includes('safe-area-inset'));
+assert.ok(css.includes('.navCompass'));
+assert.ok(css.includes('html.isNavigating .mapShell'));
 assert.ok(css.includes('.navStop'));
 assert.ok(!app.includes('Math.max(state.map.getZoom(),17)'));
 
