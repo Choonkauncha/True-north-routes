@@ -13,6 +13,7 @@ import { readSavedLayers, resolveLayers, writeSavedLayers } from './lib/map-laye
 import { bindAreaDraw } from './area-draw.js';
 import { roleLabel } from './lib/field-rules.js';
 import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/account-rules.js';
+import { forgetRole, rememberRole } from './lib/management-gate.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -109,7 +110,7 @@ async function fetchJSON(url){const r=await fetch(url);if(!r.ok)throw new Error(
 
 function bindStaticEvents(){
   $('loginForm').addEventListener('submit',login);
-  $('logoutBtn').onclick=()=>state.supabase?.auth.signOut();
+  $('logoutBtn').onclick=()=>{ forgetRole(localStorage, state.user?.id); state.supabase?.auth.signOut(); };
   $('localModeBtn').onclick=()=>{hideLogin();enterLocal('Local device mode enabled. Connect Supabase for shared live team data.')};
   $('nextBtn').onclick=nextBest; $('nextCardBtn').onclick=nextBest;
   $('mobileNext').onclick=nextBest; $('mobileRoute').onclick=openRouteFromChrome; $('mobileLocate').onclick=locate;
@@ -251,7 +252,7 @@ function bindStaticEvents(){
 
 function enterLocal(message){
   state.mode='local'; state.session=null; state.currentRep=null; state.cloudReady=false;
-  hideLogin(); $('userMenu').classList.add('hidden'); $('adminBtn').classList.add('hidden');
+  hideLogin(); $('userMenu').classList.add('hidden'); $('adminBtn').classList.add('hidden'); $('adminBtn').hidden = true;
   $('connection').textContent='LOCAL DEVICE'; $('connection').className='chip local';
   $('cloudNotice').textContent=message||'Local mode'; $('cloudNotice').classList.remove('hidden');
   if(!state.bootDone) setBootProgress(0,0);
@@ -382,7 +383,9 @@ async function runEnterCloud(session){
   try{
     await loadLeadBundle();
     const open=canOpenManagement({email:session.user.email, rep:state.currentRep, adminEmails:state.config?.adminEmails});
+    $('adminBtn').hidden = !open;
     $('adminBtn').classList.toggle('hidden', !open);
+    if(state.user?.id && state.currentRep?.role) rememberRole(localStorage, state.user.id, state.currentRep.role);
     if(state.pendingPostSignIn){state.pendingPostSignIn=false; if(open) showPostSignIn();}
     if(!state.map) initMapOnce();
     startRealtime();

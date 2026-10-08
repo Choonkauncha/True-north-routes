@@ -2,9 +2,9 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 import {
   RESET_LINK_BAD,
   passwordChangeError,
-  plainPasswordSaveError,
   recoveryFromLocation
 } from '../lib/password-reset.js';
+import { passwordUpdateError } from '../lib/must-change-password.js';
 import './password-reset.js';
 
 const app = document.getElementById('app');
@@ -59,7 +59,14 @@ async function save(event, sb) {
   msg.classList.add('isOk');
   const { error } = await sb.auth.updateUser({ password: first });
   if (error) {
-    msg.textContent = plainPasswordSaveError(error);
+    msg.textContent = passwordUpdateError(error, first);
+    msg.classList.remove('isOk');
+    msg.classList.add('isBad');
+    return;
+  }
+  const cleared = await sb.rpc('clear_must_change_password');
+  if (cleared.error) {
+    msg.textContent = passwordUpdateError(cleared.error, first);
     msg.classList.remove('isOk');
     msg.classList.add('isBad');
     return;

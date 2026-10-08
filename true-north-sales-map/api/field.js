@@ -96,7 +96,7 @@ async function caller(request) {
   if (!userResponse.ok) throw fail('Sign in required.', 401);
   const user = await userResponse.json();
   if (!isUuid(user?.id)) throw fail('Sign in required.', 401);
-  const reps = await rest(token, `reps?user_id=eq.${user.id}&active=eq.true&select=id,name,email,role&limit=1`);
+  const reps = await rest(token, `reps?user_id=eq.${user.id}&active=eq.true&select=id,name,role&limit=1`);
   const rep = Array.isArray(reps) ? reps[0] : null;
   if (!rep || !isUuid(rep.id)) throw fail('No active team profile is attached to this sign-in.', 403);
   if (![...FIELD_ROLES, ...ADMIN_ROLES].includes(rep.role)) throw fail('This team profile cannot use clock-in or messages.', 403);

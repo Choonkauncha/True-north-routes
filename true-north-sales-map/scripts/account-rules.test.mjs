@@ -26,6 +26,10 @@ assert.equal(canManageAccount('manager', 'admin', 'create'), false);
 assert.equal(canManageAccount('manager', 'manager', 'reset'), false);
 assert.equal(canManageAccount('manager', 'salesperson', 'open_as'), false);
 assert.equal(canManageAccount('admin', 'admin', 'create'), true);
+assert.equal(canManageAccount('admin', 'admin', 'reset'), false);
+assert.equal(canManageAccount('admin', 'admin', 'reset', { samePerson: true }), true);
+assert.equal(canManageAccount('admin', 'admin', 'open_as'), false);
+assert.equal(canManageAccount('admin', 'admin', 'deactivate'), false);
 assert.equal(canManageAccount('admin', 'manager', 'reset'), true);
 assert.equal(canManageAccount('admin', 'salesperson', 'open_as'), true);
 assert.equal(canManageAccount('salesperson', 'canvasser', 'create'), false);
@@ -56,9 +60,12 @@ const SALES_REP = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const SALES_USER = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 const NEW_USER = '11111111-1111-4111-8111-111111111111';
 const NEW_REP = '22222222-2222-4222-8222-222222222222';
+const SPENCER_USER = '99999999-9999-4999-8999-999999999999';
+const SPENCER_REP = '88888888-8888-4888-8888-888888888888';
 const people = {
   [SALES_REP]: { id: SALES_REP, user_id: SALES_USER, name: 'Sam Sales', email: 'sam@example.com', role: 'salesperson', active: true },
-  [ADMIN_REP]: { id: ADMIN_REP, user_id: ADMIN_USER, name: 'Ian', email: 'travisbishopmackie@gmail.com', role: 'admin', active: true }
+  [ADMIN_REP]: { id: ADMIN_REP, user_id: ADMIN_USER, name: 'Travis', email: 'travisbishopmackie@gmail.com', role: 'admin', active: true },
+  [SPENCER_REP]: { id: SPENCER_REP, user_id: SPENCER_USER, name: 'Spencer', email: 'truenorthrestorationss@gmail.com', role: 'admin', active: true }
 };
 
 function response(body, status = 200) {
@@ -80,11 +87,13 @@ async function run(action, body, token, extraEnv = {}) {
     if (u.endsWith('/auth/v1/user')) {
       const bearer = options.headers.Authorization || '';
       if (bearer.endsWith('admin-token')) return response({ id: ADMIN_USER });
+      if (bearer.endsWith('spencer-token')) return response({ id: SPENCER_USER });
       if (bearer.endsWith('manager-token')) return response({ id: MANAGER_USER });
       return response({ message: 'no' }, 401);
     }
     if (u.includes('/rest/v1/reps?user_id=')) {
-      if (u.includes(ADMIN_USER)) return response([{ id: ADMIN_REP, role: 'admin', name: 'Ian', email: 'travisbishopmackie@gmail.com' }]);
+      if (u.includes(ADMIN_USER)) return response([{ id: ADMIN_REP, role: 'admin', name: 'Travis', email: 'travisbishopmackie@gmail.com' }]);
+      if (u.includes(SPENCER_USER)) return response([{ id: SPENCER_REP, role: 'admin', name: 'Spencer', email: 'truenorthrestorationss@gmail.com' }]);
       if (u.includes(MANAGER_USER)) return response([{ id: MANAGER_REP, role: 'manager', name: 'Pat', email: 'pat@example.com' }]);
       return response([]);
     }
@@ -96,6 +105,7 @@ async function run(action, body, token, extraEnv = {}) {
     if (u.endsWith('/auth/v1/admin/users') && method === 'POST') return response({ id: NEW_USER });
     if (u.endsWith('/rest/v1/reps') && method === 'POST') return response([{ id: NEW_REP, role: 'salesperson' }]);
     if (u.includes('/rest/v1/account_audit') && method === 'POST') return response([{}]);
+    if (u.includes('/rest/v1/impersonation_grants') && method === 'POST') return response([{ id: '33333333-3333-4333-8333-333333333333' }]);
     if (u.includes('/admin/generate_link') && method === 'POST') return response({ action_link: 'https://example.supabase.co/auth/v1/verify?token=once&type=magiclink' });
     if (u.includes('/auth/v1/admin/users/') && method === 'PUT') return response({});
     if (u.includes('/rest/v1/reps?id=eq.') && method === 'PATCH') return response([{}]);
@@ -140,6 +150,25 @@ assert.ok(!JSON.stringify(adminOpen.body).includes('service-role-secret'));
 const openAudit = adminOpen.calls.find((call) => call.url.includes('account_audit'));
 assert.equal(JSON.parse(openAudit.body).action, 'open_as');
 assert.equal(JSON.parse(openAudit.body).actor_rep_id, ADMIN_REP);
+const openGrant = adminOpen.calls.find((call) => call.url.includes('impersonation_grants'));
+assert.ok(openGrant);
+assert.equal(JSON.parse(openGrant.body).user_id, SALES_USER);
+assert.equal(JSON.parse(openGrant.body).password, undefined);
+const openLink = adminOpen.calls.find((call) => call.url.includes('generate_link'));
+assert.ok(JSON.parse(openLink.body).options.redirect_to.includes('tn_open=33333333-3333-4333-8333-333333333333'));
+assert.equal(adminOpen.calls.some((call) => call.url.includes('/reps?id=') && call.method === 'PATCH'), false);
+
+const crossReset = await run('reset', { repId: SPENCER_REP, password: 'another-password' }, 'admin-token');
+assert.equal(crossReset.status, 403);
+assert.equal(crossReset.calls.some((call) => call.method === 'PUT'), false);
+assert.equal(JSON.stringify(crossReset.body).includes('another-password'), false);
+
+const selfReset = await run('reset', { repId: ADMIN_REP, password: 'another-password' }, 'admin-token');
+assert.equal(selfReset.status, 200);
+const selfPatch = selfReset.calls.find((call) => call.method === 'PATCH' && call.url.includes(ADMIN_REP));
+assert.equal(JSON.parse(selfPatch.body).must_change_password, true);
+assert.equal(JSON.parse(selfPatch.body).password, undefined);
+assert.equal(selfReset.calls.some((call) => String(call.body).includes('another-password') && call.url.includes('account_audit')), false);
 
 const selfOff = await run('set-active', { repId: ADMIN_REP, active: false }, 'admin-token');
 assert.equal(selfOff.status, 400);
@@ -227,7 +256,7 @@ assert.equal(canOpenManagement({
   email: 'mgr@example.com',
   rep: { role: 'manager', email: 'mgr@example.com' },
   adminEmails: [...BOOTSTRAP_ADMIN_EMAILS, 'mgr@example.com']
-}), true);
+}), false);
 assert.equal(canOpenManagement({
   email: 'boss@example.com',
   rep: { role: 'admin', email: 'boss@example.com' },
