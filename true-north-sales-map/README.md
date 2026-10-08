@@ -1,3 +1,7 @@
+## UI workspace redesign
+
+The interface now shares a responsive visual system across the field map, management, and role profiles. The ? button opens an annotated tutorial for the current page and available tools. See [the UI/UX audit](docs/ui-ux-audit.md) for the surface inventory, role behavior, implementation details, and verification limits. Run `npm test` for regressions and `npm run test:ui` for the synthetic browser preview (setup instructions in the audit).
+
 # True North Roofing — Sales Command Center v2
 
 ## Brand + UX refresh (v2.1)

@@ -45,7 +45,7 @@ assert.equal(recoveryFromLocation({ hash: '#access_token=a&refresh_token=b&type=
 assert.equal(recoveryFromLocation({ search: '?code=abc' }), 'present');
 
 const index = read('index.html');
-const admin = read('admin.html');
+const admin = read('admin.html') + read('admin-dashboard.js');
 const card = read('tn-files/ui.js');
 const account = read('tn-files/account-page.js');
 const resetPage = read('tn-files/reset-page.js');
