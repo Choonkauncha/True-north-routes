@@ -96,7 +96,9 @@ body:has(#toast.show .toastActions:not(.hidden):not([hidden])) .tnFieldOps{
   .topRight > a.quickLinkBtn{display:none !important}
   .topbar{flex-wrap:nowrap;overflow:hidden;gap:6px}
   .topbar .brand{flex:1 1 auto;min-width:0;overflow:hidden}
-  .brandName{max-width:88px;overflow:hidden;text-overflow:ellipsis}
+  body:not(:has(#legendKey)) .brandName{max-width:88px;overflow:hidden;text-overflow:ellipsis}
+  body:has(#legendKey) .topbar .brand{flex:0 0 auto;min-width:max-content;overflow:visible}
+  body:has(#legendKey) .brandName{max-width:none;overflow:visible;text-overflow:clip}
   .topRight{flex:0 0 auto;flex-wrap:nowrap;min-width:0}
   .topRight .primaryBtn,.userMenu button{padding:8px 10px;min-height:44px;white-space:nowrap}
   .tnMore{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:0 10px;border-radius:10px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
