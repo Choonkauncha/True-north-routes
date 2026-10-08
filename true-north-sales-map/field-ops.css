@@ -154,3 +154,14 @@ body:has(#toast.show .toastActions:not(.hidden):not([hidden])) .tnFieldOps{
   body:has(#listSheet.sheet-full) .tnFieldOps,
   html.tn-list-full .tnFieldOps{transition:none}
 }
+@media(max-width:700px){
+  #mobileBar .tnFieldOps{display:contents}
+  #mobileBar .tnClockBtn,
+  #mobileBar .tnMsgBtn,
+  #mobileBar .tnShiftsLink{
+    flex:none;min-width:0;min-height:48px;height:auto;padding:8px 6px;
+    font-size:14px;line-height:1.1;border-radius:10px;box-shadow:none;white-space:nowrap
+  }
+  #mobileBar .tnMsgBtn,
+  #mobileBar .tnShiftsLink{background:#0c1424;color:#fff;border:0}
+}

@@ -270,6 +270,7 @@ function tallestShownTop(selector) {
 }
 
 function syncListSheet() {
+  syncMobileChrome();
   const root = document.documentElement;
   const sheet = document.getElementById('listSheet');
   const phone = window.matchMedia('(max-width: 700px)').matches;
@@ -374,6 +375,46 @@ function watchSheets() {
   }).observe(document.body, { childList: true, subtree: true });
 }
 
+function placeFieldOps(wrap) {
+  const bar = document.getElementById('mobileBar');
+  const phoneBar = bar && window.matchMedia('(max-width: 700px)').matches;
+  if (phoneBar) {
+    if (wrap.parentElement !== bar) bar.appendChild(wrap);
+    return;
+  }
+  const host = hostForWidget();
+  if (!host) return;
+  const userMenu = document.getElementById('userMenu');
+  if (userMenu && userMenu.parentElement === host) {
+    if (wrap.parentElement !== host || wrap.nextElementSibling !== userMenu) host.insertBefore(wrap, userMenu);
+  } else if (wrap.parentElement !== host) host.prepend(wrap);
+}
+
+function syncMobileChrome() {
+  const wrap = document.getElementById('tnFieldOps');
+  if (wrap) placeFieldOps(wrap);
+  const root = document.documentElement;
+  const bar = document.getElementById('mobileBar');
+  const phone = window.matchMedia('(max-width: 700px)').matches && bar && getComputedStyle(bar).display !== 'none';
+  if (!phone) {
+    if (root.dataset.tnBarInset) {
+      setRootVar('--list-sheet-bottom', '');
+      const bottom = getComputedStyle(root).getPropertyValue('--list-sheet-bottom').trim() || '78px';
+      const grabH = Math.round(document.getElementById('listSheetGrab')?.getBoundingClientRect().height || 52);
+      setRootVar('--list-sheet-peek', `calc(${grabH}px + ${bottom})`);
+      delete root.dataset.tnBarInset;
+    }
+    return;
+  }
+  const height = Math.ceil(bar.getBoundingClientRect().height);
+  if (height < 8) return;
+  const bottom = `${height + 15}px`;
+  setRootVar('--list-sheet-bottom', bottom);
+  const grabH = Math.round(document.getElementById('listSheetGrab')?.getBoundingClientRect().height || 52);
+  setRootVar('--list-sheet-peek', `calc(${grabH}px + ${bottom})`);
+  root.dataset.tnBarInset = '1';
+}
+
 function mountWidget() {
   const host = hostForWidget();
   if (!host || document.getElementById('tnFieldOps')) return;
@@ -390,11 +431,11 @@ function mountWidget() {
       <span id="tnUnread" class="tnBadge hidden">0</span>
     </button>
     <a id="tnShiftsLink" class="tnShiftsLink" href="/shifts.html">Shifts</a>`;
-  const userMenu = document.getElementById('userMenu');
-  if (userMenu && userMenu.parentElement === host) host.insertBefore(wrap, userMenu);
-  else host.prepend(wrap);
+  host.prepend(wrap);
+  placeFieldOps(wrap);
   document.getElementById('tnClockBtn').onclick = onClock;
   document.getElementById('tnMsgBtn').onclick = () => { state.msgOpen ? closeMessages() : openMessages(); };
+  syncMobileChrome();
 }
 
 function renderWidget() {
@@ -415,6 +456,7 @@ function renderWidget() {
   badge.classList.toggle('hidden', unread < 1);
   messages.setAttribute('aria-expanded', state.msgOpen ? 'true' : 'false');
   renderClockLabel();
+  syncMobileChrome();
 }
 
 function formatTimer(fromIso) {
@@ -1024,6 +1066,8 @@ async function boot() {
     mountPhoneMenu();
     watchSheets();
     watchListSheet();
+    const bar = document.getElementById('mobileBar');
+    if (bar && typeof ResizeObserver !== 'undefined') new ResizeObserver(() => syncMobileChrome()).observe(bar);
     if (document.getElementById('shiftsApp')) await bootShifts();
     else await bootWidget();
   } catch (error) {
