@@ -1,0 +1,36 @@
+/* Navy canvas so a new document never flashes white. Body paint comes from each page. */
+html {
+  background: #0c1424 !important;
+}
+
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: tn-vt-out 160ms ease both;
+}
+
+::view-transition-new(root) {
+  animation: tn-vt-in 160ms ease both;
+}
+
+@keyframes tn-vt-out {
+  to { opacity: 0; }
+}
+
+@keyframes tn-vt-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+html {
+  overflow-x: clip;
+}

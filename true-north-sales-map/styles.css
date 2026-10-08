@@ -281,3 +281,13 @@ html.routeTrayStartCollapsed .routeTray{padding:0 8px 0 14px;gap:0;min-height:44
 @media(prefers-reduced-motion:reduce){
   .mapLoader,.mapLoaderSpin,#mapLoaderFact,.bootEmblem,.routeTrayChevron{transition:none;animation:none}
 }
+
+.navArrowIcon{background:transparent;border:0}
+.navArrow{position:relative;width:28px;height:28px;border-radius:50%;background:#1e6bff;border:3px solid #fff;box-shadow:0 2px 8px rgba(12,20,36,.35)}
+.navArrow::before{content:"";position:absolute;left:50%;top:-7px;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:9px solid #1e6bff}
+#navRecenter.isOn{background:#fff;color:#0c1424;grid-column:1 / -1}
+.navBarCopy strong,.navBarCopy span{overflow-wrap:anywhere}
+@media(max-width:400px){
+  .navBar{max-width:calc(100vw - 16px)}
+  .navBarActions{grid-template-columns:1fr 1fr}
+}
