@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createArrayCursor, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, normalizeStamp, parseJsonArraySlice, planLeadSync, takeCompleteObjects } from '../lib/lead-cache.js';
+import { createArrayCursor, leadCacheUsable, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, normalizeStamp, parseJsonArraySlice, planLeadSync, takeCompleteObjects } from '../lib/lead-cache.js';
 import { STREET_ZOOM, clusterLeads, pinDiff, sampleHeat } from '../lib/pin-layer.js';
 
 assert.equal(localStamp({ generated: '2026-10-08', totalRecords: 17232, mappedRecords: 17177 }), 'local:2026-10-08:17232:17177');
@@ -18,6 +18,19 @@ const merged = mergeLeadDelta(
 );
 assert.deepEqual(merged.map((lead) => lead.name), ['New', 'Keep', 'Added']);
 assert.deepEqual(mergeLeadDelta([{ id: 'a' }], []), [{ id: 'a' }]);
+const kept = mergeLeadDelta(
+  [{ id: 'a', name: 'Old', lat: 40.1, lng: -82.4 }, { id: 'b', lat: 1, lng: 2 }],
+  [{ id: 'a', name: 'New', lat: null, lng: null }, { id: 'b', lat: 3, lng: 4 }]
+);
+assert.equal(kept.find((lead) => lead.id === 'a').lat, 40.1);
+assert.equal(kept.find((lead) => lead.id === 'a').lng, -82.4);
+assert.equal(kept.find((lead) => lead.id === 'a').name, 'New');
+assert.equal(kept.find((lead) => lead.id === 'b').lat, 3);
+assert.equal(leadCacheUsable({ leads: [{ id: 'a', address: '1 Main' }, { id: 'b' }] }), false);
+assert.equal(leadCacheUsable({ leads: [{ id: 'a' }, { id: 'b', lat: 40.2, lng: -82.5 }] }), true);
+assert.equal(leadCacheUsable(null), false);
+assert.equal(leadCacheUsable({ leads: [] }), false);
+assert.equal(planLeadSync({ cachedStamp: '2026-10-08T00:00:00Z', cachedCount: 0, remoteCount: 17235, remoteUpdatedAt: '2026-10-08T00:00:00Z' }), 'full');
 
 const sample='[{"id":"a","note":"brace } stays"},{"id":"b","child":{"n":1}},{"id":"c"}]';
 const cursor=createArrayCursor();
@@ -58,6 +71,12 @@ const app = readFileSync(join(root, '../app.js'), 'utf8');
 const html = readFileSync(join(root, '../index.html'), 'utf8');
 const css = readFileSync(join(root, '../styles.css'), 'utf8');
 assert.ok(app.includes('readLeadCache'));
+assert.ok(app.includes('leadCacheUsable'));
+assert.ok(app.includes('leadLoadSettled'));
+assert.ok(app.includes("state.mode==='cloud'&&!state.cloudReady"));
+assert.ok(app.includes('rememberLeadCache'));
+assert.equal(app.split('writeLeadCache(').length - 1, 1);
+
 assert.ok(app.includes('clusterLeads'));
 assert.ok(app.includes('requestAnimationFrame'));
 assert.ok(app.includes('showMoreLeads'));
