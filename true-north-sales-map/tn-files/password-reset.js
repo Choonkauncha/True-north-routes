@@ -42,9 +42,11 @@ export function installPasswordReset() {
     const form = scope?.querySelector('[data-forgot-form]');
     if (!form) return;
     form.classList.remove('hidden');
+    scope.classList.add('isResetting');
     const emailInput = form.querySelector('[data-forgot-email]');
     const typed = scope.querySelector('form:not([data-forgot-form]) input[type="email"]');
     if (emailInput && typed && !emailInput.value) emailInput.value = typed.value;
+    form.querySelector('button[type="submit"]')?.scrollIntoView({ block: 'nearest' });
     emailInput?.focus();
   });
   document.addEventListener('submit', async (event) => {
