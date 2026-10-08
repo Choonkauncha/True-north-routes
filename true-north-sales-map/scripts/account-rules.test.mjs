@@ -8,6 +8,7 @@ import {
   validateEmail,
   validatePassword
 } from '../lib/account-rules.js';
+import { bindAdminTabs } from '../lib/admin-tabs.js';
 import { handleAccounts } from '../api/accounts.js';
 import { buildSetupSql } from './build-setup-sql.mjs';
 
@@ -151,5 +152,42 @@ assert.equal(fallback.status, 200);
 const secretHeader = fallback.calls.find((call) => call.url.endsWith('/auth/v1/admin/users'));
 assert.equal(secretHeader.headers.apikey, 'service-role-secret');
 assert.ok(!JSON.stringify(fallback.body).includes('service-role-secret'));
+
+function fakeTab(tab) {
+  const listeners = [];
+  return {
+    dataset: { tab },
+    addEventListener(_type, fn) { listeners.push(fn); },
+    click() { listeners.forEach((fn) => fn()); },
+    listeners
+  };
+}
+
+const overview = fakeTab('overview');
+const accounts = fakeTab('accounts');
+const shown = [];
+accounts.dataset.tnTabBound = '1';
+accounts.addEventListener('click', () => shown.push('accounts-form'));
+const tabRoot = { querySelectorAll: (selector) => selector === '[data-tab]' ? [overview, accounts] : [] };
+bindAdminTabs(tabRoot, (tab) => shown.push(`showTab:${tab}`));
+bindAdminTabs(tabRoot, (tab) => shown.push(`showTab:${tab}`));
+accounts.click();
+overview.click();
+assert.deepEqual(shown, ['accounts-form', 'showTab:overview']);
+assert.equal(accounts.listeners.length, 1);
+assert.equal(overview.listeners.length, 1);
+
+const adminHtml = read('admin.html');
+const accountsJs = read('tn-files/accounts-admin.js');
+assert.ok(adminHtml.includes('bindAdminTabs(document, showTab)'));
+assert.ok(!adminHtml.includes("querySelectorAll('[data-tab]').forEach(b=>b.onclick"));
+assert.ok(adminHtml.includes('Add setter or rep'));
+const mountSource = accountsJs.slice(accountsJs.indexOf('function mount'), accountsJs.indexOf('let sb'));
+assert.ok(mountSource.includes("addEventListener('click'"));
+assert.ok(mountSource.includes("dataset.tnTabBound = '1'"));
+assert.ok(!mountSource.includes('.onclick'));
+assert.ok(read('field-ops.js').includes("link.textContent = 'Management'"));
+assert.ok(read('field-ops.js').includes("link.href = '/admin'"));
+assert.ok(read('field-ops.js').includes('tnMoreAdmin'));
 
 console.log('account-rules tests ok');

@@ -19,20 +19,25 @@ function mount() {
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.tab = 'accounts';
+  button.dataset.tnTabBound = '1';
   button.textContent = 'Accounts';
-  const files = rail.querySelector('[data-tab="files"]');
-  if (files) files.insertAdjacentElement('afterend', button);
+  const team = rail.querySelector('[data-tab="team"]');
+  if (team) team.insertAdjacentElement('afterend', button);
   else rail.appendChild(button);
   const section = document.createElement('section');
   section.id = 'tab-accounts';
   section.className = 'hidden';
   section.innerHTML = '<div id="tnAccounts"></div>';
   main.appendChild(section);
-  button.onclick = () => {
-    document.querySelectorAll('#app [data-tab]').forEach((item) => item.classList.toggle('active', item === button));
-    document.querySelectorAll('#app main section[id^=tab-]').forEach((item) => item.classList.toggle('hidden', item.id !== 'tab-accounts'));
+  button.addEventListener('click', () => {
+    revealAccounts();
     show();
-  };
+  });
+}
+
+function revealAccounts() {
+  document.querySelectorAll('#app [data-tab]').forEach((item) => item.classList.toggle('active', item.dataset.tab === 'accounts'));
+  document.querySelectorAll('#app main section[id^=tab-]').forEach((item) => item.classList.toggle('hidden', item.id !== 'tab-accounts'));
 }
 
 let sb = null;
@@ -74,6 +79,7 @@ async function show() {
     if (listed.error) throw listed.error;
     people = listed.data || [];
     render();
+    revealAccounts();
   } catch (error) {
     root.innerHTML = `<h1 class="tnTitle">Accounts</h1><p class="tnError">${esc(error.message)}</p>`;
   }
@@ -126,6 +132,7 @@ function render() {
   root.querySelectorAll('.tnResetForm').forEach((form) => {
     form.onsubmit = (event) => saveReset(event, form.closest('[data-rep]').dataset.rep, form.querySelector('input').value);
   });
+  revealAccounts();
 }
 
 function linkHtml() {
