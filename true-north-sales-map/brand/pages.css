@@ -1,0 +1,675 @@
+/*
+  Layout and chrome for the standalone True North pages.
+  Requires brand/tokens.css and <body class="tn-standalone">.
+  Does not restyle the field map, admin shell, or shared portal.css file.
+*/
+
+body.tn-standalone {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--tn-canvas);
+  color: var(--tn-ink);
+  font-family: var(--tn-font);
+  font-size: var(--tn-text-md);
+  line-height: var(--tn-leading);
+  color-scheme: light;
+}
+
+body.tn-standalone .brandFull,
+body.tn-standalone .signInLogo,
+body.tn-standalone .tnPreview,
+body.tn-standalone .brandLogo {
+  max-width: 100%;
+}
+
+.tn-skip {
+  position: absolute;
+  left: var(--tn-space-3);
+  top: var(--tn-space-3);
+  z-index: 80;
+  transform: translateY(-160%);
+  padding: 10px 14px;
+  border-radius: var(--tn-radius-sm);
+  background: var(--tn-on-navy);
+  color: var(--tn-navy);
+  font-weight: var(--tn-weight-bold);
+  text-decoration: none;
+}
+
+.tn-skip:focus {
+  transform: none;
+}
+
+/* Header. Logo, then wrapping links that stay on screen at 360px. */
+body.tn-standalone .tnHeader {
+  height: auto;
+  min-height: 64px;
+  padding: 10px 16px 12px;
+  gap: 10px 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  overflow: visible;
+  background: var(--tn-navy);
+  border-bottom: 3px solid var(--tn-blue);
+  box-shadow: var(--tn-shadow-md);
+}
+
+body.tn-standalone .brand {
+  flex: 1 1 180px;
+  min-width: 0;
+  gap: 10px;
+}
+
+body.tn-standalone .brandFull {
+  height: 56px;
+  width: auto;
+}
+
+body.tn-standalone .brandEmblem {
+  width: 40px;
+  height: 40px;
+}
+
+body.tn-standalone .brandText b {
+  color: var(--tn-on-navy);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+body.tn-standalone .brandText b .brandRest {
+  color: var(--tn-on-navy);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+body.tn-standalone .brandText span {
+  display: block;
+  margin-top: 2px;
+  color: var(--tn-on-navy-muted);
+  font-size: 11px;
+  font-weight: var(--tn-weight-bold);
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  white-space: normal;
+}
+
+body.tn-standalone .headerLinks {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+body.tn-standalone .headerLinks > a:not(.hidden):not([hidden]),
+body.tn-standalone .headerLinks > button:not(.hidden):not([hidden]) {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: var(--tn-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--tn-on-navy);
+  font-size: var(--tn-text-sm);
+  font-weight: var(--tn-weight-bold);
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  body.tn-standalone .headerLinks > a:hover,
+  body.tn-standalone .headerLinks > button:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+}
+
+@media (min-width: 900px) {
+  body.tn-standalone .tnHeader {
+    flex-wrap: nowrap;
+    padding: 8px 24px;
+  }
+
+  body.tn-standalone .headerLinks {
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  body.tn-standalone .tnHeader .brandText span {
+    display: none !important;
+  }
+}
+
+/* Page frame and type hierarchy. */
+body.tn-standalone .container,
+body.tn-standalone .tnApp {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+}
+
+body.tn-standalone:has(#shiftsApp) .container,
+body.tn-standalone:has(#tnFilesRoot) .container,
+body.tn-standalone.tn-setter .container {
+  width: min(1120px, 100%);
+}
+
+body.tn-standalone h1,
+body.tn-standalone .tnTitle {
+  margin: 0 0 8px;
+  color: var(--tn-navy);
+  font-size: var(--tn-text-2xl);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+body.tn-standalone h2 {
+  margin: 0 0 8px;
+  color: var(--tn-navy);
+  font-size: var(--tn-text-xl);
+  line-height: 1.2;
+}
+
+body.tn-standalone h3,
+body.tn-standalone .formSection h3 {
+  margin: 0 0 12px;
+  color: var(--tn-navy);
+  font-size: var(--tn-text-lg);
+  line-height: 1.3;
+}
+
+body.tn-standalone p,
+body.tn-standalone .tnSub,
+body.tn-standalone .tnShiftNote,
+body.tn-standalone .small,
+body.tn-standalone .helper,
+body.tn-standalone .tnHelp {
+  margin: 0 0 12px;
+  color: var(--tn-muted);
+  font-size: var(--tn-text-md);
+  line-height: var(--tn-leading);
+}
+
+body.tn-standalone .eyebrow,
+body.tn-standalone .tnProgress {
+  margin: 0 0 6px;
+  color: var(--tn-blue);
+  font-size: var(--tn-text-xs);
+  font-weight: 800;
+  letter-spacing: var(--tn-tracking-label);
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+body.tn-standalone .field {
+  gap: 6px;
+}
+
+body.tn-standalone .field label,
+body.tn-standalone .tnLabel {
+  color: var(--tn-navy);
+  font-size: 15px;
+  font-weight: var(--tn-weight-bold);
+  line-height: 1.3;
+}
+
+body.tn-standalone .tnLabel {
+  margin: 14px 0 6px;
+}
+
+body.tn-standalone .grid {
+  gap: var(--tn-space-4);
+}
+
+body.tn-standalone .card.pad,
+body.tn-standalone .pad {
+  padding: 18px 16px;
+}
+
+body.tn-standalone .hero {
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+body.tn-standalone .split {
+  gap: var(--tn-space-4);
+  align-items: start;
+}
+
+body.tn-standalone .formSection {
+  margin-top: var(--tn-space-6);
+  padding-top: var(--tn-space-5);
+  border-top: 1px solid var(--tn-line);
+}
+
+body.tn-standalone .inlineActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+body.tn-standalone .footer {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 4px 16px 32px;
+  color: var(--tn-muted);
+  font-size: var(--tn-text-sm);
+  line-height: 1.45;
+  text-align: center;
+}
+
+body.tn-standalone.tn-setter .footer,
+body.tn-standalone:has(#shiftsApp) .footer {
+  width: min(1120px, 100%);
+}
+
+/* Notices, errors, success, and empty slots. */
+body.tn-standalone .notice,
+body.tn-standalone .tnBanner {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 1px solid #c5d6ff;
+  border-radius: var(--tn-radius-md);
+  background: var(--tn-blue-soft);
+  color: var(--tn-blue-ink);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+body.tn-standalone .error:not(:empty),
+body.tn-standalone .tnError:not(:empty),
+body.tn-standalone .tnResetMsg.isBad:not(:empty) {
+  display: block;
+  margin-top: 10px;
+  padding: 8px 0 8px 12px;
+  border: 0;
+  border-left: 3px solid var(--tn-danger);
+  border-radius: 0;
+  background: transparent;
+  color: var(--tn-danger);
+  font-size: 15px;
+  font-weight: var(--tn-weight-bold);
+  line-height: 1.4;
+  min-height: 0;
+}
+
+body.tn-standalone .success {
+  padding: 18px 16px;
+  border: 1px solid #b7e0c8;
+  border-radius: var(--tn-radius-lg);
+  background: var(--tn-success-bg);
+  color: var(--tn-success);
+}
+
+body.tn-standalone .success h2 {
+  color: var(--tn-success);
+  font-size: var(--tn-text-2xl);
+}
+
+body.tn-standalone .success p,
+body.tn-standalone .tnResetMsg.isOk {
+  color: var(--tn-ink);
+  font-size: var(--tn-text-md);
+}
+
+body.tn-standalone .tnSuccess {
+  padding: 28px 12px;
+}
+
+body.tn-standalone #groups > .tnSub,
+body.tn-standalone #hits > .tnSub,
+body.tn-standalone #houseHits > .tnSub,
+body.tn-standalone div.tnCard:not(:has(a, button, img, .tnGallery)) {
+  padding: 16px;
+  border: 1px dashed var(--tn-line-strong);
+  border-radius: var(--tn-radius-lg);
+  background: var(--tn-surface);
+  box-shadow: none;
+}
+
+body.tn-standalone .checkline {
+  min-height: 44px;
+  align-items: center;
+  gap: 12px;
+  color: var(--tn-ink);
+  font-size: var(--tn-text-md);
+  font-weight: var(--tn-weight-bold);
+  line-height: 1.35;
+}
+
+body.tn-standalone .checkline input {
+  width: 22px;
+  height: 22px;
+  margin-top: 0;
+  accent-color: var(--tn-blue);
+  flex: none;
+}
+
+body.tn-standalone .metric {
+  padding: 14px;
+  border: 1px solid var(--tn-line);
+  border-radius: var(--tn-radius-md);
+  background: var(--tn-canvas);
+}
+
+body.tn-standalone .metric b {
+  color: var(--tn-navy);
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+body.tn-standalone .metric span {
+  color: var(--tn-muted);
+  font-size: 12px;
+  font-weight: var(--tn-weight-bold);
+  letter-spacing: 0.06em;
+}
+
+/* Sign-in cards. Keep the logo short so the form stays on a phone screen. */
+body.tn-standalone .authCard {
+  width: min(440px, 100%);
+  margin: 12px auto 0;
+}
+
+body.tn-standalone .authCard .pad {
+  padding: 18px 16px 16px;
+}
+
+body.tn-standalone .signInLogo {
+  display: block;
+  width: auto;
+  max-width: min(168px, 58%);
+  max-height: 120px;
+  height: auto;
+  margin: 0 auto 8px;
+  object-fit: contain;
+}
+
+body.tn-standalone .authCard h1 {
+  font-size: var(--tn-text-xl);
+}
+
+body.tn-standalone .authCard .tnTap,
+body.tn-standalone .authCard .btn,
+body.tn-standalone .tnForgotForm .tnTap,
+body.tn-standalone .tnCard > .tnTap,
+body.tn-standalone .tnStack > .tnTap,
+body.tn-standalone .tnSticky .tnTap,
+body.tn-standalone .tnAccountBtns .tnTap,
+body.tn-standalone .tnAccountBtns button,
+body.tn-standalone .tnAccountBtns a {
+  width: 100%;
+}
+
+body.tn-standalone .tnForgot {
+  width: auto;
+  margin-top: 4px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--tn-blue);
+  justify-content: flex-start;
+}
+
+body.tn-standalone .tnAccountBtns {
+  display: grid;
+  gap: 8px;
+}
+
+body.tn-standalone .tnStack,
+body.tn-standalone .tnFilters {
+  gap: 10px;
+}
+
+body.tn-standalone .tnCard b,
+body.tn-standalone .tnAccountCard b {
+  color: var(--tn-navy);
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+body.tn-standalone .tnCard span,
+body.tn-standalone .tnMeta,
+body.tn-standalone .tnAccountCard > span {
+  color: var(--tn-muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+body.tn-standalone .tnSticky {
+  background: var(--tn-canvas);
+  border-top: 1px solid var(--tn-line);
+  box-shadow: 0 -8px 24px rgba(12, 20, 36, 0.06);
+}
+
+body.tn-standalone .tnSign {
+  width: 100%;
+  border: 2px dashed var(--tn-line-strong);
+  border-radius: var(--tn-radius-lg);
+  background: var(--tn-surface);
+}
+
+/* Shifts list and the office empty state. */
+body.tn-standalone .tnPersonBtn {
+  min-height: 64px;
+  border: 1.5px solid var(--tn-line);
+  border-radius: var(--tn-radius-lg);
+  background: var(--tn-surface);
+  box-shadow: var(--tn-shadow-sm);
+}
+
+body.tn-standalone .tnPersonBtn strong {
+  color: var(--tn-navy);
+  font-size: 17px;
+}
+
+body.tn-standalone .tnPersonBtn span {
+  color: var(--tn-muted);
+  font-size: 15px;
+}
+
+body.tn-standalone .tnPersonBtn.selected {
+  border-color: var(--tn-blue);
+  box-shadow: inset 4px 0 0 var(--tn-blue);
+}
+
+body.tn-standalone .tnMilesBig {
+  color: var(--tn-navy);
+}
+
+body.tn-standalone .tnShiftMap {
+  border: 1px solid var(--tn-line);
+  border-radius: var(--tn-radius-lg);
+  box-shadow: var(--tn-shadow-sm);
+}
+
+body.tn-standalone .tnDayBar .btn {
+  min-height: var(--tn-control-height);
+}
+
+/* Public inspection request. A navy introduction beside the form on a wide screen. */
+body.tn-public .container {
+  width: min(760px, 100%);
+}
+
+body.tn-public .tn-hero {
+  margin: 0 0 16px;
+  padding: 24px 20px;
+  border-radius: var(--tn-radius-xl);
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(30, 107, 255, 0.35), transparent 55%),
+    linear-gradient(165deg, var(--tn-navy) 0%, #163056 100%);
+  box-shadow: var(--tn-shadow-md);
+}
+
+body.tn-public .tn-hero .eyebrow {
+  color: #b9d0ff;
+}
+
+body.tn-public .tn-hero h1 {
+  color: var(--tn-on-navy);
+  font-size: var(--tn-text-2xl);
+}
+
+body.tn-public .tn-hero p,
+body.tn-public .tn-lead {
+  margin: 0;
+  color: #d7e4f5;
+  font-size: var(--tn-text-md);
+  line-height: 1.5;
+}
+
+body.tn-public .tn-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+body.tn-public .tn-trust li {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--tn-radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--tn-on-navy);
+  font-size: 13px;
+  font-weight: var(--tn-weight-bold);
+  line-height: 1.2;
+}
+
+body.tn-public #formCard,
+body.tn-public #successCard {
+  border-radius: var(--tn-radius-xl);
+  box-shadow: var(--tn-shadow-lg);
+}
+
+body.tn-public .tn-trio {
+  display: grid;
+  grid-template-columns: 1.5fr 0.7fr 0.9fr;
+  gap: var(--tn-space-4);
+  margin-top: var(--tn-space-4);
+}
+
+body.tn-standalone .field.span2 {
+  grid-column: 1 / -1;
+}
+
+body.tn-standalone .field + .field {
+  margin-top: 12px;
+}
+
+body.tn-standalone .grid > .field,
+body.tn-standalone .tn-trio > .field {
+  margin-top: 0;
+}
+
+body.tn-standalone .grid + .field,
+body.tn-standalone .tn-trio + .checks,
+body.tn-standalone .formSection > .checks,
+body.tn-standalone .authCard form .btn,
+body.tn-standalone .authCard form .tnTap {
+  margin-top: 16px;
+}
+
+body.tn-standalone #app > .tnTap,
+body.tn-standalone #tnFilesRoot > .tnTap {
+  width: 100%;
+}
+
+@media (min-width: 960px) {
+  body.tn-public .container {
+    width: min(1080px, 100%);
+    padding-top: 28px;
+  }
+
+  body.tn-public .tn-public-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.86fr) minmax(0, 1.14fr);
+    gap: 28px;
+    align-items: start;
+  }
+
+  body.tn-public .tn-hero {
+    position: sticky;
+    top: 92px;
+    margin-bottom: 0;
+  }
+
+  body.tn-public .tn-hero h1 {
+    font-size: var(--tn-text-3xl);
+  }
+
+  body.tn-public .footer {
+    width: min(1080px, 100%);
+  }
+}
+
+body.tn-standalone .tnSeg button {
+  white-space: normal;
+  padding: 8px 10px;
+}
+
+@media (max-width: 640px) {
+  body.tn-standalone .inlineActions {
+    display: grid;
+  }
+
+  body.tn-standalone .inlineActions .btn {
+    width: 100%;
+  }
+
+  body.tn-public .tn-trio {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.tn-public .tn-trio .field:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 420px) {
+  body.tn-standalone .tnSeg {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 720px) {
+  body.tn-standalone .tnAccountBtns {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media print {
+  body.tn-standalone {
+    background: white;
+  }
+
+  body.tn-standalone .tnHeader,
+  body.tn-standalone .tnNoPrint,
+  body.tn-standalone .tn-skip {
+    display: none !important;
+  }
+
+  body.tn-standalone .tnPrintSheet {
+    border: 0;
+    box-shadow: none;
+  }
+}

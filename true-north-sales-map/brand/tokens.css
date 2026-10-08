@@ -1,0 +1,309 @@
+/*
+  True North Restorations design tokens.
+
+  Custom properties live on :root so any page can adopt them.
+  Button, input, and card rules apply to .tn-btn / .tn-input / .tn-card,
+  and to the existing field-app controls when <body class="tn-standalone">.
+  Link this file after portal.css. Page layout lives in brand/pages.css.
+*/
+
+:root {
+  /* Brand navy. Headers, navy buttons, primary text. */
+  --tn-navy: #0c1424;
+  /* Deeper navy for header gradients and pressed navy buttons. */
+  --tn-navy-deep: #070b14;
+  /* Electric blue. Primary buttons, links, focus, and progress. */
+  --tn-blue: #1e6bff;
+  /* Blue pressed state. One step darker so the tap still reads as blue. */
+  --tn-blue-press: #1554d6;
+  /* Soft blue fill for notices and selected tints. */
+  --tn-blue-soft: #e8f0ff;
+  /* Text and icons that sit on the soft blue fill. */
+  --tn-blue-ink: #12315f;
+  /* Page canvas. Light gray so white cards lift off it in daylight. */
+  --tn-canvas: #f3f5f8;
+  /* Card and input surface. */
+  --tn-surface: #ffffff;
+  /* Default text. Near-navy so body copy stays readable outdoors. */
+  --tn-ink: #122033;
+  /* Secondary text. Dark enough for 4.5:1 on white. */
+  --tn-muted: #3d5160;
+  /* Hairline borders on cards and dividers. */
+  --tn-line: #d5dee6;
+  /* Stronger border for inputs, so empty fields are visible in sun. */
+  --tn-line-strong: #b7c5d1;
+  /* Danger text and borders. Darkened so small error type clears contrast. */
+  --tn-danger: #8d3828;
+  /* Danger button fill. Pale, with danger-colored text. */
+  --tn-danger-bg: #fdeceb;
+  /* Success text on the pale success fill. */
+  --tn-success: #1e5c3c;
+  /* Success panel fill. */
+  --tn-success-bg: #e7f6ee;
+  /* Header link and wordmark color. */
+  --tn-on-navy: #ffffff;
+  /* Secondary text on the navy header. */
+  --tn-on-navy-muted: #d5e2f2;
+
+  /* Type. Inter when the device has it, otherwise system-ui. No webfont request. */
+  --tn-font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Captions and eyebrows. Do not use below 12px. */
+  --tn-text-xs: 0.75rem;
+  /* Secondary UI text and compact nav. */
+  --tn-text-sm: 0.875rem;
+  /* Body, labels, and inputs. 16px avoids iOS zoom and reads in daylight. */
+  --tn-text-md: 1rem;
+  /* Section titles. */
+  --tn-text-lg: 1.125rem;
+  /* Card titles and small page titles. */
+  --tn-text-xl: 1.375rem;
+  /* Page titles on phones. */
+  --tn-text-2xl: 1.75rem;
+  /* Marketing headlines on a wide screen. */
+  --tn-text-3xl: 2.125rem;
+  /* Body line height. */
+  --tn-leading: 1.45;
+  /* Default weight for controls. */
+  --tn-weight-bold: 700;
+  /* Eyebrow tracking. */
+  --tn-tracking-label: 0.08em;
+
+  /* Spacing scale. 4px base, used for the page rhythm. */
+  --tn-space-1: 4px;
+  --tn-space-2: 8px;
+  --tn-space-3: 12px;
+  --tn-space-4: 16px;
+  --tn-space-5: 20px;
+  --tn-space-6: 24px;
+  --tn-space-8: 32px;
+  --tn-space-10: 40px;
+  --tn-space-12: 48px;
+
+  /* Corner radius for inputs and small chips. */
+  --tn-radius-sm: 8px;
+  /* Corner radius for buttons and inputs. */
+  --tn-radius-md: 12px;
+  /* Corner radius for cards. */
+  --tn-radius-lg: 16px;
+  /* Corner radius for the marketing hero. */
+  --tn-radius-xl: 20px;
+  /* Pills and status dots. */
+  --tn-radius-pill: 999px;
+
+  /* Resting card shadow. */
+  --tn-shadow-sm: 0 8px 24px rgba(12, 20, 36, 0.06);
+  /* Raised cards and the header. */
+  --tn-shadow-md: 0 14px 36px rgba(12, 20, 36, 0.12);
+  /* Marketing form card. */
+  --tn-shadow-lg: 0 22px 50px rgba(12, 20, 36, 0.16);
+
+  /* Keyboard focus color. Electric blue on light surfaces. */
+  --tn-focus-color: var(--tn-blue);
+  /* Focus outline thickness. */
+  --tn-focus-width: 3px;
+  /* Gap between the control and the focus outline. */
+  --tn-focus-offset: 2px;
+  /* Soft glow used with the input border on focus. */
+  --tn-focus-glow: rgba(30, 107, 255, 0.28);
+
+  /* Minimum button and input height. Meets a 44px tap target with room to spare. */
+  --tn-control-height: 48px;
+  /* Horizontal padding inside buttons and inputs. */
+  --tn-control-pad-x: 16px;
+  /* Input fill. */
+  --tn-input-bg: var(--tn-surface);
+  /* Input border. */
+  --tn-input-border: 1.5px solid var(--tn-line-strong);
+}
+
+/* Buttons. Primary is blue, the default face is secondary, danger is a pale red. */
+.tn-btn,
+.tn-btn-primary,
+.tn-btn-danger,
+body.tn-standalone .btn,
+body.tn-standalone .tnTap,
+body.tn-standalone .tnSeg button,
+body.tn-standalone .tnCheck,
+body.tn-standalone .tnIconBtns button,
+body.tn-standalone .tnBack,
+body.tn-standalone .tnForgot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tn-space-2);
+  min-height: var(--tn-control-height);
+  min-width: 44px;
+  padding: 12px var(--tn-control-pad-x);
+  border-radius: var(--tn-radius-md);
+  border: 1.5px solid var(--tn-line-strong);
+  background: var(--tn-surface);
+  color: var(--tn-navy);
+  font-family: var(--tn-font);
+  font-size: var(--tn-text-md);
+  font-weight: var(--tn-weight-bold);
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tn-btn-primary,
+.tn-btn.primary,
+body.tn-standalone .btn.primary,
+body.tn-standalone .tnTap.primary {
+  background: var(--tn-blue);
+  border-color: var(--tn-blue);
+  color: var(--tn-on-navy);
+}
+
+/* Navy button used for sign-in and a second strong action. */
+.tn-btn.dark,
+body.tn-standalone .btn.dark,
+body.tn-standalone .tnTap.dark {
+  background: var(--tn-navy);
+  border-color: var(--tn-navy);
+  color: var(--tn-on-navy);
+}
+
+/* Danger. Pale fill and dark red type, so it is obvious and still readable. */
+.tn-btn-danger,
+.tn-btn.danger,
+body.tn-standalone .btn.danger,
+body.tn-standalone .tnTap.danger,
+body.tn-standalone .tnIconBtns button[data-remove] {
+  background: var(--tn-danger-bg);
+  border-color: var(--tn-danger);
+  color: var(--tn-danger);
+}
+
+body.tn-standalone .tnTap.tnOutline {
+  background: var(--tn-surface);
+  color: var(--tn-navy);
+  border: 2px solid var(--tn-navy);
+}
+
+body.tn-standalone .tnSeg button.on,
+body.tn-standalone .tnCheck.on,
+body.tn-standalone .tnChoice.on {
+  background: var(--tn-navy);
+  border-color: var(--tn-navy);
+  color: var(--tn-on-navy);
+  box-shadow: none;
+}
+
+body.tn-standalone .tnChoice.on {
+  background: var(--tn-blue-soft);
+  color: var(--tn-navy);
+  border-color: var(--tn-blue);
+  box-shadow: inset 0 0 0 2px var(--tn-blue);
+}
+
+body.tn-standalone .btn:disabled,
+body.tn-standalone .tnTap:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .tn-btn-primary:hover,
+  .tn-btn.primary:hover,
+  body.tn-standalone .btn.primary:hover,
+  body.tn-standalone .tnTap.primary:hover {
+    background: var(--tn-blue-press);
+    border-color: var(--tn-blue-press);
+  }
+
+  body.tn-standalone .btn.dark:hover,
+  body.tn-standalone .tnTap.dark:hover {
+    background: var(--tn-navy-deep);
+    border-color: var(--tn-navy-deep);
+  }
+
+  body.tn-standalone .btn:hover:not(.primary):not(.dark):not(.danger),
+  body.tn-standalone .tnTap:hover:not(.primary):not(.dark):not(.danger),
+  body.tn-standalone .tnSeg button:hover,
+  body.tn-standalone .tnCheck:not(.on):hover {
+    border-color: var(--tn-navy);
+  }
+}
+
+/* Inputs and selects. 16px type, 48px tall, blue ring on focus. */
+.tn-input,
+body.tn-standalone .field input,
+body.tn-standalone .field select,
+body.tn-standalone .field textarea,
+body.tn-standalone .tnInput,
+body.tn-standalone .tnSelect,
+body.tn-standalone .tnArea,
+body.tn-standalone .tnDayBar input,
+body.tn-standalone .filter input,
+body.tn-standalone .filter select {
+  width: 100%;
+  min-height: var(--tn-control-height);
+  padding: 12px 14px;
+  border: var(--tn-input-border);
+  border-radius: var(--tn-radius-md);
+  background: var(--tn-input-bg);
+  color: var(--tn-ink);
+  font-family: var(--tn-font);
+  font-size: var(--tn-text-md);
+  line-height: 1.3;
+  outline: none;
+}
+
+body.tn-standalone .field textarea,
+body.tn-standalone .tnArea {
+  min-height: 128px;
+  resize: vertical;
+}
+
+.tn-input::placeholder,
+body.tn-standalone input::placeholder,
+body.tn-standalone textarea::placeholder {
+  color: #4e6272;
+  opacity: 1;
+}
+
+body.tn-standalone .field input:focus,
+body.tn-standalone .field select:focus,
+body.tn-standalone .field textarea:focus,
+body.tn-standalone .tnInput:focus,
+body.tn-standalone .tnSelect:focus,
+body.tn-standalone .tnArea:focus,
+body.tn-standalone .tnDayBar input:focus {
+  border-color: var(--tn-blue);
+  box-shadow: 0 0 0 4px var(--tn-focus-glow);
+}
+
+/* Cards. White surface, 16px corners, a short shadow. */
+.tn-card,
+body.tn-standalone .card,
+body.tn-standalone .tnCard,
+body.tn-standalone .tnAccountCard,
+body.tn-standalone .tnFieldCard,
+body.tn-standalone .tnPrintSheet {
+  background: var(--tn-surface);
+  border: 1px solid var(--tn-line);
+  border-radius: var(--tn-radius-lg);
+  box-shadow: var(--tn-shadow-sm);
+  color: var(--tn-ink);
+}
+
+body.tn-standalone .tnCard,
+body.tn-standalone button.tnCard {
+  width: 100%;
+  text-align: left;
+}
+
+/* Keyboard focus. A 3px ring that stays visible on white and on navy. */
+body.tn-standalone :focus-visible {
+  outline: var(--tn-focus-width) solid var(--tn-focus-color);
+  outline-offset: var(--tn-focus-offset);
+}
+
+body.tn-standalone .tnHeader :focus-visible {
+  outline-color: var(--tn-on-navy);
+}
