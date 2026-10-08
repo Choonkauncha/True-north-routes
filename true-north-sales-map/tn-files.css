@@ -3,31 +3,31 @@
 .tnTap{
   position:relative;display:flex;align-items:center;justify-content:center;gap:8px;
   min-height:48px;min-width:44px;padding:12px 14px;border-radius:12px;
-  border:1px solid #d5dee3;background:#fff;color:#132B3A;
+  border:1px solid #d5dee3;background:#fff;color:#0c1424;
   font-size:16px;font-weight:800;line-height:1.2;text-decoration:none;cursor:pointer;
   touch-action:manipulation;
 }
 .tnTap:active{transform:scale(.985)}
-.tnTap:focus-visible{outline:3px solid #E5722A;outline-offset:2px}
-.tnTap.primary{background:#E5722A;border-color:#E5722A;color:#fff}
-.tnTap.dark{background:#132B3A;border-color:#132B3A;color:#fff}
+.tnTap:focus-visible{outline:3px solid #1e6bff;outline-offset:2px}
+.tnTap.primary{background:#1e6bff;border-color:#1e6bff;color:#fff}
+.tnTap.dark{background:#0c1424;border-color:#0c1424;color:#fff}
 .tnTap input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
 .tnSheetActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
 .tnSheetActions .tnWide{grid-column:1/-1}
-.tnTap.tnOutline{background:#fff;color:#132B3A;border:2px solid #132B3A;min-height:44px;padding:8px 10px}
+.tnTap.tnOutline{background:#fff;color:#0c1424;border:2px solid #0c1424;min-height:44px;padding:8px 10px}
 .tnDoorActions{margin:0;gap:8px}
 .tnDoorActions .tnTap:only-child{grid-column:1/-1}
 #drawerContent .tnTap{font-size:16px;min-height:48px;margin-top:0}
 #drawerContent label.tnTap{display:flex}
-#drawerContent label.tnTap.primary{color:#fff;background:#E5722A}
+#drawerContent label.tnTap.primary{color:#fff;background:#1e6bff}
 .doorSheetFooter .tnDoorActions .tnTap{
   min-height:44px;padding:8px 10px;font-size:15px;font-weight:800;
-  background:#fff;color:#132B3A;border:2px solid #132B3A;box-shadow:none
+  background:#fff;color:#0c1424;border:2px solid #0c1424;box-shadow:none
 }
 #fillFormLink{min-height:48px;font-size:16px;display:inline-flex;align-items:center}
 .tnApp{width:min(720px,100%);margin:0 auto;padding:16px 16px 32px}
-.tnBanner{background:#FFF0E7;border:1px solid #f3d0bd;color:#6d4a34;border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.4;margin-bottom:12px}
-.tnTitle{margin:0 0 4px;color:#132B3A;font-size:28px;line-height:1.1}
+.tnBanner{background:#e8f0ff;border:1px solid #c5d7ff;color:#16315f;border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.4;margin-bottom:12px}
+.tnTitle{margin:0 0 4px;color:#0c1424;font-size:28px;line-height:1.1}
 .tnSub{margin:0 0 14px;color:#5c6d76;font-size:15px;line-height:1.4}
 .tnStack{display:grid;gap:10px}
 .tnRow{display:flex;gap:8px;flex-wrap:wrap}
@@ -35,14 +35,14 @@
   display:block;width:100%;text-align:left;background:#fff;border:1px solid #DCE3E7;border-radius:14px;
   padding:14px;color:#17252D;box-shadow:0 8px 24px rgba(19,43,58,.05)
 }
-.tnCard b{display:block;color:#132B3A;font-size:16px}
+.tnCard b{display:block;color:#0c1424;font-size:16px}
 .tnCard span,.tnMeta{display:block;color:#5c6d76;font-size:14px;margin-top:4px;line-height:1.35}
 .tnInput,.tnSelect,.tnArea{
   width:100%;min-height:48px;border:1px solid #d4dee2;border-radius:12px;
   padding:12px 14px;font-size:16px;background:#fff;color:#17252D
 }
 .tnArea{min-height:140px;resize:vertical}
-.tnLabel{display:block;font-size:15px;font-weight:800;color:#132B3A;margin:12px 0 6px}
+.tnLabel{display:block;font-size:15px;font-weight:800;color:#0c1424;margin:12px 0 6px}
 .tnHelp{font-size:13px;color:#5c6d76;margin:4px 0 0}
 .tnError{color:#A44835;font-size:14px;font-weight:700;min-height:0;margin-top:6px}
 .tnSticky{
@@ -51,31 +51,31 @@
   background:#eef2f4;border-top:1px solid #DCE3E7
 }
 #app,#tnFilesRoot{padding-bottom:128px}
-.tnProgress{font-size:13px;font-weight:800;letter-spacing:.4px;color:#E5722A;margin-bottom:6px}
+.tnProgress{font-size:13px;font-weight:800;letter-spacing:.4px;color:#1e6bff;margin-bottom:6px}
 .tnSign{
   width:100%;height:180px;border:2px dashed #c5d0d6;border-radius:14px;background:#fff;touch-action:none;display:block
 }
 .tnCheck{
   display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 14px;border-radius:14px;
-  border:1px solid #d5dee3;background:#fff;font-size:16px;font-weight:800;color:#132B3A;text-align:left
+  border:1px solid #d5dee3;background:#fff;font-size:16px;font-weight:800;color:#0c1424;text-align:left
 }
-.tnCheck.on{border-color:#132B3A;background:#f4f7f8;box-shadow:inset 0 0 0 2px #132B3A}
+.tnCheck.on{border-color:#0c1424;background:#f4f7f8;box-shadow:inset 0 0 0 2px #0c1424}
 .tnChoice{min-height:48px;justify-content:flex-start}
-.tnChoice.on{border-color:#132B3A;box-shadow:inset 0 0 0 2px #132B3A}
+.tnChoice.on{border-color:#0c1424;box-shadow:inset 0 0 0 2px #0c1424}
 .tnGallery{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tnGallery button,.tnGallery a{padding:0;border:0;background:#e7eef1;border-radius:12px;overflow:hidden;min-height:120px;aspect-ratio:1}
 .tnGallery img{width:100%;height:100%;object-fit:cover;display:block}
-.tnPreview{width:100%;border-radius:14px;display:block;max-height:360px;object-fit:contain;background:#132B3A}
+.tnPreview{width:100%;border-radius:14px;display:block;max-height:360px;object-fit:contain;background:#0c1424}
 .tnSeg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px}
-.tnSeg button{min-height:48px;border-radius:12px;border:1px solid #d5dee3;background:#fff;font-weight:800;font-size:14px;color:#132B3A}
-.tnSeg button.on{background:#132B3A;color:#fff;border-color:#132B3A}
+.tnSeg button{min-height:48px;border-radius:12px;border:1px solid #d5dee3;background:#fff;font-weight:800;font-size:14px;color:#0c1424}
+.tnSeg button.on{background:#0c1424;color:#fff;border-color:#0c1424}
 .tnFilters{display:grid;gap:8px;margin-bottom:12px}
 .tnFieldCard{border:1px solid #DCE3E7;border-radius:14px;padding:12px;background:#fff;margin-bottom:10px}
 .tnFieldCard header{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
 .tnIconBtns{display:flex;gap:6px}
 .tnIconBtns button{min-width:44px;min-height:44px;border-radius:10px;border:1px solid #d5dee3;background:#fff;font-weight:800}
 .tnSuccess{text-align:center;padding:28px 8px}
-.tnSuccess .brandLogo{width:64px;height:64px;margin:0 auto 12px}
+.tnSuccess .brandLogo{width:64px;height:64px;margin:0 auto 12px;display:block;object-fit:contain}
 .tnSuccess h1{font-size:32px}
 .tnLightbox{position:fixed;inset:0;background:rgba(8,22,29,.88);z-index:50;display:flex;flex-direction:column;padding:16px}
 .tnLightbox img{width:100%;height:100%;object-fit:contain}
@@ -98,16 +98,16 @@
 a.tnAccountLink{display:inline-flex!important;align-items:center;min-height:44px}
 .tnAccountList{display:grid;gap:10px;margin-top:14px}
 .tnAccountCard{background:#fff;border:1px solid #DCE3E7;border-radius:14px;padding:14px}
-.tnAccountCard b{display:block;color:#132B3A;font-size:18px}
+.tnAccountCard b{display:block;color:#0c1424;font-size:18px}
 .tnAccountCard>span{display:block;color:#5c6d76;font-size:14px;margin:4px 0 10px}
 .tnAccountBtns{display:flex;flex-wrap:wrap;gap:8px}
 .tnAccountBtns button,.tnAccountBtns a{min-height:48px;flex:1 1 140px}
 .tnAccountCard .tnTap,.tnAccountBtns button{
-  min-height:48px;border-radius:12px;border:2px solid #132B3A;background:#fff;color:#132B3A;
+  min-height:48px;border-radius:12px;border:2px solid #0c1424;background:#fff;color:#0c1424;
   font-weight:800;font-size:15px;padding:8px 12px
 }
 .tnResetForm{display:grid;gap:8px;margin-top:10px}
 .tnAccountDetail{margin-top:12px;display:grid;gap:8px}
-.tnAccountDetail h2{margin:8px 0 0;font-size:16px;color:#132B3A}
+.tnAccountDetail h2{margin:8px 0 0;font-size:16px;color:#0c1424}
 .tnAccountDetail p{margin:0;padding:8px 0;border-bottom:1px solid #edf0f2;font-size:15px}
 .tnAccountDetail span{display:block;color:#6C7A83;font-size:13px}

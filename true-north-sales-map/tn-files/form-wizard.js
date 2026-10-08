@@ -258,7 +258,7 @@ async function submit() {
 
 function renderSuccess() {
   if (saved?.preview) {
-    app.innerHTML = `<div class="tnSuccess"><img class="brandLogo" src="/brand/logo-header.png" alt="" width="40" height="40"><h1 class="tnTitle">Preview finished</h1><p class="tnSub">Nothing was saved.</p></div><div class="tnStack"><a class="tnTap primary" href="/files.html#builder">Back to form builder</a></div>`;
+    app.innerHTML = `<div class="tnSuccess"><img class="brandLogo" src="/brand/logo-emblem.webp" alt="True North Restorations" width="64" height="64"><h1 class="tnTitle">Preview finished</h1><p class="tnSub">Nothing was saved.</p></div><div class="tnStack"><a class="tnTap primary" href="/files.html#builder">Back to form builder</a></div>`;
     return;
   }
   const again = new URLSearchParams();
@@ -266,7 +266,7 @@ function renderSuccess() {
   if (lead?.name) again.set('name', lead.name);
   if (lead?.address) again.set('address', lead.address);
   const where = ctx?.mode === 'local' ? 'Saved on this phone until Supabase is connected.' : `${template.name} is stored with ${formatAddress(lead) || 'this form'}.`;
-  app.innerHTML = `${template?.is_draft ? `<div class="tnBanner">${esc(template.draft_notice || 'Draft wording.')}</div>` : ''}<div class="tnSuccess"><img class="brandLogo" src="/brand/logo-header.png" alt="" width="40" height="40"><h1 class="tnTitle">Saved</h1><p class="tnSub">${esc(where)}</p></div><div class="tnStack"><a class="tnTap primary" href="${esc(houseBackHref(lead))}">Back to this house</a><a class="tnTap dark" href="/forms.html?${esc(again.toString())}">Fill another form</a><a class="tnTap" href="/form-print.html?id=${esc(saved.id)}">See a copy</a></div>`;
+  app.innerHTML = `${template?.is_draft ? `<div class="tnBanner">${esc(template.draft_notice || 'Draft wording.')}</div>` : ''}<div class="tnSuccess"><img class="brandLogo" src="/brand/logo-emblem.webp" alt="True North Restorations" width="64" height="64"><h1 class="tnTitle">Saved</h1><p class="tnSub">${esc(where)}</p></div><div class="tnStack"><a class="tnTap primary" href="${esc(houseBackHref(lead))}">Back to this house</a><a class="tnTap dark" href="/forms.html?${esc(again.toString())}">Fill another form</a><a class="tnTap" href="/form-print.html?id=${esc(saved.id)}">See a copy</a></div>`;
 }
 
 start();

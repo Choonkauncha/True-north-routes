@@ -346,7 +346,7 @@ function drawTerritories(){
     if(!center)return;
     const t=state.territories.find(x=>x.name===city)||{};
     const rep=state.reps.find(r=>r.id===t.assigned_rep_id)?.name||'Unassigned';
-    const circle=L.circle(center,{radius:Math.max(400,Math.min(4200,Math.sqrt(leads.length)*95)),weight:1.5,fillOpacity:.06,color:t.color||'#132B3A'}).addTo(state.map);
+    const circle=L.circle(center,{radius:Math.max(400,Math.min(4200,Math.sqrt(leads.length)*95)),weight:1.5,fillOpacity:.06,color:t.color||'#0c1424'}).addTo(state.map);
     circle.bindPopup(`<b>${esc(city)}</b><br>${fmt(leads.length)} filtered houses<br><span>${esc(rep)}</span>`);
     state._territoryLayers.push(circle);
   });

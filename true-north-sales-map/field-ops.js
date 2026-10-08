@@ -754,6 +754,7 @@ function renderShiftsMessage(html) {
 function renderShiftsLogin(message = '') {
   renderShiftsMessage(`
     <div class="authCard card"><div class="pad">
+      <img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242">
       <div class="eyebrow">SHIFTS AND TRAILS</div>
       <h1 style="font-size:24px">Sign in to management.</h1>
       <p>Hours and travel trails are visible to admin and manager profiles.</p>
@@ -896,7 +897,7 @@ function renderShiftBoard() {
       </div>
       <div class="${phoneFocus ? '' : 'tnPhoneHide'}">
         <button type="button" class="tnBack" id="tnShiftBack">Back</button>
-        ${selected ? `<h2 style="margin:8px 0 0;color:#132B3A">${esc(selected.rep.name)}</h2>
+        ${selected ? `<h2 style="margin:8px 0 0;color:#0c1424">${esc(selected.rep.name)}</h2>
           <p class="tnMilesBig">${esc(formatMiles(selected.miles))} today</p>
           <p class="tnShiftNote">${esc(formatHours(selected.totalHours))} on this day. ${selected.points.length} location point${selected.points.length === 1 ? '' : 's'}. ${selected.consent ? `Location agreed ${esc(easternStamp(selected.consent.consented_at))}.` : 'Has not agreed to location yet.'}</p>` : '<p class="tnShiftNote">Tap a person to see where they went today.</p>'}
         <div id="shiftMap" class="tnShiftMap"></div>
@@ -944,14 +945,14 @@ function drawTrails() {
     state.trailLayer = L.layerGroup().addTo(state.map);
   }
   state.trailLayer.clearLayers();
-  const colors = ['#E5722A', '#132B3A', '#2E6B4B', '#467c9e', '#A44835', '#A66B19', '#3E4E59'];
+  const colors = ['#1e6bff', '#0c1424', '#2E6B4B', '#467c9e', '#A44835', '#A66B19', '#3E4E59'];
   const people = state.shifts?.people || [];
   const visible = people.filter(person => person.rep.id === state.selectedRepId);
   const bounds = [];
   visible.forEach((person, index) => {
     if (person.points.length < 1) return;
     const selected = person.rep.id === state.selectedRepId;
-    const color = selected ? '#E5722A' : colors[index % colors.length];
+    const color = selected ? '#1e6bff' : colors[index % colors.length];
     const latLngs = person.points.map(point => [Number(point.lat), Number(point.lng)]);
     if (latLngs.length > 1) {
       L.polyline(latLngs, { color, weight: selected ? 5 : 3, opacity: selected ? 0.95 : 0.55 }).addTo(state.trailLayer);
