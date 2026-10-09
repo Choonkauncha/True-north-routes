@@ -701,6 +701,9 @@ const server = http.createServer(async (req, res) => {
     if (route === "shifts") {
       await page.locator('.tnPersonBtn').first().waitFor();
       assert.equal(await page.locator('#shiftRetry').count(), 0, 'Shifts renders the successful board, not the retry state');
+      // Secondary panels start collapsed on phones. Open the visible disclosure first.
+      const dayToggle = page.locator('.tnFoldHead[aria-controls="tn-fold-shift-day"]');
+      if (await dayToggle.getAttribute('aria-expanded') === 'false') await dayToggle.click();
       await page.locator('.tnPersonBtn').first().click();
       assert.ok((await page.locator('.tnMilesBig').innerText()).includes('1.3'), 'Shifts selection opens the person detail');
       await page.locator('#tnShiftBack').click();

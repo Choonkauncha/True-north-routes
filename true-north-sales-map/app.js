@@ -1694,7 +1694,7 @@ function drawRoutePreview(fit=true){
   if(state.routeLine){state.map.removeLayer(state.routeLine);state.routeLine=null}
   if(!state.routeStops?.length||!state.map)return;
   if(state.navigating){drawNavOverlay();return}
-  if(state.routeGeometry)state.routeLine=L.geoJSON(state.routeGeometry,{style:{color:'#203a29',weight:5,opacity:.78}}).addTo(state.map);
+  if(state.routeGeometry)state.routeLine=L.geoJSON(state.routeGeometry,{style:{color:'#0267ee',weight:5,opacity:.78}}).addTo(state.map);
   else{const coords=state.routeStops.map(l=>[Number(l.lat),Number(l.lng)]);state.routeLine=L.polyline(coords,{weight:5,opacity:.75,dashArray:'8 7'}).addTo(state.map);}
   if(fit){try{state.map.fitBounds(state.routeLine.getBounds().pad(.12));}catch{}}
 }

@@ -1,36 +1,55 @@
 /* ATLAS — a complete, local visual system for True North.
+   Navy, electric blue, cyan and silver follow the original logo artwork.
+   Shared tokens also theme Coach and the mobile usability overrides.
    Existing hidden, permission, navigation and collapsed states remain authoritative. */
 :root {
   color-scheme: dark;
-  --atlas-bg: #101819;
-  --atlas-surface: #192426;
-  --atlas-raised: #202e30;
-  --atlas-line: #334547;
-  --atlas-text: #eef5f2;
-  --atlas-muted: #a5b8b8;
-  --atlas-accent: #83e3cb;
-  --atlas-ink: #102b27;
+  --atlas-bg: #081526;
+  --atlas-surface: #102239;
+  --atlas-raised: #19334f;
+  --atlas-header: #0b1b30;
+  --atlas-input: #0b1a2d;
+  --atlas-line: #304d6a;
+  --atlas-line-strong: #607e9c;
+  --atlas-text: #eff4f9;
+  --atlas-label: #d4dfeb;
+  --atlas-muted: #aebed0;
+  /* Royal blue is sampled from the logo; cyan keeps small controls readable. */
+  --atlas-brand-blue: #0267ee;
+  --atlas-accent: #32c7f8;
+  --atlas-accent-hover: #77ddff;
+  --atlas-accent-soft: #123656;
+  --atlas-accent-line: #5788b2;
+  --atlas-accent-text: #91deff;
+  --atlas-hero: #102b48;
+  --atlas-hero-glow: #194b7a;
+  --atlas-ink: #07182c;
+  --atlas-overlay: #030c1bb8;
+  --atlas-surface-overlay: #102239f5;
+  --atlas-bg-overlay: #081526f5;
   --workspace-header: 72px;
   --tn-navy: var(--atlas-text);
-  --tn-navy-deep: #101819;
+  --tn-navy-deep: var(--atlas-bg);
   --tn-canvas: var(--atlas-bg);
   --tn-surface: var(--atlas-surface);
   --tn-ink: var(--atlas-text);
   --tn-muted: var(--atlas-muted);
   --tn-line: var(--atlas-line);
-  --tn-line-strong: #4a6264;
+  --tn-line-strong: var(--atlas-line-strong);
   --tn-blue: var(--atlas-accent);
-  --tn-blue-press: #b0efdf;
-  --tn-blue-soft: #223e38;
-  --tn-blue-ink: #a3efd9;
+  --tn-blue-press: var(--atlas-accent-hover);
+  --tn-blue-soft: var(--atlas-accent-soft);
+  --tn-blue-ink: var(--atlas-accent-text);
+  --tn-focus-color: var(--atlas-accent);
+  --tn-focus-glow: rgb(50 199 248 / 28%);
   --tn-danger: #ffb2a8;
   --tn-danger-bg: #442a2a;
   --tn-success: #99e0b3;
   --tn-success-bg: #253c31;
   --navy: var(--atlas-text);
-  --navy2: #1a2b2c;
+  --navy2: var(--atlas-header);
   --orange: var(--atlas-accent);
-  --orangeSoft: #223e38;
+  --orangeSoft: var(--atlas-accent-soft);
   --ink: var(--atlas-text);
   --muted: var(--atlas-muted);
   --line: var(--atlas-line);
@@ -109,8 +128,8 @@ body.tn-workspace textarea {
 /* A two-level horizontal workspace replaces the permanent global sidebar. */
 body.tn-workspace .topbar,
 body.tn-workspace .tnHeader {
-  background: #142022;
-  border-bottom: 1px solid #2e4042;
+  background: var(--atlas-header);
+  border-bottom: 1px solid var(--atlas-line);
   padding: 0 28px;
   position: sticky;
   top: 0;
@@ -144,7 +163,7 @@ body.tn-workspace .logoMark {
   flex-direction: row;
   align-items: center;
   gap: 22px;
-  background: #142022;
+  background: var(--atlas-header);
   overflow: visible;
   border-bottom: 1px solid var(--atlas-line);
   z-index: 1050;
@@ -190,13 +209,13 @@ body.tn-workspace .logoMark {
   height: 17px;
 }
 .workspaceNavItems a:hover {
-  background: #213337;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
 }
 .workspaceNavItems a[aria-current] {
   color: var(--atlas-accent);
-  background: #253d38;
-  border-color: #38534a;
+  background: var(--atlas-accent-soft);
+  border-color: var(--atlas-accent-line);
   box-shadow: none;
 }
 body.tn-workspace .headerLinks > a:not(.hidden):not([hidden]),
@@ -205,7 +224,7 @@ body.tn-workspace .topRight .ghostBtn,
 body.tn-workspace .quickLinkBtn,
 body.tn-workspace .userMenu button {
   background: transparent;
-  border-color: #405356;
+  border-color: var(--atlas-line-strong);
   color: var(--atlas-muted);
 }
 body.tn-workspace .headerLinks > a:hover,
@@ -217,8 +236,8 @@ body.tn-workspace .headerLinks .tnFieldOps .tnMsgBtn,
 body.tn-workspace .headerLinks .tnFieldOps .tnShiftsLink,
 body.tn-workspace .topRight .tnFieldOps .tnMsgBtn,
 body.tn-workspace .topRight .tnFieldOps .tnShiftsLink {
-  background: #213235;
-  border: 1px solid #435a5d;
+  background: var(--atlas-raised);
+  border: 1px solid var(--atlas-line-strong);
   color: var(--atlas-text);
   min-height: 40px;
   font-size: 12px;
@@ -227,16 +246,16 @@ body.tn-workspace .topRight .tnFieldOps .tnShiftsLink {
   box-shadow: none;
 }
 body.tn-workspace .chip {
-  color: #a8d2c8;
-  background: #223632;
-  border-color: #405950;
+  color: var(--atlas-accent-text);
+  background: var(--atlas-accent-soft);
+  border-color: var(--atlas-accent-line);
 }
 .atlasJump {
   display: flex;
   align-items: center;
   gap: 9px;
-  background: #1d2d2f;
-  border: 1px solid #405356;
+  background: var(--atlas-surface);
+  border: 1px solid var(--atlas-line-strong);
   border-radius: 8px;
   color: var(--atlas-muted);
   min-height: 40px;
@@ -252,7 +271,7 @@ body.tn-workspace .chip {
   font: inherit;
   font-size: 10px;
   padding: 3px 5px;
-  border: 1px solid #405356;
+  border: 1px solid var(--atlas-line-strong);
   border-radius: 4px;
   margin-left: 12px;
 }
@@ -297,9 +316,9 @@ body.tn-workspace .tnCard > span {
 }
 body.tn-workspace .tnCheck,
 body.tn-workspace .tnCheck.on {
-  background: #203235;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .tnChoice.on,
 body.tn-workspace .tnCheck.on {
@@ -311,9 +330,9 @@ body.tn-workspace .tnTap,
 body.tn-workspace .outlineBtn,
 body.tn-workspace .tnOutline,
 body.tn-workspace .tnTrainBtn {
-  background: #213235;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #435a5d;
+  border-color: var(--atlas-line-strong);
   border-radius: 8px;
   font-weight: 600;
 }
@@ -334,8 +353,8 @@ body.tn-workspace .btn.primary:hover,
 body.tn-workspace .tnTap.dark:hover,
 body.tn-workspace .primaryBtn:hover,
 body.tn-workspace .saveBtn:hover {
-  background: #b0efdf;
-  border-color: #b0efdf;
+  background: var(--atlas-accent-hover);
+  border-color: var(--atlas-accent-hover);
 }
 body.tn-workspace .btn.danger,
 body.tn-workspace .tnTap.danger {
@@ -347,7 +366,7 @@ body.tn-workspace .field label,
 body.tn-workspace .tnLabel,
 body.tn-workspace .drawer label,
 body.tn-workspace .modalCard label {
-  color: #d4e0dc;
+  color: var(--atlas-label);
 }
 body.tn-workspace .field input,
 body.tn-workspace .field select,
@@ -363,29 +382,29 @@ body.tn-workspace .drawer textarea,
 body.tn-workspace .modalCard input:not([type="checkbox"]):not([type="range"]),
 body.tn-workspace .modalCard select,
 body.tn-workspace .modalCard textarea {
-  background: #122022;
-  border-color: #4a6264;
+  background: var(--atlas-input);
+  border-color: var(--atlas-line-strong);
   color: var(--atlas-text);
   border-radius: 8px;
 }
 body.tn-workspace input::placeholder,
 body.tn-workspace textarea::placeholder {
-  color: #9caeb0;
+  color: var(--atlas-muted);
 }
 body.tn-workspace .field input:focus,
 body.tn-workspace .field select:focus,
 body.tn-workspace .field textarea:focus,
 body.tn-workspace .tnInput:focus {
-  background: #142527;
+  background: var(--atlas-input);
   border-color: var(--atlas-accent);
-  box-shadow: 0 0 0 3px rgb(131 227 203 / 14%);
+  box-shadow: 0 0 0 3px rgb(50 199 248 / 14%);
 }
 body.tn-workspace .notice,
 body.tn-workspace .tnBanner,
 body.tn-workspace .appointmentFocusNotice {
-  background: #223e38;
-  border-color: #426b5e;
-  color: #b6ecdb;
+  background: var(--atlas-accent-soft);
+  border-color: var(--atlas-accent-line);
+  color: var(--atlas-accent-text);
 }
 body.tn-workspace .success,
 body.tn-workspace .tnSuccess {
@@ -409,7 +428,7 @@ body.tn-workspace .formSection {
 }
 .formSectionNav a {
   color: var(--atlas-muted);
-  background: #172325;
+  background: var(--atlas-surface);
   border-color: var(--atlas-line);
   border-radius: 7px;
 }
@@ -418,31 +437,31 @@ body.tn-workspace .formSection {
 }
 .formSectionNav a:hover,
 .formSectionNav a[aria-current] {
-  background: #253d38;
-  border-color: #426b5e;
+  background: var(--atlas-accent-soft);
+  border-color: var(--atlas-accent-line);
   color: var(--atlas-accent);
 }
 body.tn-workspace .tnSeg,
 body.tn-workspace .tnMyTabs,
 body.tn-workspace .tnChips {
-  background: #122022;
+  background: var(--atlas-input);
 }
 body.tn-workspace .tnSeg button,
 body.tn-workspace .tnChip {
   color: var(--atlas-muted);
 }
 body.tn-workspace .tnChip {
-  background: #223639;
-  border-color: #4a6264;
+  background: var(--atlas-raised);
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .tnSeg button.on,
 body.tn-workspace .tnChip.on {
-  background: #2b4840;
+  background: var(--atlas-accent-soft);
   color: var(--atlas-accent);
   box-shadow: none;
 }
 body.tn-workspace .tnSticky {
-  background: #101819f5;
+  background: var(--atlas-bg-overlay);
   border-color: var(--atlas-line);
 }
 body.tn-workspace .tnFoldBar {
@@ -454,7 +473,7 @@ body.tn-workspace .tnFoldChevronBtn {
 }
 body.tn-workspace .tnFoldHead:hover,
 body.tn-workspace .tnFoldChevronBtn:hover {
-  background: #2a3d40;
+  background: var(--atlas-raised);
 }
 body.tn-workspace .tnForgot {
   color: var(--atlas-accent);
@@ -467,7 +486,7 @@ body.tn-admin-workspace .dashboardShell {
 }
 body.tn-admin-workspace .rail,
 body.tn-admin-workspace .rail.tnFold {
-  background: #142022;
+  background: var(--atlas-header);
   top: 132px;
   height: calc(100dvh - 132px);
   border-right: 1px solid var(--atlas-line);
@@ -488,18 +507,18 @@ body.tn-admin-workspace .rail button svg {
   flex: none;
 }
 body.tn-admin-workspace .rail button.active {
-  background: #253d38;
+  background: var(--atlas-accent-soft);
   color: var(--atlas-accent);
-  border-color: #38534a;
+  border-color: var(--atlas-accent-line);
 }
 body.tn-admin-workspace .rail button:hover,
 body.tn-admin-workspace .rail a.railLink:hover {
-  background: #203235;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #334547;
+  border-color: var(--atlas-line);
 }
 body.tn-admin-workspace .rail .sectionLabel {
-  color: #92aaa8;
+  color: var(--atlas-muted);
   letter-spacing: 0.14em;
 }
 body.tn-admin-workspace .dashMain {
@@ -508,10 +527,10 @@ body.tn-admin-workspace .dashMain {
 }
 body.tn-admin-workspace #tab-overview .dashTitle {
   padding: 30px;
-  border: 1px solid #3c5b53;
+  border: 1px solid var(--atlas-accent-line);
   border-radius: 16px;
   background:
-    radial-gradient(ellipse at 95% 10%, #315246 0, transparent 65%), #1b302d;
+    radial-gradient(ellipse at 95% 10%, var(--atlas-hero-glow) 0, transparent 65%), var(--atlas-hero);
   position: relative;
   overflow: hidden;
 }
@@ -520,7 +539,7 @@ body.tn-admin-workspace #tab-overview .dashTitle h1 {
   font-size: clamp(32px, 3.3vw, 48px);
 }
 body.tn-admin-workspace #tab-overview .dashTitle p {
-  color: #b4cac3;
+  color: var(--atlas-muted);
   margin: 12px 0;
 }
 .atlasHeroMeta {
@@ -529,11 +548,11 @@ body.tn-admin-workspace #tab-overview .dashTitle p {
   gap: 8px;
   margin-bottom: 16px;
   padding: 7px 10px;
-  border: 1px solid #51746a;
+  border: 1px solid var(--atlas-accent-line);
   border-radius: 6px;
   font-size: 10px;
   letter-spacing: 0.11em;
-  color: #b7eddb;
+  color: var(--atlas-accent-text);
 }
 .atlasHeroMeta::before {
   content: "";
@@ -576,11 +595,11 @@ body.tn-admin-workspace .metric span {
   color: var(--atlas-accent);
 }
 .atlasMetricHead small {
-  color: #a3b8b4;
+  color: var(--atlas-muted);
   font-size: 10px;
 }
 .dashboardRefreshed {
-  color: #afc5bd;
+  color: var(--atlas-muted);
 }
 .dashboardSectionHead {
   margin-top: 32px;
@@ -595,20 +614,20 @@ body.tn-admin-workspace .metric span {
 .attentionCard {
   padding: 20px;
   border-radius: 12px;
-  background: #192426;
+  background: var(--atlas-surface);
   color: var(--atlas-text);
   border-color: var(--atlas-line);
 }
 .attentionCard:hover {
-  background: #233532;
-  border-color: #568777;
+  background: var(--atlas-accent-soft);
+  border-color: var(--atlas-accent-line);
 }
 .attentionCount {
   height: 46px;
   min-width: 46px;
   border-radius: 9px;
   color: var(--atlas-muted);
-  background: #26393b;
+  background: var(--atlas-raised);
   font-size: 24px;
   font-weight: 550;
 }
@@ -627,33 +646,33 @@ body.tn-admin-workspace .metric span {
   color: var(--atlas-accent);
 }
 body.tn-workspace .table th {
-  color: #aec1bd;
-  background: #1c2d2e;
+  color: var(--atlas-muted);
+  background: var(--atlas-header);
   border-color: var(--atlas-line);
   font-size: 10px;
 }
 body.tn-workspace .table td {
-  color: #b8cac6;
-  border-color: #2b3e40;
+  color: var(--atlas-label);
+  border-color: var(--atlas-line);
 }
 body.tn-workspace .table td b,
 body.tn-workspace .activityItem strong {
   color: var(--atlas-text);
 }
 body.tn-workspace .table tr:hover td {
-  background: #213436;
+  background: var(--atlas-raised);
 }
 body.tn-workspace .pill,
 body.tn-workspace .status,
 body.tn-workspace .tnTrainPill,
 body.tn-workspace .tnTrainBadge {
-  background: #2a3e40;
-  color: #c3d5d0;
-  border-color: #455e60;
+  background: var(--atlas-raised);
+  color: var(--atlas-label);
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .pill.orange {
-  background: #2b4840;
-  color: #a3efd9;
+  background: var(--atlas-accent-soft);
+  color: var(--atlas-accent-text);
 }
 body.tn-workspace .pill.green {
   background: #2c4435;
@@ -664,7 +683,7 @@ body.tn-workspace .pill.red {
   color: #ffb2a8;
 }
 body.tn-workspace .activityItem {
-  border-color: #2b3e40;
+  border-color: var(--atlas-line);
 }
 body.tn-workspace .activityTime,
 .dashboardPagination {
@@ -687,10 +706,10 @@ body.tn-workspace:has(#tnFilesRoot) .container {
 }
 body.tn-workspace .profileHero {
   padding: 36px;
-  border-color: #466b61;
+  border-color: var(--atlas-accent-line);
   border-radius: 16px;
   background:
-    radial-gradient(ellipse at 95% 0, #315246, transparent 70%), #1b302d;
+    radial-gradient(ellipse at 95% 0, var(--atlas-hero-glow), transparent 70%), var(--atlas-hero);
   gap: 24px;
   align-items: center;
   position: relative;
@@ -706,16 +725,16 @@ body.tn-workspace .profileHero p {
   width: 88px;
   height: 88px;
   border-radius: 50%;
-  background: #a3efd9;
-  color: #163d32;
+  background: var(--atlas-accent-text);
+  color: var(--atlas-ink);
   font-size: 28px;
-  border: 7px solid #294e40;
+  border: 7px solid var(--atlas-accent-line);
   flex: none;
 }
 .profileRole {
-  background: #28483e;
-  color: #a3efd9;
-  border-color: #507265;
+  background: var(--atlas-accent-soft);
+  color: var(--atlas-accent-text);
+  border-color: var(--atlas-accent-line);
   font-weight: 550;
   letter-spacing: 0.025em;
 }
@@ -732,39 +751,39 @@ body.tn-workspace .profileHero p {
 }
 body.tn-workspace .profileHero[data-role="salesperson"] {
   background:
-    radial-gradient(ellipse at 95% 0, #5a5038, transparent 70%), #302e25;
-  border-color: #766b4e;
+    radial-gradient(ellipse at 95% 0, var(--atlas-hero-glow), transparent 70%), var(--atlas-hero);
+  border-color: var(--atlas-accent-line);
 }
 body.tn-workspace .profileHero[data-role="salesperson"] .eyebrow {
-  color: #f4d18a;
+  color: var(--atlas-accent);
 }
 body.tn-workspace .profileHero[data-role="salesperson"] .profileRole {
-  background: #4b4029;
-  color: #f4d18a;
-  border-color: #766b4e;
+  background: var(--atlas-accent-soft);
+  color: var(--atlas-accent-text);
+  border-color: var(--atlas-accent-line);
 }
 body.tn-workspace .profileHero[data-role="salesperson"] .profileAvatar {
-  background: #f4d18a;
-  color: #453a23;
-  border-color: #574b30;
+  background: var(--atlas-accent);
+  color: var(--atlas-ink);
+  border-color: var(--atlas-accent-line);
 }
 body.tn-workspace .profileHero[data-role="admin"],
 body.tn-workspace .profileHero[data-role="manager"] {
   background:
-    radial-gradient(ellipse at 95% 0, #464b62, transparent 70%), #242c36;
-  border-color: #5d6479;
+    radial-gradient(ellipse at 95% 0, var(--atlas-hero-glow), transparent 70%), var(--atlas-hero);
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .profileHero[data-role="admin"] .profileRole,
 body.tn-workspace .profileHero[data-role="manager"] .profileRole {
-  background: #363e53;
-  color: #d3d9f7;
-  border-color: #5d6479;
+  background: var(--atlas-raised);
+  color: var(--atlas-text);
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .profileHero[data-role="admin"] .profileAvatar,
 body.tn-workspace .profileHero[data-role="manager"] .profileAvatar {
-  background: #d3d9f7;
-  color: #353c52;
-  border-color: #464e67;
+  background: var(--atlas-label);
+  color: var(--atlas-ink);
+  border-color: var(--atlas-line-strong);
 }
 .profileSection {
   margin: 30px 0;
@@ -791,8 +810,8 @@ body.tn-workspace .profileHero[data-role="manager"] .profileAvatar {
   gap: 10px;
 }
 .profileAction:hover {
-  background: #233532;
-  border-color: #568777;
+  background: var(--atlas-accent-soft);
+  border-color: var(--atlas-accent-line);
 }
 .profileAction > svg {
   width: 26px;
@@ -814,20 +833,20 @@ body.tn-workspace .profileHero[data-role="manager"] .profileAvatar {
   position: absolute;
   right: 20px;
   top: 22px;
-  color: #83e3cb;
+  color: var(--atlas-accent);
   font-size: 19px;
   font-style: normal;
 }
 .profileEmpty {
   background: var(--atlas-surface);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 .profileEmpty b {
   color: var(--atlas-text);
 }
 body.tn-workspace .accountCreate {
-  background: #1e3631;
-  border-color: #426b5e;
+  background: var(--atlas-accent-soft);
+  border-color: var(--atlas-accent-line);
 }
 body.tn-workspace .accountCreate summary {
   color: var(--atlas-accent);
@@ -837,35 +856,35 @@ body.tn-workspace .accountCreate summary {
   color: var(--atlas-muted);
 }
 body.tn-workspace .accountCreate .tnCard {
-  border-top-color: #426b5e;
+  border-top-color: var(--atlas-accent-line);
 }
 .accountPersonAvatar {
-  background: #294b41;
-  color: #a3efd9 !important;
+  background: var(--atlas-accent-soft);
+  color: var(--atlas-accent-text) !important;
   border-radius: 50%;
 }
 .accountStatus {
-  background: #293c3e;
-  color: #c0d3cd !important;
+  background: var(--atlas-raised);
+  color: var(--atlas-label) !important;
 }
 .accountStatus.active {
   background: #294635;
   color: #b5e9c6 !important;
 }
 body.tn-workspace .tnAccountBtns button {
-  background: #213235;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #435a5d;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .tnAccountBtns button[data-act="work"] {
-  background: #28483e;
+  background: var(--atlas-accent-soft);
   color: var(--atlas-accent);
-  border-color: #426b5e;
+  border-color: var(--atlas-accent-line);
 }
 body.tn-workspace .tnAccountLocked {
-  background: #2b383b;
-  border-color: #42565a;
-  color: #b5c8c4;
+  background: var(--atlas-raised);
+  border-color: var(--atlas-line-strong);
+  color: var(--atlas-label);
 }
 
 /* The field map retains geographic imagery; only its interface is themed. */
@@ -884,9 +903,9 @@ body.tn-map-workspace .layerMenu,
 body.tn-map-workspace .filterPanel,
 body.tn-map-workspace .mapControl,
 body.tn-map-workspace #filterBtn {
-  background: #192426f5;
+  background: var(--atlas-surface-overlay);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
   box-shadow: 0 4px 16px #0002;
 }
 body.tn-map-workspace .mapSearch input {
@@ -903,21 +922,21 @@ body.tn-map-workspace .mapHud .stat b {
 body.tn-map-workspace .hudTitle,
 body.tn-map-workspace .stat span,
 body.tn-map-workspace .hudProgress span {
-  color: #aec1bd;
+  color: var(--atlas-muted);
 }
 body.tn-map-workspace .hudProgress {
-  border-color: #3d5355;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-map-workspace .hudProgress b,
 body.tn-map-workspace .mapInfo b {
   color: var(--atlas-accent);
 }
 body.tn-map-workspace .sidePanel {
-  background: #142022;
+  background: var(--atlas-header);
   border-color: var(--atlas-line);
 }
 body.tn-map-workspace .nextCard {
-  background: #1b302d;
+  background: var(--atlas-hero);
   border-color: var(--atlas-line);
   padding: 26px 22px;
 }
@@ -930,9 +949,9 @@ body.tn-map-workspace .rowMeta {
   color: var(--atlas-muted);
 }
 body.tn-map-workspace .nextCardActions button {
-  background: #223639;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-map-workspace .nextCardActions button:first-child {
   background: var(--atlas-accent);
@@ -940,31 +959,31 @@ body.tn-map-workspace .nextCardActions button:first-child {
   border-color: var(--atlas-accent);
 }
 body.tn-map-workspace .nextCardActions #drawAreaBtn {
-  background: #223639;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border: 1px solid #4a6264;
+  border: 1px solid var(--atlas-line-strong);
 }
 body.tn-map-workspace .leadRow {
-  border-color: #2c3e40;
+  border-color: var(--atlas-line);
 }
 body.tn-map-workspace .leadRow {
-  background: #192426;
+  background: var(--atlas-surface);
 }
 body.tn-map-workspace .addr {
-  color: #b8cac6;
+  color: var(--atlas-label);
 }
 body.tn-map-workspace .filterBar,
 body.tn-map-workspace .tabs,
 body.tn-map-workspace .tab,
 body.tn-map-workspace .panelIntro {
-  background: #192426;
+  background: var(--atlas-surface);
   color: var(--atlas-muted);
   border-color: var(--atlas-line);
 }
 body.tn-map-workspace .filterBar select {
-  background: #122022;
+  background: var(--atlas-input);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-map-workspace .filterBar .mine,
 body.tn-map-workspace .panelIntro span,
@@ -973,19 +992,19 @@ body.tn-map-workspace .tab span {
 }
 body.tn-map-workspace .tab.active {
   color: var(--atlas-accent);
-  background: #253d38;
+  background: var(--atlas-accent-soft);
 }
 body.tn-map-workspace .iconBtn,
 body.tn-map-workspace .mapIconBtn,
 body.tn-map-workspace .weatherToggle {
-  background: #192426;
+  background: var(--atlas-surface);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-map-workspace .weatherWidget {
-  background: #192426f5;
+  background: var(--atlas-surface-overlay);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-map-workspace #weatherPlace,
 body.tn-map-workspace .weatherMeta,
@@ -994,19 +1013,19 @@ body.tn-map-workspace .weatherHour span {
   color: var(--atlas-muted);
 }
 body.tn-map-workspace .weatherHour {
-  background: #26393b;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
   border-color: var(--atlas-line);
 }
 body.tn-map-workspace .leaflet-popup-content-wrapper,
 body.tn-map-workspace .leaflet-popup-tip {
-  background: #192426;
+  background: var(--atlas-surface);
   color: var(--atlas-text);
 }
 body.tn-map-workspace .pinPopup button {
-  background: #223639;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-map-workspace .pinPopup .routeToggle {
   background: var(--atlas-accent);
@@ -1014,13 +1033,13 @@ body.tn-map-workspace .pinPopup .routeToggle {
   border-color: var(--atlas-accent);
 }
 body.tn-map-workspace .layerMenu label:hover {
-  background: #2a3d40;
+  background: var(--atlas-raised);
 }
 body.tn-map-workspace .leadRow:hover {
-  background: #203235;
+  background: var(--atlas-raised);
 }
 body.tn-map-workspace .leadRow.active {
-  background: #284139;
+  background: var(--atlas-accent-soft);
   box-shadow: inset 3px 0 var(--atlas-accent);
 }
 body.tn-map-workspace .leadRow h3,
@@ -1028,19 +1047,19 @@ body.tn-map-workspace .leadRow strong {
   color: var(--atlas-text);
 }
 body.tn-map-workspace .mapControl[aria-expanded="true"] {
-  background: #28483e;
-  border-color: #83e3cb;
+  background: var(--atlas-accent-soft);
+  border-color: var(--atlas-accent);
   color: var(--atlas-accent);
 }
 body.tn-map-workspace .routeTray,
 body.tn-map-workspace .navBar {
-  background: #142022;
-  border-color: #4a6264;
+  background: var(--atlas-header);
+  border-color: var(--atlas-line-strong);
   box-shadow: 0 12px 30px #0003;
 }
 body.tn-map-workspace .routeTrayActions button {
-  background: #223639;
-  border-color: #4a6264;
+  background: var(--atlas-raised);
+  border-color: var(--atlas-line-strong);
   color: var(--atlas-text);
 }
 body.tn-map-workspace .routeTrayActions #routeTrayBtn,
@@ -1050,19 +1069,19 @@ body.tn-map-workspace .routeTrayActions #startRouteBtn {
   color: var(--atlas-ink);
 }
 body.tn-map-workspace .routeModeToggle {
-  background: #142022;
-  border-color: #4a6264;
+  background: var(--atlas-header);
+  border-color: var(--atlas-line-strong);
 }
 body.tn-map-workspace .routeModeToggle button,
 body.tn-map-workspace .routeTrayCopy span {
-  color: #b8cac6;
+  color: var(--atlas-label);
 }
 body.tn-map-workspace .routeModeToggle button.on {
-  background: #294b41;
+  background: var(--atlas-accent-soft);
   color: var(--atlas-accent);
 }
 body.tn-map-workspace .routeTray .routeModeToggle button.isOn {
-  background: #294b41;
+  background: var(--atlas-accent-soft);
   color: var(--atlas-accent);
 }
 body.tn-map-workspace .cloudNotice {
@@ -1070,15 +1089,19 @@ body.tn-map-workspace .cloudNotice {
   color: #d5ddbe;
 }
 body.tn-map-workspace .weatherStack {
-  color: #edf5f2;
+  color: var(--atlas-text);
 }
 body.tn-map-workspace .leaflet-bar a {
-  background: #192426;
+  background: var(--atlas-surface);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-map-workspace .leaflet-control-attribution {
-  color: #263c37;
+  background: #fff;
+  color: #122033;
+}
+body.tn-map-workspace .leaflet-control-attribution a {
+  color: var(--atlas-brand-blue);
 }
 
 /* Messages, training, documents, and inspection detail share the same surfaces. */
@@ -1094,29 +1117,29 @@ body.tn-workspace .tnConsent > div {
   border: 1px solid var(--atlas-line);
 }
 body.tn-workspace .doorSheetFooter {
-  background: #192426;
+  background: var(--atlas-surface);
   border-color: var(--atlas-line);
 }
 body.tn-workspace .doorSheetFooter .tnDoorActions .tnTap {
-  background: #223639;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .tnGallery .tnPhotoCard > button.tnTap {
-  background: #223639;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .modalOverlay,
 body.tn-workspace .drawer,
 body.tn-workspace .tnMsgOverlay {
-  background: #071314b8;
+  background: var(--atlas-overlay);
 }
 body.tn-workspace .closeBtn {
   color: var(--atlas-muted);
 }
 body.tn-workspace .closeBtn:hover {
-  background: #2a3d40;
+  background: var(--atlas-raised);
 }
 body.tn-workspace .detailGrid > div,
 body.tn-workspace .drawerAddr,
@@ -1126,9 +1149,9 @@ body.tn-workspace .tnTrainPerson,
 body.tn-workspace .tnPointMeta,
 body.tn-workspace .tnThreadBtn,
 body.tn-workspace .tnPersonBtn {
-  background: #203235;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #3d5355;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .detailGrid small,
 body.tn-workspace .tnFolderHead span,
@@ -1142,12 +1165,12 @@ body.tn-workspace .fieldActions button,
 body.tn-workspace .adminActions button,
 body.tn-workspace .tnMoreMenu a,
 body.tn-workspace .tnMoreMenu button {
-  background: #223639;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .tnTrainThumb {
-  background: #263e37;
+  background: var(--atlas-accent-soft);
 }
 body.tn-workspace .tnTrainThumb i,
 body.tn-workspace .tnTrainBack {
@@ -1165,20 +1188,20 @@ body.tn-workspace .tnTrainMeta span.quiet {
   color: var(--atlas-muted);
 }
 body.tn-workspace .tnTrainForm {
-  background: #192426;
+  background: var(--atlas-surface);
   border-color: var(--atlas-line);
 }
 body.tn-workspace .tnTrainForm input:not([type="checkbox"]),
 body.tn-workspace .tnTrainForm select,
 body.tn-workspace .tnTrainForm textarea {
-  background: #122022;
+  background: var(--atlas-input);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .tnTrainControls button {
-  background: #223639;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .tnTrainControls .primary {
   background: var(--atlas-accent);
@@ -1186,19 +1209,19 @@ body.tn-workspace .tnTrainControls .primary {
   border-color: var(--atlas-accent);
 }
 body.tn-workspace .tnTrainMeter {
-  background: #334547;
+  background: var(--atlas-line);
 }
 body.tn-workspace .tnTrainMeter span {
   background: var(--atlas-accent);
 }
 body.tn-workspace .tnTrainCard:hover {
-  border-color: #568777;
+  border-color: var(--atlas-accent-line);
   box-shadow: none;
 }
 body.tn-workspace .tnTrainFilters button {
-  background: #223639;
+  background: var(--atlas-raised);
   color: var(--atlas-muted);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .tnTrainFilters button[aria-pressed="true"] {
   background: var(--atlas-accent);
@@ -1210,20 +1233,20 @@ body.tn-workspace .tnTrainControls,
 body.tn-workspace .tnTrainCheck,
 body.tn-workspace .tnTrainPeople,
 body.tn-workspace .tnTrainBody {
-  background: #192426;
+  background: var(--atlas-surface);
   border-color: var(--atlas-line);
 }
 body.tn-workspace .tnTrainSlide {
-  background: #233532;
+  background: var(--atlas-accent-soft);
   color: var(--atlas-text);
 }
 body.tn-workspace .tnTrainSlide .slideBar {
-  background: #28483e;
+  background: var(--atlas-accent-soft);
 }
 body.tn-workspace .tnMsgHead,
 body.tn-workspace .tnThreadList,
 body.tn-workspace .tnComposer {
-  background: #142022;
+  background: var(--atlas-header);
   border-color: var(--atlas-line);
   color: var(--atlas-text);
 }
@@ -1232,21 +1255,21 @@ body.tn-workspace .tnConvo h3 {
   color: var(--atlas-text);
 }
 body.tn-workspace .tnBubble {
-  background: #2a3d40;
-  color: #edf5f2;
+  background: var(--atlas-raised);
+  color: var(--atlas-text);
 }
 body.tn-workspace .tnBubble.mine {
-  background: #28483e;
-  color: #c8f4e7;
+  background: var(--atlas-accent-soft);
+  color: var(--atlas-accent-text);
 }
 body.tn-workspace .tnBubble small {
-  color: #b5c8c4;
+  color: var(--atlas-label);
 }
 body.tn-workspace .tnSkeleton {
-  background: #203235;
+  background: var(--atlas-raised);
 }
 body.tn-workspace .tnDayBar {
-  background: #2c4b41;
+  background: var(--atlas-accent-soft);
 }
 body.tn-workspace .tnEmpty,
 body.tn-workspace .empty,
@@ -1257,8 +1280,8 @@ body.tn-workspace .tnTrainEmpty {
 /* Search is a native dialog, with keyboard and mobile-friendly navigation. */
 .atlasCommand {
   color: var(--atlas-text);
-  background: #192426;
-  border: 1px solid #4a6264;
+  background: var(--atlas-surface);
+  border: 1px solid var(--atlas-line-strong);
   border-radius: 16px;
   padding: 0;
   width: min(580px, calc(100vw - 32px));
@@ -1266,7 +1289,7 @@ body.tn-workspace .tnTrainEmpty {
   box-shadow: 0 30px 90px #0008;
 }
 .atlasCommand::backdrop {
-  background: #071314bb;
+  background: var(--atlas-overlay);
 }
 .atlasCommandHead {
   display: flex;
@@ -1281,9 +1304,9 @@ body.tn-workspace .tnTrainEmpty {
 .atlasCommandClose {
   width: 36px;
   height: 36px;
-  background: #25383b;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border: 1px solid #4a6264;
+  border: 1px solid var(--atlas-line-strong);
   border-radius: 8px;
   font-size: 24px;
   flex: none;
@@ -1347,7 +1370,7 @@ body.tn-workspace .tnTrainEmpty {
 }
 .atlasCommandResult:hover,
 .atlasCommandResult:focus {
-  background: #29433b;
+  background: var(--atlas-accent-soft);
 }
 .atlasCommandFoot {
   display: flex;
@@ -1362,7 +1385,7 @@ body.tn-workspace .tnTrainEmpty {
 .atlasWalkthrough {
   color: var(--atlas-accent);
   background: transparent;
-  border: 1px solid #4a6264;
+  border: 1px solid var(--atlas-line-strong);
   padding: 10px;
   border-radius: 7px;
   min-height: 40px;
@@ -1376,25 +1399,25 @@ body.tn-workspace .tnTrainEmpty {
 body.tn-workspace .authCard,
 body.tn-workspace #tnLogin,
 body.tn-workspace #loginModal .modalCard {
-  background: #192426;
-  border-color: #4a6264;
+  background: var(--atlas-surface);
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .loginCard {
-  background: #192426;
+  background: var(--atlas-surface);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .loginCard h1,
 body.tn-workspace .loginCard h2 {
   color: var(--atlas-text);
 }
 body.tn-workspace .loginCard label {
-  color: #d4e0dc;
+  color: var(--atlas-label);
 }
 body.tn-workspace .loginCard input {
-  background: #122022;
+  background: var(--atlas-input);
   color: var(--atlas-text);
-  border-color: #4a6264;
+  border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .signInLogo,
 body.tn-workspace .signInLogo {
@@ -1405,28 +1428,28 @@ body.tn-workspace .authCard h1 {
   font-size: 30px;
 }
 body.tn-workspace .pageHelpButton {
-  background: #294b41;
-  border-color: #568777;
-  color: #c8f4e7;
+  background: var(--atlas-accent-soft);
+  border-color: var(--atlas-accent-line);
+  color: var(--atlas-accent-text);
 }
-body.tn-workspace .pageHelpButton:hover { background: #3a6659; color: #d7f8ec; }
+body.tn-workspace .pageHelpButton:hover { background: var(--atlas-accent-soft); color: var(--atlas-accent-text); }
 body.tn-workspace .pageTourCard {
   color-scheme: light;
 }
 body.tn-workspace .pageTourCard h2,
 body.tn-workspace .pageTourCard h3 {
-  color: #142a25;
+  color: #122033;
 }
 body.tn-workspace .pageTourCard p {
-  color: #405e55;
+  color: #40526a;
 }
 body.tn-workspace .pageTourCard button {
   transition: none;
 }
 body.tn-workspace .workspaceMenuBtn {
-  background: #213235;
+  background: var(--atlas-raised);
   color: var(--atlas-text);
-  border-color: #435a5d;
+  border-color: var(--atlas-line-strong);
 }
 
 @media (min-width: 1101px) {
@@ -1574,20 +1597,20 @@ body.tn-workspace .workspaceMenuBtn {
     grid-template-columns: 1fr;
   }
   body.tn-map-workspace #listSheet.sidePanel {
-    background: #142022;
+    background: var(--atlas-header);
     border-color: var(--atlas-line);
   }
   body.tn-map-workspace #listSheet .listSheetGrab {
-    background: #1b302d;
+    background: var(--atlas-hero);
     color: var(--atlas-text);
   }
   body.tn-map-workspace .mobileBar {
-    background: #142022;
-    border-color: #4a6264;
+    background: var(--atlas-header);
+    border-color: var(--atlas-line-strong);
   }
   body.tn-map-workspace .mobileBar button {
-    background: #223639;
-    color: #d9e8e2;
+    background: var(--atlas-raised);
+    color: var(--atlas-text);
   }
   body.tn-map-workspace .mobileBar button:nth-child(2) {
     background: var(--atlas-accent);
@@ -1660,7 +1683,7 @@ body.tn-workspace .workspaceMenuBtn {
     left: 12px;
     right: 12px;
     display: flex;
-    border-top: 1px solid #334547;
+    border-top: 1px solid var(--atlas-line);
     padding-top: 7px;
   }
   body.tn-workspace .tnHeader .tnFieldOps .tnClockBtn {
@@ -1699,9 +1722,9 @@ body.tn-workspace .workspaceMenuBtn {
     padding: 9px;
   }
   body.tn-map-workspace #tnMore {
-    background: #223639;
+    background: var(--atlas-raised);
     color: var(--atlas-text);
-    border-color: #4a6264;
+    border-color: var(--atlas-line-strong);
     font-size: 12px;
   }
   body.tn-workspace.tn-standalone .container,
@@ -1830,12 +1853,12 @@ body.tn-workspace .workspaceMenuBtn {
   }
   body.tn-map-workspace .mobileBar .tnMsgBtn,
   body.tn-map-workspace .mobileBar .tnShiftsLink {
-    background: #223639;
+    background: var(--atlas-raised);
     color: var(--atlas-text);
-    border: 1px solid #4a6264;
+    border: 1px solid var(--atlas-line-strong);
     box-shadow: none;
   }
-  body.tn-map-workspace #mobileBar .tnMsgBtn, body.tn-map-workspace #mobileBar .tnShiftsLink { background: #223639; color: var(--atlas-text); border: 1px solid #4a6264; box-shadow: none; }
+  body.tn-map-workspace #mobileBar .tnMsgBtn, body.tn-map-workspace #mobileBar .tnShiftsLink { background: var(--atlas-raised); color: var(--atlas-text); border: 1px solid var(--atlas-line-strong); box-shadow: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   body.tn-workspace *,
@@ -1876,6 +1899,10 @@ body.tn-workspace .tnPrintSheet h3 {
 body.tn-workspace .tnPrintSheet p,
 body.tn-workspace .tnPrintSheet .tnMeta {
   color: #40526a;
+}
+body.tn-workspace .tnPrintSheet .eyebrow,
+body.tn-workspace .tnPrintSheet a {
+  color: var(--atlas-brand-blue);
 }
 @media print {
   :root {

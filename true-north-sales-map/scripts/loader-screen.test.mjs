@@ -10,9 +10,15 @@ const read = (path) => readFileSync(join(root, path), 'utf8');
 const mark = loaderMarkHtml();
 assert.ok(mark.includes('class="bootOutline"'));
 assert.ok(mark.includes('class="bootOutlineTravel"'));
-assert.ok(mark.includes('logo-emblem.webp'));
-assert.ok(mark.includes('viewBox="0 0 256 259"'));
+assert.ok(mark.includes('src="/brand/logo-full.webp"'));
+assert.ok(mark.includes('width="960" height="724"'));
+assert.ok(mark.includes('viewBox="0 0 960 724"'));
+assert.equal(mark.includes('logo-emblem.webp'), false, 'Loader must include the full wordmark');
 assert.ok(mark.includes('pathLength="100"'));
+const paths = [...mark.matchAll(/<path[^>]* d="([^"]+)"/g)].map((match) => match[1]);
+assert.equal(paths.length, 2);
+assert.equal(paths[0], paths[1], 'Animated stroke must follow the complete logo outline');
+assert.ok(paths[0].includes('L801 721'), 'Outline must extend to the bottom wordmark');
 assert.ok(loaderHoldHtml().includes('bootOutlineTravel'));
 
 const pages = [
@@ -22,13 +28,18 @@ const pages = [
   'setter.html',
   'files.html',
   'shifts.html',
-  'reset-password.html'
+  'reset-password.html',
+  'training.html',
+  'rep.html',
+  'photo.html',
+  'forms.html',
+  'form-print.html'
 ];
 for (const page of pages) {
   const html = read(page);
   assert.ok(html.includes('bootOutlineTravel'), page);
-  assert.ok(html.includes('M99.7 0.7'), page);
-  assert.ok(html.includes('logo-emblem.webp'), page);
+  assert.ok(html.includes(mark), `${page}: initial and dynamic loaders must use the same complete logo`);
+  assert.ok(html.includes('width:min(168px,55vw,36dvh);height:auto;aspect-ratio:960 / 724;flex:none;overflow:visible'), `${page}: first paint must preserve logo proportions and stroke overflow`);
   assert.ok(html.includes('@keyframes bootOutlineTravel'), page);
   assert.ok(html.includes('prefers-reduced-motion'), page);
 }
@@ -58,6 +69,11 @@ const transitions = read('brand/transitions.css');
 assert.ok(transitions.includes('bootOutlineTravel'));
 assert.ok(transitions.includes('view-transition-name:tn-loader'));
 assert.ok(transitions.includes('tn-signed-out'));
+assert.ok(transitions.includes('width:min(168px,55vw,36dvh);height:auto;aspect-ratio:960 / 724;flex:none;overflow:visible'));
+assert.ok(transitions.includes('stroke:#0267ee'));
+assert.ok(transitions.includes('stroke-dasharray:none;stroke-dashoffset:0;filter:none'));
+const styles = read('styles.css');
+assert.ok(styles.includes('width:min(168px,55vw,36dvh);height:auto;aspect-ratio:960 / 724;flex:none;overflow:visible'));
 
 const prefetch = read('brand/prefetch.js');
 assert.ok(prefetch.includes('loaderHoldHtml'));

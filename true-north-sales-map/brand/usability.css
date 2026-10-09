@@ -22,10 +22,10 @@ body.tn-map-workspace .routeTrayPrimaryActions { grid-template-columns: repeat(4
 body.tn-map-workspace .routeTrayExtras { width: 100%; min-width: 0; }
 body.tn-map-workspace .routeTrayExtras summary {
   display: list-item; box-sizing: border-box; padding: 12px 10px; cursor: pointer;
-  border-radius: 9px; color: #b8cac6; background: #1b2d30; font-size: 12px; font-weight: 650;
+  border-radius: 9px; color: var(--atlas-label); background: var(--atlas-raised); font-size: 12px; font-weight: 650;
 }
-body.tn-map-workspace .routeTrayExtras summary:focus-visible { outline: 3px solid #6fe1b6; outline-offset: -3px; }
-body.tn-map-workspace .routeTrayExtras[open] summary { color: #edf5f1; }
+body.tn-map-workspace .routeTrayExtras summary:focus-visible { outline: 3px solid var(--atlas-accent); outline-offset: -3px; }
+body.tn-map-workspace .routeTrayExtras[open] summary { color: var(--atlas-text); }
 body.tn-map-workspace .routeTraySecondaryActions { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 6px; }
 body.tn-map-workspace .routeTraySecondaryActions #stormHousesBtn { grid-column: 1 / -1; }
 body.tn-map-workspace #fitBtn { display: inline-flex; align-items: center; justify-content: center; }
@@ -42,13 +42,13 @@ body.tn-map-workspace .mapSearch input { font-size: 16px; }
 /* After first load, slow basemap tiles must not block already usable field controls. */
 body.tn-map-workspace #mapLoader.isRefresh {
   position: absolute; inset: auto 12px 12px auto; max-width: calc(100% - 24px);
-  padding: 10px 14px; border-radius: 10px; background: #17272a; border: 1px solid #415456;
+  padding: 10px 14px; border-radius: 10px; background: var(--atlas-surface); border: 1px solid var(--atlas-line-strong);
   z-index: 600; pointer-events: none; box-shadow: none;
 }
 body.tn-map-workspace #mapLoader.isRefresh .bootMark,
 body.tn-map-workspace #mapLoader.isRefresh .bootTrack,
 body.tn-map-workspace #mapLoader.isRefresh #mapLoaderFact { display: none; }
-body.tn-map-workspace #mapLoader.isRefresh #bootText { margin: 0; font-size: 13px; color: #edf5f1; }
+body.tn-map-workspace #mapLoader.isRefresh #bootText { margin: 0; font-size: 13px; color: var(--atlas-text); }
 body.tn-map-workspace .filterPanel, body.tn-map-workspace .layerMenu,
 body.tn-map-workspace .mapInfoPanel, body.tn-map-workspace .weatherPopover {
   max-height: calc(100dvh - 220px); overflow-y: auto; overscroll-behavior: contain;
@@ -59,13 +59,13 @@ body.tn-map-workspace #tnMoreMenu:not([hidden]) {
   position: fixed; top: calc(var(--workspace-header) + 8px); right: 12px; left: auto;
   max-width: calc(100vw - 24px); max-height: calc(100dvh - var(--workspace-header) - 20px);
   overflow-y: auto; overscroll-behavior: contain;
-  background: #17272a; color: #edf5f1;
+  background: var(--atlas-surface); color: var(--atlas-text);
 }
 body.tn-map-workspace #tnMoreMenu a, body.tn-map-workspace #tnMoreMenu button {
-  background: transparent; color: #edf5f1; border-color: #415456;
+  background: transparent; color: var(--atlas-text); border-color: var(--atlas-line-strong);
 }
-body.tn-map-workspace #tnMoreMenu a:hover, body.tn-map-workspace #tnMoreMenu button:hover { background: #2b4548; }
-body.tn-map-workspace #tnMoreMenu :focus-visible { outline: 3px solid #6fe1b6; outline-offset: -4px; }
+body.tn-map-workspace #tnMoreMenu a:hover, body.tn-map-workspace #tnMoreMenu button:hover { background: var(--atlas-raised); }
+body.tn-map-workspace #tnMoreMenu :focus-visible { outline: 3px solid var(--atlas-accent); outline-offset: -4px; }
 body.tn-map-workspace .topbar:has(#tnMoreMenu:not([hidden])) { z-index: 5000; }
 body.tn-admin-workspace .rail [data-tab] { scroll-margin-inline: 12px; }
 @media (min-width: 1101px) {
