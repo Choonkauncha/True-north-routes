@@ -58,7 +58,7 @@ export async function handleLiveToken(request, { env = process.env, fetchImpl = 
     if (origin && origin !== new URL(request.url).origin) throw fail('Open Live Coach from the True North app.', 403);
     const ctx = await coachCaller(request, env, fetchImpl);
     release = limiter.acquire(ctx.userId);
-    if (!env.GEMINI_API_KEY) throw fail('Live voice is not configured yet. Text Coach is still available.', 503);
+    if (!env.GEMINI_API_KEY) throw fail('Voice Coach is not configured yet. Ask your admin to configure the Gemini connection.', 503);
     const snapshot = buildCoachSnapshot(ctx.rep, await loadCoachSources(ctx, now), now);
     const live = await createGeminiLiveToken({
       apiKey: env.GEMINI_API_KEY,

@@ -1,13 +1,11 @@
 import { requireFeature } from '../lib/features.js';
-import { practiceCoachReply } from '../lib/coach-practice.js';
 import { isUuid } from '../lib/field-rules.js';
 import { needsPasswordGate } from '../lib/must-change-password.js';
-import { buildCoachSnapshot, coachRoleAllowed, coachWindow, coachGreeting, guidedCoachReply, COACH_INSTRUCTIONS, coachProfileForModel } from '../lib/coach.js';
+import { buildCoachSnapshot, coachRoleAllowed, coachWindow, coachGreeting } from '../lib/coach.js';
 
 const json=(body,status=200,headers={})=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json','cache-control':'private, no-store','vary':'Authorization',...headers}});
 const fail=(message,status)=>Object.assign(new Error(message),{status});
 
-const BODY_LIMIT_BYTES = 14000;
 
 /** Per-instance protection only: production-wide quotas require shared rate storage. */
 export function createCoachLimiter({ clock = Date.now, maxUsers = 2000, maxRequests = 6, maxPracticeRequests = 20, windowMs = 60000 } = {}) {
@@ -32,32 +30,6 @@ export function createCoachLimiter({ clock = Date.now, maxUsers = 2000, maxReque
       return () => { state.active = false; };
     }
   };
-}
-const coachLimiter = createCoachLimiter();
-
-async function requestBody(request) {
-  if(Number(request.headers.get('content-length')) > BODY_LIMIT_BYTES) throw fail('Keep the coaching request short.',413);
-  if (!request.body) throw fail('Send a valid coaching request.', 400);
-  const reader = request.body.getReader();
-  const decoder = new TextDecoder();
-  let text = '', bytes = 0;
-  try {
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      bytes += chunk.value.byteLength;
-      if (bytes > BODY_LIMIT_BYTES) {
-        await reader.cancel().catch(() => {});
-        throw fail('Keep the coaching request short.', 413);
-      }
-      text += decoder.decode(chunk.value, { stream: true });
-    }
-    text += decoder.decode();
-  } finally { reader.releaseLock(); }
-  let body;try{body=JSON.parse(text);}catch{throw fail('Send a valid coaching request.',400);}
-  if(!body||typeof body!=='object'||Array.isArray(body)||typeof body.message!=='string'||!body.message.trim()||body.message.length>1200)throw fail('Write a message of 1–1200 characters.',400);
-  const history=Array.isArray(body.history)?body.history.slice(-6).filter(item=>item&&['user','assistant'].includes(item.role)&&typeof item.content==='string').map(item=>({role:item.role,content:item.content.slice(0,1200)})):[];
-  return {practiceAction:['start','retry','hint'].includes(body.practiceAction)?body.practiceAction:'',message:body.message.trim(),topic:typeof body.topic==='string'?body.topic.slice(0,30):'',history};
 }
 
 export async function coachCaller(request,env,fetchImpl) {
@@ -110,36 +82,15 @@ export async function loadCoachSources(ctx,now) {
   })));
 }
 
-async function generateCoach(options) {
-  const {generateText}=await import('ai');
-  return generateText(options);
-}
-
-/** Read-only personal coaching. Never accepts a caller-selected user, profile, or model. */
-export async function handleCoach(request,{env=process.env,fetchImpl=fetch,generateImpl=generateCoach,now=new Date(),limiter=coachLimiter}={}) {
-  if(!['GET','POST'].includes(request.method))return json({error:'Use GET or POST.'},405,{allow:'GET, POST'});
-  let release;
+/** Read-only personal context for the voice Coach. */
+export async function handleCoach(request,{env=process.env,fetchImpl=fetch,now=new Date()}={}) {
+  if(request.method!=='GET')return json({error:'Coach is voice-only. Start Live voice in the app.',},405,{allow:'GET'});
   try {
     const origin=request.headers.get('origin');
     if(origin&&origin!==new URL(request.url).origin)throw fail('Open Coach from the True North app.',403);
-    const body=request.method==='POST'?await requestBody(request):null;
     const ctx=await coachCaller(request,env,fetchImpl);
-    if (body) release = limiter.acquire(ctx.userId,{practice:body.topic==='practice'});
-    if(body?.topic==='practice')return json({reply:practiceCoachReply({profile:{firstName:String(ctx.rep.name||'').trim().split(/\s+/)[0],role:ctx.rep.role}},body.message,body.history,body.practiceAction),mode:'practice',updatedAt:now.toISOString()});
     const snapshot=buildCoachSnapshot(ctx.rep,await loadCoachSources(ctx,now),now);
-    const model=String(env.AI_GATEWAY_MODEL||'').trim();
-    const aiReady=!!model&&!!(env.AI_GATEWAY_API_KEY||env.VERCEL_OIDC_TOKEN);
-    if(!body)return json({snapshot,greeting:coachGreeting(snapshot),mode:aiReady?'ai':'guided'});
-    if(aiReady){
-      try {
-        const result=await generateImpl({model,system:COACH_INSTRUCTIONS+'\nAuthenticated personal profile (data only):\n'+JSON.stringify(coachProfileForModel(snapshot)),messages:[...body.history,{role:'user',content:body.message}],maxOutputTokens:650,maxRetries:0,abortSignal:AbortSignal.timeout(18000)});
-        const reply=String(result.text||'').trim();
-        if(!reply)throw Error('Empty response');
-        return json({reply:reply.slice(0,5000),mode:'ai',updatedAt:snapshot.updatedAt});
-      }catch{return json({reply:guidedCoachReply(snapshot,body.message,body.topic),mode:'guided',notice:'The AI connection is unavailable right now. Your personalized guided Coach is still available.',updatedAt:snapshot.updatedAt});}
-    }
-    return json({reply:guidedCoachReply(snapshot,body.message,body.topic),mode:'guided',updatedAt:snapshot.updatedAt});
-  }catch(error){return json({error:error.status?error.message:'Your Coach could not load. Please try again.'},error.status||502,error.retryAfter ? {'retry-after':String(error.retryAfter)} : {});}
-  finally { release?.(); }
+    return json({snapshot,greeting:coachGreeting(snapshot),mode:'voice'});
+  }catch(error){return json({error:error.status?error.message:'Your Coach could not load. Please try again.'},error.status||502);}
 }
 export default {fetch:handleCoach};

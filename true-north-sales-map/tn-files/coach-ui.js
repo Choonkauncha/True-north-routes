@@ -1,17 +1,15 @@
-import { COACH_TOPICS } from '../lib/coach.js';
 import { esc } from './ui.js';
 import { createLiveCoach } from './live-coach.js';
 import { mountCoachOrb } from './coach-orb.js';
 
-let account='', conversation=[], snapshot=null, greeting='', mode='guided';
-let practiceActive=false, pendingDraft='', pendingNotice='';
+let account='', snapshot=null;
 let liveVoice=null, liveVoiceState='idle', liveVoiceError='', liveTranscript=[];
 let flight=null, loadVersion=0, authSubscription=null, activeHost=null, orb=null;
 
 function clearCoach() {
   flight?.abort();flight=null;loadVersion+=1;
   stopCoachVoice();orb?.dispose();orb=null;liveTranscript=[];
-  practiceActive=false;pendingDraft='';pendingNotice='';conversation=[];snapshot=null;greeting='';account='';
+  snapshot=null;account='';
   if(activeHost?.isConnected)activeHost.replaceChildren();
 }
 
@@ -64,7 +62,7 @@ export async function mountCoach(host,ctx) {
     const data=await coachRequest(ctx,'GET');
     if(ticket!==loadVersion||!host.isConnected)return;
     if(data.snapshot?.profile?.id!==ctx.rep?.id)throw Error('Sign in again to refresh your personal Coach.');
-    snapshot=data.snapshot;greeting=data.greeting;if(!conversation.length)mode=data.mode;
+    snapshot=data.snapshot;
     paint(host,ctx);
   }catch(error){
     if(ticket!==loadVersion||!host.isConnected)return;
@@ -82,17 +80,6 @@ async function coachRequest(ctx,method,body,signal) {
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw Error(data.error||'Your Coach could not load. Try again.');
   return data;
-}
-
-function renderTranscript(host) {
-  const thread=host.querySelector('#tnCoachThread');thread.replaceChildren();
-  for(const row of [{role:'assistant',content:greeting},...conversation]){
-    const entry=document.createElement('div');entry.className='tnCoachMessage is-'+row.role;
-    const label=document.createElement('b');label.textContent=row.role==='assistant'?'True North Coach':'You';
-    const content=document.createElement('p');content.textContent=row.role==='assistant'?String(row.content).replace(/\[Practice: (opener|objection|handoff|recap)\]/g,(_,phase)=>'Practice · '+({opener:'Introduction',objection:'Respectful objection',handoff:'Clear next step',recap:'Reflect and apply'}[phase])).replace(/\[Feedback: (opener|objection|handoff)\]/g,'Feedback on your response'):row.content;
-    entry.append(label,content);thread.append(entry);
-  }
-  thread.scrollTop=thread.scrollHeight;
 }
 
 function renderLiveVoice(host) {
@@ -125,63 +112,13 @@ function paint(host,ctx) {
   const {profile,focus,metrics,coverage,metricLimits={}}=snapshot;
   const partial=coverage.some(source=>!source.available||source.limited);
   const value=(n,key)=>n===null?'—':String(n)+(metricLimits[key]?'+':'');
-  host.innerHTML=`<section class="tnCoachCard" aria-label="Your personal True North Coach"><div class="tnCoachWelcome"><div><p>${esc(profile.roleLabel)} · Your personal Coach</p><h2>Let’s build momentum, ${esc(profile.firstName)}.</h2></div><span id="tnCoachMode" class="tnCoachMode">${mode==='ai'?'AI coach':mode==='practice'?'Practice coach':'Guided coach'}</span></div><div class="tnCoachFocus"><span class="tnCoachFocusMark" aria-hidden="true">✦</span><div><b>${esc(focus.title)}</b><p>${esc(focus.detail)}</p></div><a href="${esc(focus.href)}" ${focus.href==='#lessons'?'data-coach-lessons':''}>${esc(focus.action)} <span aria-hidden="true">→</span></a></div><div class="tnCoachTopics" role="group" aria-label="Choose a coaching focus">${COACH_TOPICS.map(topic=>`<button type="button" data-coach-topic="${topic.id}">${esc(topic.label)}</button>`).join('')}</div><section class="tnCoachLive" aria-label="Gemini Live voice Coach"><div class="tnCoachOrbStage" data-voice-state="idle"><canvas id="tnCoachOrb" class="tnCoachOrb" aria-hidden="true"></canvas><div class="tnCoachOrbCore" aria-hidden="true">✦</div><span class="tnCoachOrbCaption">TRUE NORTH LIVE COACH</span></div><div><b>Live voice Coach</b><span>Talk through a situation hands-free.</span></div><div class="tnCoachLiveActions"><button type="button" id="tnCoachLiveToggle">Start live voice</button><button type="button" id="tnCoachLiveStop" hidden>End voice</button></div><p id="tnCoachLiveStatus" role="status">Voice Coach is ready.</p><div id="tnCoachLiveThread" class="tnCoachLiveThread" role="log" aria-live="polite" aria-label="Live Coach transcript" hidden></div></section><div class="tnCoachPractice"><button type="button" id="tnCoachPracticeStart">Start a practice round</button><span>Introduction → objection → next step</span><div id="tnCoachPracticeTools" ${practiceActive?'':'hidden'}><button type="button" id="tnCoachHint">Show an example</button><button type="button" id="tnCoachRetryRound">Try that again</button></div></div><div id="tnCoachThread" class="tnCoachThread" role="log" aria-live="polite" aria-label="Coach conversation" aria-relevant="additions text"></div><form id="tnCoachForm" class="tnCoachForm"><label for="tnCoachInput">What would you like to work on?</label><div class="tnCoachComposer"><textarea id="tnCoachInput" rows="2" maxlength="1200" placeholder="Practice a conversation, refine a message, or plan my next step…" required></textarea><button type="submit" id="tnCoachSend">Coach me <span aria-hidden="true">↗</span></button></div><div class="tnCoachFormMeta"><span>Draft messages are for your review. You decide what to send.</span><button type="button" id="tnCoachReset">New conversation</button></div></form><p id="tnCoachStatus" class="tnCoachStatus" role="status"></p><details class="tnCoachProfile"><summary>What my Coach uses <span>${partial?'Some data unavailable':'Updated from my app'}</span></summary><p>${esc(snapshot.privacy)}</p><p>${esc(snapshot.period)} for work activity; current assigned leads and lessons.</p><div class="tnCoachStats">${[[metrics.touches,'Field touches','touches'],[metrics.upcoming,'Upcoming inspections','upcoming'],[metrics.photos,'Photos added','photos'],[metrics.forms,'Forms recorded','forms'],[metrics.shiftHours,'Shift hours','shiftHours'],[metrics.messages,'Messages sent','messages'],[metrics.trainingComplete,'Lessons completed','trainingComplete']].map(([n,label,key])=>`<div><b>${value(n,key)}</b><span>${label}</span></div>`).join('')}</div><p>${partial?'Unavailable sources are shown as —. A + marks a lower bound from limited records.':'Counts reflect your own recorded work.'}</p><button type="button" id="tnCoachRefresh">Refresh my profile</button></details></section>`;
+  host.innerHTML=`<section class="tnCoachCard" aria-label="Your personal True North Coach"><div class="tnCoachWelcome"><div><p>${esc(profile.roleLabel)} · Your personal Coach</p><h2>Let’s build momentum, ${esc(profile.firstName)}.</h2></div><span id="tnCoachMode" class="tnCoachMode">Voice Coach</span></div><div class="tnCoachFocus"><span class="tnCoachFocusMark" aria-hidden="true">✦</span><div><b>${esc(focus.title)}</b><p>${esc(focus.detail)}</p></div><a href="${esc(focus.href)}" ${focus.href==='#lessons'?'data-coach-lessons':''}>${esc(focus.action)} <span aria-hidden="true">→</span></a></div><section class="tnCoachLive" aria-label="Gemini Live voice Coach"><div class="tnCoachOrbStage" data-voice-state="idle"><canvas id="tnCoachOrb" class="tnCoachOrb" aria-hidden="true"></canvas><div class="tnCoachOrbCore" aria-hidden="true">✦</div><span class="tnCoachOrbCaption">TRUE NORTH LIVE COACH</span></div><div><b>Live voice Coach</b><span>Talk through a situation hands-free.</span></div><div class="tnCoachLiveActions"><button type="button" id="tnCoachLiveToggle">Start live voice</button><button type="button" id="tnCoachLiveStop" hidden>End voice</button></div><p id="tnCoachLiveStatus" role="status">Voice Coach is ready.</p><div id="tnCoachLiveThread" class="tnCoachLiveThread" role="log" aria-live="polite" aria-label="Live Coach transcript" hidden></div></section><p class="muted">Speak to your Coach to practice a homeowner conversation, work through objections, or plan your next step.</p><details class="tnCoachProfile"><summary>What my Coach uses <span>${partial?'Some data unavailable':'Updated from my app'}</span></summary><p>${esc(snapshot.privacy)}</p><p>${esc(snapshot.period)} for work activity; current assigned leads and lessons.</p><div class="tnCoachStats">${[[metrics.touches,'Field touches','touches'],[metrics.upcoming,'Upcoming inspections','upcoming'],[metrics.photos,'Photos added','photos'],[metrics.forms,'Forms recorded','forms'],[metrics.shiftHours,'Shift hours','shiftHours'],[metrics.messages,'Messages sent','messages'],[metrics.trainingComplete,'Lessons completed','trainingComplete']].map(([n,label,key])=>`<div><b>${value(n,key)}</b><span>${label}</span></div>`).join('')}</div><p>${partial?'Unavailable sources are shown as —. A + marks a lower bound from limited records.':'Counts reflect your own recorded work.'}</p><button type="button" id="tnCoachRefresh">Refresh my profile</button></details></section>`;
   orb?.dispose();orb=mountCoachOrb(host.querySelector('#tnCoachOrb'));
   const liveStatus=host.querySelector('#tnCoachLiveStatus');
   const disclosure=document.createElement('p');disclosure.className='tnCoachLiveDisclosure';disclosure.textContent='Voice audio and the personal Coach context shown below are processed by Google Gemini only while Live voice is active.';
   liveStatus.before(disclosure);
   host.querySelector('#tnCoachLiveThread').setAttribute('aria-relevant','additions text');
-  renderTranscript(host);
   paintLiveState(host);
-  const input=host.querySelector('#tnCoachInput'),status=host.querySelector('#tnCoachStatus');
-  input.value=pendingDraft;status.textContent=pendingNotice;
-  input.oninput=()=>{pendingDraft=input.value;};
-  const busy=on=>{
-    host.querySelector('#tnCoachSend').disabled=on;
-    host.querySelector('#tnCoachReset').disabled=on;
-    host.querySelector('#tnCoachRefresh').disabled=on;
-    host.querySelectorAll('[data-coach-topic],#tnCoachPracticeStart,#tnCoachHint,#tnCoachRetryRound').forEach(button=>button.disabled=on);
-    host.querySelector('#tnCoachThread').setAttribute('aria-busy',String(on));
-    input.readOnly=on;
-  };
-  async function send(message,topic='',practiceAction=''){
-    if(!topic&&practiceActive)topic='practice';
-    if(topic&&topic!=='practice')practiceActive=false;
-    if(topic==='practice')practiceActive=true;
-    host.querySelector('#tnCoachPracticeTools').hidden=!practiceActive;
-    if(flight)return;
-    const identity=account;const controller=new AbortController();flight=controller;busy(true);status.textContent='Your Coach is thinking…';
-    const history=conversation.slice(-6);
-    const userRow={role:'user',content:message};
-    conversation.push(userRow);renderTranscript(host);
-    try{
-      const data=await coachRequest(ctx,'POST',{message,topic,history,practiceAction},AbortSignal.any([controller.signal,AbortSignal.timeout(30000)]));
-      if(identity!==account)return;
-      conversation.push({role:'assistant',content:data.reply});conversation=conversation.slice(-12);mode=data.mode;pendingDraft='';pendingNotice=data.notice||'';
-      if(activeHost?.isConnected&&activeHost.querySelector('#tnCoachInput')&&activeHost.querySelector('#tnCoachThread')){
-        activeHost.querySelector('#tnCoachMode').textContent=mode==='ai'?'AI coach':mode==='practice'?'Practice coach':'Guided coach';
-        renderTranscript(activeHost);activeHost.querySelector('#tnCoachInput').value='';
-        activeHost.querySelector('#tnCoachStatus').textContent=data.notice||'';
-      }
-    }catch(error){
-      if(identity!==account)return;
-      conversation=conversation.filter(row=>row!==userRow);pendingDraft=message;
-      pendingNotice=error.name==='TimeoutError'?'Your Coach took too long. Your draft is here; try again.':error.message||'Your draft is here. Try again.';
-      if(activeHost?.isConnected&&activeHost.querySelector('#tnCoachInput')&&activeHost.querySelector('#tnCoachThread')){renderTranscript(activeHost);activeHost.querySelector('#tnCoachInput').value=message;
-        activeHost.querySelector('#tnCoachStatus').textContent=pendingNotice;}
-    }finally{if(flight===controller)flight=null;if(identity===account&&activeHost?.isConnected&&activeHost.querySelector('#tnCoachInput')&&activeHost.querySelector('#tnCoachThread')){
-      activeHost.querySelectorAll('#tnCoachSend,#tnCoachReset,#tnCoachRefresh,#tnCoachPracticeStart,#tnCoachHint,#tnCoachRetryRound,[data-coach-topic]').forEach(el=>el.disabled=false);
-      activeHost.querySelector('#tnCoachInput').readOnly=false;activeHost.querySelector('#tnCoachThread').setAttribute('aria-busy','false');
-      if(activeHost===host)input.focus({preventScroll:true});}}
-  }
-  busy(!!flight);
-  if(flight)status.textContent='Your Coach is thinking…';
-  host.querySelector('#tnCoachForm').onsubmit=event=>{event.preventDefault();const message=input.value.trim();if(message)send(message);};
-  for(const button of host.querySelectorAll('[data-coach-topic]'))button.onclick=()=>{const topic=COACH_TOPICS.find(item=>item.id===button.dataset.coachTopic);send(topic.prompt,topic.id);};
-  host.querySelector('#tnCoachPracticeStart').onclick=()=>send('Let’s practice a respectful True North conversation.','practice','start');
-  host.querySelector('#tnCoachHint').onclick=()=>send('Show me an example I can adapt.','practice','hint');
-  host.querySelector('#tnCoachRetryRound').onclick=()=>send('Let me try that response again.','practice','retry');
-  host.querySelector('#tnCoachReset').onclick=()=>{practiceActive=false;pendingDraft='';pendingNotice='';host.querySelector('#tnCoachPracticeTools').hidden=true;conversation=[];input.value='';status.textContent='';renderTranscript(host);input.focus();};
   host.querySelector('#tnCoachRefresh').onclick=()=>{stopCoachVoice();snapshot=null;mountCoach(host,ctx);};
   host.querySelector('#tnCoachLiveToggle').onclick=async()=>{
     const action=host.querySelector('#tnCoachLiveToggle').dataset.liveAction||'start';
