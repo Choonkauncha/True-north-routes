@@ -1,3 +1,4 @@
+import { mountCoachAdmin } from './tn-files/coach-admin.js';
 import { mountFeatureAdmin } from './tn-files/feature-admin.js';
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { atlasIcon } from "./brand/atlas-icons.js";
@@ -190,6 +191,7 @@ async function enter(s) {
     return;
   me = profile;
   mountFeatureAdmin(sb,me);
+  mountCoachAdmin(sb,me);
   rememberAdminRole(s.user, profile.role);
   await loadData();
   document.documentElement.dataset.tnAdmin = "ready";

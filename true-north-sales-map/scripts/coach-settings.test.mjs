@@ -1,0 +1,24 @@
+import {PGlite} from '@electric-sql/pglite';
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import {DEFAULT_COACH_PROMPT, loadCoachPrompt, validateCoachPrompt} from '../lib/coach-settings.js';
+assert.throws(()=>validateCoachPrompt(''));
+assert.throws(()=>validateCoachPrompt('x'.repeat(8001)));
+assert.equal(await loadCoachPrompt({rep:{role:'salesperson'},read:async()=>{throw Error('not installed')}}),DEFAULT_COACH_PROMPT);
+assert.equal(await loadCoachPrompt({rep:{role:'canvasser'},read:async()=>[{system_prompt:'Team guidance'}]}),'Team guidance');
+const db=new PGlite();
+await db.exec(`create role authenticated;create role anon;create schema auth;
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+create table public.reps(user_id uuid,role text,active boolean);
+insert into reps values ('11111111-1111-4111-8111-111111111111','appointment_setter',true),('22222222-2222-4222-8222-222222222222','admin',true),('33333333-3333-4333-8333-333333333333','manager',true),('44444444-4444-4444-8444-444444444444','salesperson',false);
+create function public.is_active_rep() returns boolean language sql stable security definer as $$select exists(select 1 from public.reps where user_id=auth.uid() and active)$$;
+grant usage on schema public,auth to authenticated;grant select on public.reps to authenticated;`);
+const sql=readFileSync(new URL('../supabase/migrations/20261009_coach_settings.sql',import.meta.url),'utf8');
+await db.exec(sql);await db.exec(sql);
+async function user(id){await db.exec(`reset role;set role authenticated;select set_config('request.jwt.claim.sub','${id}',false);`);}
+await user('11111111-1111-4111-8111-111111111111');assert.equal((await db.query('select * from coach_settings')).rows.length,1);assert.equal((await db.query("update coach_settings set system_prompt='Hacked' returning *")).rows.length,0);
+await user('33333333-3333-4333-8333-333333333333');assert.equal((await db.query("update coach_settings set system_prompt='Manager' returning *")).rows.length,0);
+await user('44444444-4444-4444-8444-444444444444');assert.equal((await db.query('select * from coach_settings')).rows.length,0);
+await user('22222222-2222-4222-8222-222222222222');assert.equal((await db.query("update coach_settings set system_prompt='Saved team guidance' returning *")).rows.length,1);
+await db.exec('reset role');await db.exec(sql);assert.equal((await db.query('select system_prompt from coach_settings')).rows[0].system_prompt,'Saved team guidance');
+await db.close();console.log('Coach settings validation, fallback, migration rerun, admin-only writes and active-user reads passed');

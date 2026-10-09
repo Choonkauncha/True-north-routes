@@ -61,6 +61,7 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
   let voice = 'Kore';
   let model = 'gemini-3.8-live';
   let micStarted = false;
+  let openingMessage = 'Introduce yourself as my True North voice Coach, briefly explain how you can help, and ask one helpful question.';
   let generation = 0;
   let startController = null;
 
@@ -111,7 +112,7 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
       try {
         await startMic(attempt);
         if (stopped || attempt !== generation) return;
-        send({ clientContent: { turns: [{ role: 'user', parts: [{ text: 'Start by welcoming me as my True North Coach and ask what I want to practice today.' }] }], turnComplete: true } });
+        send({ clientContent: { turns: [{ role: 'user', parts: [{ text: openingMessage }] }], turnComplete: true } });
         state('listening');
       } catch (error) { if (error?.name !== 'AbortError' && attempt === generation) fail(error); }
       return;
@@ -167,12 +168,13 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
       if (!response.ok || !data.token) throw new Error(data.error || 'Live voice is unavailable right now.');
       tokenExpiresAt = Date.parse(data.expiresAt) || Date.now() + 30 * 60 * 1000;
       model = data.model || model; voice = data.voice || voice;
+      openingMessage = data.openingMessage || openingMessage;
       const url = `${LIVE_SOCKET}?access_token=${encodeURIComponent(data.token)}`;
       outputContext = new AudioContext({ sampleRate: OUTPUT_RATE });
       socket = new WebSocket(url);
       socket.onopen = () => {
         if (stopped || attempt !== generation) { cleanupSocket(); return; }
-        send({ setup: { model: `models/${model}`, generationConfig: { responseModalities: ['AUDIO'] }, speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } }, inputAudioTranscription: {}, outputAudioTranscription: {}, sessionResumption: {}, systemInstruction: { parts: [{ text: data.systemInstruction || 'You are the positive, practical True North sales Coach.' }] } } });
+        send({ setup: { model: `models/${model}`, generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }, realtimeInputConfig: { automaticActivityDetection: { disabled: false }, activityHandling: 'START_OF_ACTIVITY_INTERRUPTS' }, inputAudioTranscription: {}, outputAudioTranscription: {}, sessionResumption: {}, systemInstruction: { parts: [{ text: data.systemInstruction || 'You are the positive, practical True North sales Coach.' }] } } });
       };
       socket.onmessage = event => { Promise.resolve().then(() => handleMessage(JSON.parse(event.data), attempt)).catch(fail); };
       socket.onerror = () => fail(new Error('Live Coach lost its connection.'));
@@ -197,7 +199,5 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
     stopped = true; paused = false; send({ realtimeInput: { audioStreamEnd: true } }); cleanup(); state('idle');
   }
 
-  function sendText(text) { if (text?.trim()) send({ clientContent: { turns: [{ role: 'user', parts: [{ text: String(text).trim().slice(0, 1200) }] }], turnComplete: true } }); }
-
-  return { start, stop, pause, resume, sendText, isActive: () => !stopped, getTokenExpiresAt: () => tokenExpiresAt };
+  return { start, stop, pause, resume, isActive: () => !stopped, getTokenExpiresAt: () => tokenExpiresAt };
 }

@@ -17,6 +17,7 @@ function fakeFetch() {
     calls.push({ url: new URL(url), options });
     const parsed = new URL(url);
     if (parsed.origin === 'https://generativelanguage.googleapis.com') return new Response(JSON.stringify({ name: 'ephemeral-live-token' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    if (parsed.pathname === '/rest/v1/coach_settings') return new Response(JSON.stringify([{system_prompt:'Company coaching: listen carefully and support the setter.'}]),{status:200});
     if (parsed.pathname === '/auth/v1/user') return new Response(JSON.stringify({ id: USER }), { status: 200 });
     if (parsed.pathname === '/rest/v1/reps') return new Response(JSON.stringify([{ id: REP, name: 'Avery Example', role: 'salesperson' }]), { status: 200 });
     if (parsed.pathname === '/rest/v1/rpc/feature_enabled') return new Response('true', {status:200});
@@ -34,6 +35,9 @@ assert.equal(body.token, 'ephemeral-live-token');
 assert.equal(body.model, 'gemini-3.8-live');
 assert.equal(body.voice, 'Kore');
 assert.match(body.systemInstruction, /True North Live Coach/);
+assert.match(body.systemInstruction,/Company coaching: listen carefully/);
+assert.match(body.systemInstruction,/Authenticated personal context/);
+assert.match(body.openingMessage,/Introduce yourself/);
 const gemini = calls.find(call => call.url.origin === 'https://generativelanguage.googleapis.com');
 assert.ok(gemini);
 assert.equal(gemini.options.headers['x-goog-api-key'], 'server-only');
