@@ -45,7 +45,7 @@ assert.ok(html.includes('qdovtewieuojjsebipex.supabase.co'));
 assert.ok(html.includes('/vendor/leaflet/leaflet.js'));
 assert.ok(html.includes('tile.openstreetmap.org'));
 assert.equal(html.includes('unpkg.com'), false);
-assert.equal(html.includes('apple-touch-icon'), false);
+// Home screen installation now intentionally includes an Apple touch icon.
 assert.ok(sql.includes('security invoker'));
 assert.ok(sql.includes('grant execute on function public.lead_map_boot() to authenticated'));
 assert.equal(sql.includes('security definer'), false);
