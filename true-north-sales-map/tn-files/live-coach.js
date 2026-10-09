@@ -1,3 +1,4 @@
+import { liveSetup } from '../lib/live-setup.js';
 export const LIVE_SOCKET = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained';
 const INPUT_RATE = 16000;
 const OUTPUT_RATE = 24000;
@@ -174,7 +175,7 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
       socket = new WebSocket(url);
       socket.onopen = () => {
         if (stopped || attempt !== generation) { cleanupSocket(); return; }
-        send({ setup: { model: `models/${model}`, generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }, realtimeInputConfig: { automaticActivityDetection: { disabled: false }, activityHandling: 'START_OF_ACTIVITY_INTERRUPTS' }, inputAudioTranscription: {}, outputAudioTranscription: {}, sessionResumption: {}, systemInstruction: { parts: [{ text: data.systemInstruction || 'You are the positive, practical True North sales Coach.' }] } } });
+        send({ setup: liveSetup({model,voice,systemInstruction:data.systemInstruction}) });
       };
       socket.onmessage = event => { Promise.resolve().then(() => handleMessage(JSON.parse(event.data), attempt)).catch(fail); };
       socket.onerror = () => fail(new Error('Live Coach lost its connection.'));

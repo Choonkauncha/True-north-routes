@@ -44,8 +44,11 @@ assert.equal(gemini.options.headers['x-goog-api-key'], 'server-only');
 assert.doesNotMatch(JSON.stringify(body), /server-only|public-key|real-user-token/);
 const tokenBody = JSON.parse(gemini.options.body);
 assert.equal(tokenBody.uses, 1);
-assert.equal(tokenBody.liveConnectConstraints.model, 'models/gemini-3.8-live');
-assert.deepEqual(tokenBody.liveConnectConstraints.config.responseModalities, ['AUDIO']);
+assert.equal(tokenBody.liveConnectConstraints,undefined,'SDK field must never be sent to REST');
+assert.equal(tokenBody.bidiGenerateContentSetup.systemInstruction.parts[0].text,body.systemInstruction);
+assert.equal(tokenBody.bidiGenerateContentSetup.realtimeInputConfig.activityHandling,'START_OF_ACTIVITY_INTERRUPTS');
+assert.equal(tokenBody.bidiGenerateContentSetup.model, 'models/gemini-3.8-live');
+assert.deepEqual(tokenBody.bidiGenerateContentSetup.generationConfig.responseModalities, ['AUDIO']);
 
 const missing = await handleLiveToken(request(), { env: { ...ENV, GEMINI_API_KEY: '' }, fetchImpl, now: NOW });
 assert.equal(missing.status, 503);
