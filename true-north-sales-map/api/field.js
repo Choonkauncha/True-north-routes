@@ -1,3 +1,4 @@
+import { requireFeature } from '../lib/features.js';
 import {
   ADMIN_ROLES,
   FIELD_ROLES,
@@ -100,7 +101,7 @@ async function caller(request) {
   const rep = Array.isArray(reps) ? reps[0] : null;
   if (!rep || !isUuid(rep.id)) throw fail('No active team profile is attached to this sign-in.', 403);
   if (![...FIELD_ROLES, ...ADMIN_ROLES].includes(rep.role)) throw fail('This team profile cannot use clock-in or messages.', 403);
-  return { token, user, rep };
+  return { token, user, rep, request };
 }
 
 async function openShift(ctx) {
@@ -392,6 +393,7 @@ async function markRead(ctx, body) {
 
 async function handleGet(ctx, url) {
   const view = url.searchParams.get('view') || 'status';
+  if(view!=='status')await requireFeature(ctx.request,view==='shifts'?'shifts':'messages');
   if (view === 'status') return viewStatus(ctx);
   if (view === 'inbox') return viewInbox(ctx);
   if (view === 'thread') return viewThread(ctx, url);
@@ -401,6 +403,7 @@ async function handleGet(ctx, url) {
 
 async function handlePost(ctx, body) {
   const action = body?.action;
+  await requireFeature(ctx.request,['send','read'].includes(action)?'messages':'shifts');
   if (action === 'consent') return saveConsent(ctx);
   if (action === 'clock-in') return clockIn(ctx, body);
   if (action === 'clock-out') return clockOut(ctx, body);

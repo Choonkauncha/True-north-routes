@@ -8,7 +8,7 @@ const read = (file) => readFileSync(join(root, file), 'utf8');
 
 const workspace = read('brand/workspace.js');
 assert.ok(workspace.includes('page === "/setter" ? "/account.html" : "/"'));
-assert.ok(workspace.includes('page === "/setter" ? "MY ACCOUNT" : "FIELD WORKSPACE"'));
+assert.ok(workspace.includes('page === "/setter" ? "MY ACCOUNT" : "FIELD TOOLS"'));
 
 const forms = read('tn-files/form-wizard.js');
 assert.ok(forms.includes('listSubmissions'));

@@ -192,3 +192,6 @@ function paint(host,ctx) {
   };
   host.querySelector('#tnCoachLiveStop').onclick=()=>{stopCoachVoice();paintLiveState(activeHost);};
 }
+
+// End an active voice session if management disables Coach while this page is open.
+document.addEventListener('tn-feature-access',event=>{if(event.detail?.coach===false)stopCoachVoice();});

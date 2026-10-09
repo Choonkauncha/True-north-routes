@@ -275,7 +275,7 @@ const server = http.createServer(async (req, res) => {
     return send(res,{geometry:{type:"LineString",coordinates:data.coordinates.map(p=>[p.lng,p.lat])},distance:2400,duration:360,order:data.coordinates.slice(1).map((_,i)=>i+1),steps:[]});
   }
   if (url.pathname === "/api/weather")
-    return send(res, { forecast: null, alerts: [] });
+    return send(res, { forecast: {temperature:63,conditions:'Synthetic test forecast',high:68,low:48,windMph:5,rainChance:0,hours:[]}, alerts: [] });
   if (url.pathname === "/api/storm-maps")
     return send(res, { radar: [], warnings: [], reports: [] });
   if (url.pathname.startsWith("/rest/v1/rpc/")) {
@@ -284,7 +284,7 @@ const server = http.createServer(async (req, res) => {
     if (name === 'lead_map_boot' && warmLeadBoot) return send(res, {count: db.leads.length, newest:'2026-10-09T12:00:00.000Z', overlay:[], added:[]});
     return send(
       res,
-      name === "password_gate_status"
+      name === "feature_enabled" ? true : name === "password_gate_status"
         ? { must_change: false, impersonating: false }
         : name === "account_directory"
           ? reps
@@ -310,7 +310,7 @@ const server = http.createServer(async (req, res) => {
       }
       writes.push({ table: name, data });
       db[name] ||= [];
-      const old = name === 'training_progress' ? db[name].findIndex(row => row.rep_id === data.rep_id && row.item_id === data.item_id) : -1;
+      const old = name === 'training_progress' ? db[name].findIndex(row => row.rep_id === data.rep_id && row.item_id === data.item_id) : name==='feature_permissions'?db[name].findIndex(row=>row.role===data.role&&row.feature===data.feature):-1;
       if (old >= 0) db[name][old] = data; else db[name].push(data);
       return send(
         res,
@@ -736,23 +736,17 @@ const server = http.createServer(async (req, res) => {
   if (await page.locator("#postSignInContinue").isVisible())
     await page.locator("#postSignInContinue").click();
   await page.locator("#routeBtn").click();
-  await page.locator("#routePanel").waitFor({ state: "visible" });
-  await page.waitForTimeout(100);
-  await page.locator("#openGoogleRouteBtn").focus();
-  await page.keyboard.press("Tab");
-  assert.equal(
-    await page.evaluate(() =>
-      document.getElementById("routePanel").contains(document.activeElement),
-    ),
-    true,
-  );
+  await page.locator("#routeTray").waitFor({state:"visible"});
+  assert.equal(await page.locator("#routeTray").evaluate(el=>!!el.closest('#listSheet')),true,'Route creation is in the side panel');
+  assert.equal(await page.locator('.mapHud').evaluate(el=>el.open),false,'Field summary starts compact');
+  assert.equal(await page.locator('#weatherStack').evaluate(el=>!!el.closest('.mapToolBtns')),true,'Weather joins the map buttons');
+  await page.locator("#routeTrayBtn").click();
+  await page.locator("#routePanel").waitFor({state:"visible"});
+  assert.equal(await page.locator("#routePanel").evaluate(el=>!!el.closest('#listSheet')),true,'Optimization stays in the side panel');
   await page.keyboard.press("Escape");
-  await page.locator("#routePanel").waitFor({ state: "hidden" });
-  assert.equal(
-    await page.evaluate(() => document.activeElement.id),
-    "routeBtn",
-  );
-  console.log("route dialog focus containment, Escape, and return passed");
+  await page.locator("#routePanel").waitFor({state:"hidden"});
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'routeTrayBtn');
+  console.log("Unified route panel, compact field totals, weather placement and Escape focus passed");
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     assert.ok(
@@ -992,13 +986,21 @@ const server = http.createServer(async (req, res) => {
   await page.setViewportSize({width:390,height:844});
   await page.goto(origin+'/admin.html');
   await page.locator('#metrics .metric').first().waitFor();
-  for(const tab of ['overview','team','accounts','appointments','homeowners','activity','territories','files','training']){
+  for(const tab of ['overview','team','accounts','features','appointments','homeowners','activity','territories','files','training']){
     await openManagement();
     await page.locator('.rail [data-tab='+tab+']').click();
     await page.locator('#tab-'+tab).waitFor({state:'visible'});
     assert.equal(await page.locator('.rail [data-tab='+tab+']').getAttribute('aria-controls'),'tab-'+tab);
   }
   await openManagement();
+  await page.locator('.rail [data-tab=features]').click();
+  await page.locator('#featureControls input').first().waitFor();
+  assert.equal(await page.locator('#featureControls input').count(),22,'Two role switches for every field feature');
+  const coachSwitch=page.locator('#featureControls input[data-role="appointment_setter"][data-feature="coach"]');
+  await coachSwitch.uncheck();await page.locator('#featureNotice').filter({hasText:'Saved.'}).waitFor();
+  await page.locator('.rail [data-tab=features]').click();await coachSwitch.waitFor();
+  assert.equal(await coachSwitch.isChecked(),false,'Saved role permissions load again');
+  await coachSwitch.check();await page.locator('#featureNotice').filter({hasText:'Saved.'}).waitFor();
   await page.locator('.rail [data-tab=overview]').click();
   await page.evaluate(()=>scrollTo(0,0));
   await page.screenshot({path:path.join(artifacts,'revamp-admin-mobile.png')});
@@ -1064,11 +1066,12 @@ const server = http.createServer(async (req, res) => {
   await page.locator('#workList .leadRow').first().waitFor();
   if(await page.locator('#postSignInContinue').isVisible())await page.locator('#postSignInContinue').click();
   await page.locator('#mapLoader').waitFor({state:'hidden'});
-  for(const [width,height] of [[320,568],[390,844],[768,900],[1024,800],[1440,900],[1920,1080],[844,390]]){
+  for(const [width,height] of (process.env.UI_WIDTH?[[Number(process.env.UI_WIDTH),800]]:[[320,568],[390,844],[768,900],[1024,800],[1440,900],[1920,1080],[844,390]])){
     console.log('Map control audit',width,height);
     await page.setViewportSize({width,height});
     await page.waitForTimeout(200);
-    for(const id of ['filterBtn','legendKey','fitBtn','layerBtn','routeBtn','tnPageHelp'])await reachable('#'+id,'Map '+id+' at '+width+'x'+height);
+    if(width<=960&&await page.locator('#listSheet').evaluate(el=>el.classList.contains('panel-open')))await page.locator('#listSheetGrab').click();
+    for(const id of ['filterBtn','legendKey','fitBtn','weatherToggle','layerBtn','routeBtn','tnPageHelp'])await reachable('#'+id,'Map '+id+' at '+width+'x'+height);
     await page.locator('#layerBtn').click();
     assert.equal(await page.locator('#layerBtn').getAttribute('aria-expanded'),'true');
     await page.locator('[data-layer="density"]').check();
@@ -1090,6 +1093,7 @@ const server = http.createServer(async (req, res) => {
       await page.keyboard.press('Escape');
       assert.equal(await page.evaluate(()=>document.activeElement.id),'tnMore');
     }
+    await page.locator('#routeBtn').click();
     await page.locator('#routeTrayToggle').click();
     if(await page.locator('#routeTrayToggle').getAttribute('aria-expanded')!=='true')await page.locator('#routeTrayToggle').click();
     for(const id of ['selectVisibleBtn','trayDrive','trayWalk','clearRouteBtn','routeTrayBtn','startRouteBtn'])await reachable('#'+id,'Route '+id+' at '+width+'x'+height);
@@ -1104,6 +1108,8 @@ const server = http.createServer(async (req, res) => {
     if(width===390)await page.screenshot({path:path.join(artifacts,'revamp-mobile-map-collapsed.png')});
   }
   await page.setViewportSize({width:1440,height:900});
+  await page.waitForTimeout(200);
+  await page.locator('#routeBtn').click();
   await page.locator('#routeTrayToggle').click();
   if(await page.locator('#routeTrayToggle').getAttribute('aria-expanded')!=='true')await page.locator('#routeTrayToggle').click();
   await page.locator('#selectVisibleBtn').click();
@@ -1119,6 +1125,15 @@ const server = http.createServer(async (req, res) => {
   await page.locator('#routeDistance').filter({hasText:'road-network optimized'}).waitFor();
   assert.ok(await page.locator('.routeStop').count()>0,'Mocked route optimization renders stops');
   await page.screenshot({path:path.join(artifacts,'revamp-desktop-route.png')});
+  await page.locator('#closeRoute').click();
+  await page.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{watchPosition:()=>1,clearWatch:()=>{},getCurrentPosition:success=>success({coords:{latitude:40.39,longitude:-82.48,accuracy:10}})}}));
+  await page.locator('#startRouteBtn').click();
+  await page.locator('#navInApp').click();
+  await page.locator('#navBar').waitFor({state:'visible'});
+  assert.equal(await page.locator('#navBar').evaluate(el=>el.parentElement.classList.contains('mapShell')),true,'Active fullscreen guidance remains reachable');
+  await page.locator('#navEnd').click();
+  assert.equal(await page.locator('#navBar').evaluate(el=>!!el.closest('#listSheet')),true,'Navigation returns to the unified planning panel');
+  await page.locator('#routeTrayBtn').click();
   while(await page.locator('.routeStop button').count()){
     const count=await page.locator('.routeStop button').count();
     await page.locator('.routeStop button').first().click();

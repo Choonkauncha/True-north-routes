@@ -467,3 +467,9 @@ body.tn-workspace .pageTourCard button:disabled { opacity: .45; cursor: not-allo
 .pageTourKeys { font-size: 11px; color: #63738a; }
 @media (max-width: 420px) { .workspaceMenuBtn > span { display: none; } .pageTourKeys { display: none; } body.tn-workspace .pageTourCard { padding: 18px; } }
 @media print { .pageHelpButton, .pageTour { display: none !important; } }
+[data-feature-disabled]{display:none!important}
+.featureAccessHold{position:fixed;inset:0;z-index:100010;background:#0c1424;color:white;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:16px;padding:24px;text-align:center}
+.featureAccessHold h1,.featureAccessHold p{width:100%}
+.featureMatrix{width:100%;border-collapse:collapse;margin-top:24px}
+.featureMatrix th,.featureMatrix td{padding:14px;border-bottom:1px solid #415777;text-align:left}
+.featureMatrix input{width:22px;height:22px;vertical-align:middle;accent-color:#32c7f8}

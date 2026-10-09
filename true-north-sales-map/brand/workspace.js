@@ -1,3 +1,4 @@
+import { bootFeatureAccess } from './feature-access.js';
 import "./page-help.js";
 import { mountAtlas } from "./atlas.js";
 
@@ -34,6 +35,7 @@ function icon(key) {
 
 if (!isPublic && !isPrint && page !== "/reset-password") mountNavigation();
 enhanceContent();
+bootFeatureAccess();
 
 function mountNavigation() {
   const header = document.querySelector(".topbar, .tnHeader");
@@ -41,7 +43,7 @@ function mountNavigation() {
   const nav = document.createElement("nav");
   nav.id = "workspaceNav";
   nav.className = "workspaceNav";
-  nav.setAttribute("aria-label", "Workspace");
+  nav.setAttribute("aria-label", "Field tools");
   const items = [
     ["map", "/", "Field map"],
     ["intake", "/setter", "Book inspection"],
@@ -53,9 +55,9 @@ function mountNavigation() {
     ["management", "/admin", "Management"],
   ];
   const brandHref = page === "/setter" ? "/account.html" : "/";
-  const brandLabel = page === "/setter" ? "MY ACCOUNT" : "FIELD WORKSPACE";
+  const brandLabel = page === "/setter" ? "MY ACCOUNT" : "FIELD TOOLS";
   const brandAria = page === "/setter" ? "Open my account" : "True North home";
-  const navLabel = page === "/setter" ? "YOUR ACCOUNT" : "YOUR WORKSPACE";
+  const navLabel = page === "/setter" ? "YOUR ACCOUNT" : "FIELD TOOLS";
   nav.innerHTML = `<a class="workspaceBrand" href="${brandHref}" aria-label="${brandAria}"><img src="/brand/logo-full.webp" alt="True North Restorations" width="168" height="128"><span>${brandLabel}</span></a><div class="workspaceNavLabel">${navLabel}</div><div class="workspaceNavItems">${items.map(([key, href, label]) => `<a href="${href === "/" ? "/" : href + ".html"}" data-workspace-link="${key}" ${["management", "photos", "shifts"].includes(key) ? "hidden" : ""} ${page === href || (key === "photos" && page === "/photo") || (key === "management" && page === "/files") ? 'aria-current="page"' : ""}>${icon(key)}<span>${label}</span></a>`).join("")}</div><div class="workspaceNavFoot"><a href="/homeowner.html">Inspection form ${icon("arrow")}</a><p>Inspect honestly.<br>Document clearly.<br>Earn the job.</p></div>`;
   body.prepend(nav);
   body.classList.add("has-workspace-nav");
@@ -191,7 +193,7 @@ function enhanceContent() {
     const skip = document.createElement("a");
     skip.className = "workspaceSkip";
     skip.href = "#search";
-    skip.textContent = "Skip to field workspace";
+    skip.textContent = "Skip to field tools";
     body.prepend(skip);
   }
   mountSectionNavigator();

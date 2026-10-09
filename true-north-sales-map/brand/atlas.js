@@ -4,7 +4,7 @@ import { atlasIcon } from "./atlas-icons.js";
 export function mountAtlas(nav, header) {
   header.after(nav);
   nav.querySelector(".workspaceBrand").innerHTML =
-    `${atlasIcon("territories")}<span>WORKSPACE</span>`;
+    `${atlasIcon("territories")}<span>FIELD TOOLS</span>`;
   const trigger = document.createElement("button");
   trigger.type = "button";
   trigger.className = "atlasJump";
@@ -15,7 +15,7 @@ export function mountAtlas(nav, header) {
   const dialog = document.createElement("dialog");
   dialog.className = "atlasCommand";
   dialog.setAttribute("aria-labelledby", "atlasCommandTitle");
-  dialog.innerHTML = `<div class="atlasCommandHead"><div><div class="eyebrow">YOUR WORKSPACE</div><h2 id="atlasCommandTitle">Where do you want to go?</h2></div><button type="button" class="atlasCommandClose" aria-label="Close page search">×</button></div><label class="srOnly" for="atlasCommandQuery">Search pages and tools</label><div class="atlasCommandSearch">${atlasIcon("search")}<input id="atlasCommandQuery" type="search" placeholder="Search pages and tools…" autocomplete="off"></div><div class="atlasCommandResults"></div><div class="atlasCommandFoot"><span>↑ ↓ to explore · Enter to open</span><button type="button" class="atlasWalkthrough">? Page walkthrough</button></div>`;
+  dialog.innerHTML = `<div class="atlasCommandHead"><div><div class="eyebrow">YOUR FIELD TOOLS</div><h2 id="atlasCommandTitle">Where do you want to go?</h2></div><button type="button" class="atlasCommandClose" aria-label="Close page search">×</button></div><label class="srOnly" for="atlasCommandQuery">Search pages and tools</label><div class="atlasCommandSearch">${atlasIcon("search")}<input id="atlasCommandQuery" type="search" placeholder="Search pages and tools…" autocomplete="off"></div><div class="atlasCommandResults"></div><div class="atlasCommandFoot"><span>↑ ↓ to explore · Enter to open</span><button type="button" class="atlasWalkthrough">? Page walkthrough</button></div>`;
   document.body.append(dialog);
   const input = dialog.querySelector("input");
   const results = dialog.querySelector(".atlasCommandResults");

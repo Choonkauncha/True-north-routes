@@ -12,13 +12,14 @@ const keys = ['activity','leads','appointments','photos','forms','shifts','train
 const tableKeys = { lead_activity:'activity', leads:'leads', appointments:'appointments', lead_photos:'photos', form_submissions:'forms', shifts:'shifts', training_items:'training', training_progress:'progress', training_assignments:'assignments', training_reminders:'reminders', messages:'messages' };
 const sources = () => Object.fromEntries(keys.map(key => [key, { ok:true, rows:[], limited:false }]));
 const request = (body, headers={}) => new Request('https://app.example/api/coach', { method:body===undefined?'GET':'POST', headers:{ authorization:'Bearer real-user-token', ...headers }, ...(body===undefined?{}:{ body:JSON.stringify(body) }) });
-function fakeDatabase({ role='salesperson', gate={must_change:false,impersonating:false}, rows={}, active=true, authStatus=200 }={}) {
+function fakeDatabase({ featureEnabled=true, role='salesperson', gate={must_change:false,impersonating:false}, rows={}, active=true, authStatus=200 }={}) {
   const calls=[];
   const fetchImpl=async (url, options) => {
     const u=new URL(url);calls.push({url:u,options});
     let payload=[];let status=200;
     if(u.pathname==='/auth/v1/user'){ payload={id:USER};status=authStatus; }
     else if(u.pathname==='/rest/v1/reps')payload=active?[{id:REP,name:'Avery Example',role}]:[];
+    else if(u.pathname==='/rest/v1/rpc/feature_enabled')payload=featureEnabled;
     else if(u.pathname==='/rest/v1/rpc/password_gate_status')payload=gate;
     else { const key=tableKeys[u.pathname.split('/').pop()]; if(rows[key] instanceof Error)return new Response('{"message":"unavailable"}',{status:503});payload=rows[key]||[]; }
     return new Response(JSON.stringify(payload),{status,headers:{'content-type':'application/json'}});
@@ -53,7 +54,7 @@ await check('authentication refresh and active role checks precede personal read
 await check('password gate rejects malformed results and flagged accounts',async()=>{
   for(const gate of [null,[],{}, {must_change:'false',impersonating:false},{must_change:false}]) {
     const result=await run(request(),fakeDatabase({gate}));
-    assert.equal(result.response.status,502);assert.equal(result.calls.length,3);
+    assert.equal(result.response.status,502);assert.equal(result.calls.length,5);
   }
   assert.equal((await run(request(),fakeDatabase({gate:{must_change:true,impersonating:false}}))).response.status,403);
   assert.equal((await run(request(),fakeDatabase({gate:{must_change:true,impersonating:true}}))).response.status,200);
@@ -161,7 +162,7 @@ await check('HTTP quota blocks overlapping model calls and returns retry guidanc
   const first=run(request({message:'Practice an opener'}),fakeDatabase(),{env:AI_ENV,limiter,generateImpl:async()=>{entered();return new Promise(resolve=>{resolveModel=resolve;});}});
   await ready;
   const second=await run(request({message:'Again'}),fakeDatabase(),{env:AI_ENV,limiter,generateImpl:async()=>{throw Error('must not generate');}});
-  assert.equal(second.response.status,429);assert.equal(second.response.headers.get('retry-after'),'3');assert.equal(second.calls.length,3);
+  assert.equal(second.response.status,429);assert.equal(second.response.headers.get('retry-after'),'3');assert.equal(second.calls.length,5);
   resolveModel({text:'A clear greeting is a good start.'});assert.equal((await first).response.status,200);
 });
 await check('required unfinished lessons precede generic catalog entries for model context',async()=>{
@@ -172,7 +173,7 @@ await check('required unfinished lessons precede generic catalog entries for mod
 });
 await check('practice remains authenticated and skips personal activity/model queries',async()=>{
   const {response,body:data,calls}=await run(request({message:'Start practice',topic:'practice',practiceAction:'start'}),fakeDatabase(),{env:AI_ENV,generateImpl:async()=>{throw Error('No model call needed');}});
-  assert.equal(response.status,200);assert.equal(data.mode,'practice');assert.match(data.reply,/role-play/);assert.equal(calls.length,3);
+  assert.equal(response.status,200);assert.equal(data.mode,'practice');assert.match(data.reply,/role-play/);assert.equal(calls.length,5);
 });
 await check('practice gets a separate bounded allowance with shared concurrency',async()=>{
   const limiter=createCoachLimiter({maxRequests:1,maxPracticeRequests:2});
@@ -182,3 +183,5 @@ await check('practice gets a separate bounded allowance with shared concurrency'
   assert.throws(()=>limiter.acquire(USER,{practice:true}),e=>e.status===429);
 });
 console.log(`Coach API and personalization: ${passed} checks passed.`);
+
+await check('disabled Coach rejects requests before reading personal activity',async()=>{const result=await run(request(),fakeDatabase({featureEnabled:false}));assert.equal(result.response.status,403);assert.equal(result.calls.length,3);});

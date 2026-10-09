@@ -19,6 +19,7 @@ function fakeFetch() {
     if (parsed.origin === 'https://generativelanguage.googleapis.com') return new Response(JSON.stringify({ name: 'ephemeral-live-token' }), { status: 200, headers: { 'content-type': 'application/json' } });
     if (parsed.pathname === '/auth/v1/user') return new Response(JSON.stringify({ id: USER }), { status: 200 });
     if (parsed.pathname === '/rest/v1/reps') return new Response(JSON.stringify([{ id: REP, name: 'Avery Example', role: 'salesperson' }]), { status: 200 });
+    if (parsed.pathname === '/rest/v1/rpc/feature_enabled') return new Response('true', {status:200});
     if (parsed.pathname === '/rest/v1/rpc/password_gate_status') return new Response(JSON.stringify({ must_change: false, impersonating: false }), { status: 200 });
     return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
   };

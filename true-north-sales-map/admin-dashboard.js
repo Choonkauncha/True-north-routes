@@ -1,3 +1,4 @@
+import { mountFeatureAdmin } from './tn-files/feature-admin.js';
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { atlasIcon } from "./brand/atlas-icons.js";
 import "/tn-files/password-reset.js";
@@ -188,6 +189,7 @@ async function enter(s) {
   )
     return;
   me = profile;
+  mountFeatureAdmin(sb,me);
   rememberAdminRole(s.user, profile.role);
   await loadData();
   document.documentElement.dataset.tnAdmin = "ready";
@@ -612,8 +614,8 @@ function showTab(tab) {
 function applyAdminHash() {
   const target = adminHashTarget(location.hash);
   if (!target.tab) return;
-  if (target.tab === "accounts")
-    document.querySelector('#app [data-tab="accounts"]')?.click();
+  if (["accounts","features"].includes(target.tab))
+    document.querySelector(`#app [data-tab="${target.tab}"]`)?.click();
   else showTab(target.tab);
   if (target.messages) document.getElementById("openMessages")?.click();
 }

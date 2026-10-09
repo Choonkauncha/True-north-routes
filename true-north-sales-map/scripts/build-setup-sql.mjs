@@ -14,7 +14,8 @@ const parts = [
   ['supabase/migrations/20261008_lead_map_boot.sql', '9. Compact field-map boot'],
   ['supabase/migrations/20261008_training_practice.sql', '10. Training and practice'],
   ['supabase/migrations/20261008_must_change_password.sql', '11. Forced password change and admin privacy'],
-  ['supabase/migrations/20261008_inspection_handoff.sql', '12. Unified inspection handoffs']
+  ['supabase/migrations/20261008_inspection_handoff.sql', '12. Unified inspection handoffs'],
+  ['supabase/migrations/20261009_feature_permissions.sql', '13. Field feature permissions']
 ];
 
 export function buildSetupSql(root) {

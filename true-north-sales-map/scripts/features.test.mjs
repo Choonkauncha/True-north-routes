@@ -1,0 +1,19 @@
+import assert from 'node:assert/strict';
+import {featureAllowed,requireFeature,FEATURES} from '../lib/features.js';
+const rows=[{role:'appointment_setter',feature:'coach',enabled:false},{role:'salesperson',feature:'photos',enabled:false}];
+assert.equal(featureAllowed(rows,'canvasser','coach'),false);
+assert.equal(featureAllowed(rows,'admin','coach'),true);
+assert.equal(featureAllowed(rows,'manager','photos'),true);
+assert.equal(featureAllowed(rows,'appointment_setter','photos'),false);
+assert.equal(featureAllowed(rows,'salesperson','photos'),false);
+assert.equal(featureAllowed(rows,'salesperson','unknown'),false);
+assert.equal(FEATURES.length,11);
+const request=new Request('https://app.example/api/coach',{headers:{authorization:'Bearer user-token'}});
+const env={SUPABASE_URL:'https://db.example',SUPABASE_ANON_KEY:'public'};
+await assert.rejects(()=>requireFeature(new Request('https://app.example'), 'coach',{env}),e=>e.status===401);
+await assert.rejects(()=>requireFeature(request,'coach',{env,fetchImpl:async()=>new Response('false')}),e=>e.status===403);
+await assert.rejects(()=>requireFeature(request,'coach',{env,fetchImpl:async()=>new Response('{}',{status:500})}),e=>e.status===503);
+await requireFeature(request,'coach',{env,fetchImpl:async(url,options)=>{
+ assert.equal(url,'https://db.example/rest/v1/rpc/feature_enabled');assert.equal(options.headers.Authorization,'Bearer user-token');assert.equal(JSON.parse(options.body).requested,'coach');return new Response('true');
+}});
+console.log('Feature role defaults, manager/admin access, authentication and denied feature requests passed');

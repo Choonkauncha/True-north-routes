@@ -1402,6 +1402,7 @@ function publishListPeek(){
 }
 function liftMapChrome(){
   const tray=$('routeTray');
+  if(tray?.closest('#listSheet')){document.documentElement.style.setProperty('--route-tray-space','0px');return;}
   let height=0;
   if(tray){
     const style=getComputedStyle(tray);
@@ -1688,12 +1689,15 @@ function openDirections(l){window.open(`https://www.google.com/maps/dir/?api=1&d
 function addressOf(l){return [l.address,l.city,l.state,l.zip].filter(Boolean).join(', ')}
 
 function openRoutePanel(){
+  if(window.tnFeatureAllowed?.('routes')===false)return;
+  if(useDoorSheet())setListSheet('sheet-full');
+  setRouteTrayCollapsed(false);
   $('selectedCountRoute').textContent=fmt(state.selected.size);
   $('optimizeRouteBtn').disabled=state.selected.size===0;
   $('openGoogleRouteBtn').disabled=!state.routeStops.length;
   $('routePanel').classList.remove('hidden');
 }
-function closeRoutePanel(){$('routePanel').classList.add('hidden')}
+function closeRoutePanel(){const wasOpen=!$('routePanel').classList.contains('hidden');$('routePanel').classList.add('hidden');if(wasOpen)$('routeTrayBtn').focus()}
 async function optimizeAndDrawRoute(){
   const raw=[...state.selected].map(id=>state.leads.find(l=>l.id===id)).filter(Boolean);
   const mapped=raw.filter(isCoords); const max=Number($('routeCount').value||25); const leads=mapped.slice(0,max);
@@ -2215,6 +2219,7 @@ function setRouteTrayCollapsed(collapsed,{persist=true}={}){
   const tray=$('routeTray'); if(!tray)return;
   const on=!!collapsed;
   tray.classList.toggle('isCollapsed',on);
+  if(!on&&useDoorSheet())setListSheet('sheet-full');
   document.documentElement.classList.remove('routeTrayStartCollapsed');
   const btn=$('routeTrayToggle');
   if(btn)btn.setAttribute('aria-expanded',on?'false':'true');
@@ -2242,10 +2247,14 @@ function applyAreaRoute(result){
   fetchRoadRoute(start,stops);
 }
 function openRouteFromChrome(){
+  if(window.tnFeatureAllowed?.('routes')===false)return;
+  if(document.body.classList.contains('mapFocus'))toggleMapFocus();
+  if(useDoorSheet())setListSheet('sheet-full');
   setRouteTrayCollapsed(false);
-  openRoutePanel();
+  $('routeTray').scrollIntoView({block:'nearest'});
 }
 function toggleSelected(id){
+  if(window.tnFeatureAllowed?.('routes')===false)return;
   if(state.selected.has(id))state.selected.delete(id);else state.selected.add(id);
   document.querySelectorAll(`.rowCheck[data-id="${CSS.escape(id)}"]`).forEach(box=>{box.checked=state.selected.has(id)});
   updateSelectedBadge();refreshSelectedMarkers();syncRouteButtons(id);
@@ -2263,6 +2272,7 @@ function refreshSelectedMarkers(){
   });
 }
 function selectVisibleForRoute(){
+  if(window.tnFeatureAllowed?.('routes')===false)return;
   const mapped=state.filtered.filter(isCoords);
   let inView=[];
   if(state.map){const bounds=state.map.getBounds();inView=mapped.filter(lead=>bounds.contains([Number(lead.lat),Number(lead.lng)]));}
@@ -2323,6 +2333,7 @@ function confirmNavChoice(choice){
   else toast($('navRemember').checked?`Saved. Next routes use ${choice==='app'?'in-app navigation':choice==='apple'?'Apple Maps':'Google Maps'}.`:'Next routes will ask again.');
 }
 async function startRoute(){
+  if(window.tnFeatureAllowed?.('routes')===false)return;
   if(!state.routeStops?.length){await optimizeAndDrawRoute();if(!state.routeStops?.length)return}
   const saved=readNavChoice(localStorage.getItem(NAV_CHOICE_KEY));
   if(saved){runNavChoice(saved);return}
@@ -2364,6 +2375,8 @@ function syncPauseButton(){
   btn.setAttribute('aria-pressed', paused?'true':'false');
 }
 function enterNavPresentation(){
+  // Fullscreen guidance remains reachable while the planning sheet is hidden.
+  document.querySelector('.mapShell')?.append($('navBar'));
   document.documentElement.classList.add('isNavigating');
   document.documentElement.classList.remove('isNavPaused');
   const root=document.documentElement;
@@ -2374,6 +2387,7 @@ function enterNavPresentation(){
   }else fitNavMap();
 }
 function leaveNavPresentation(paused){
+  $('listSheet')?.querySelector('.listSheetBody')?.prepend($('navBar'));
   state.navFullscreenExitIntent=true;
   const active=document.fullscreenElement||document.webkitFullscreenElement;
   const exit=document.exitFullscreen||document.webkitExitFullscreen;

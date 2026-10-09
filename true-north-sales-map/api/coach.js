@@ -1,3 +1,4 @@
+import { requireFeature } from '../lib/features.js';
 import { practiceCoachReply } from '../lib/coach-practice.js';
 import { isUuid } from '../lib/field-rules.js';
 import { needsPasswordGate } from '../lib/must-change-password.js';
@@ -77,6 +78,8 @@ export async function coachCaller(request,env,fetchImpl) {
   const rows=await read(`/rest/v1/reps?user_id=eq.${user.id}&active=eq.true&select=id,name,role&limit=1`);
   const rep=Array.isArray(rows)?rows.find(row=>isUuid(row.id)&&coachRoleAllowed(row.role)):null;
   if(!rep)throw fail('An active team profile is required for coaching.',403);
+  await requireFeature(request,'training',{env,fetchImpl});
+  await requireFeature(request,'coach',{env,fetchImpl});
   const gate=await read('/rest/v1/rpc/password_gate_status',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
   if (!gate || typeof gate !== 'object' || Array.isArray(gate) || typeof gate.must_change !== 'boolean' || typeof gate.impersonating !== 'boolean') throw fail('Your account security status could not be verified. Try again.', 502);
   if(needsPasswordGate({mustChange:gate.must_change,impersonating:gate.impersonating}))throw fail('Choose your new password before opening Coach.',403);
