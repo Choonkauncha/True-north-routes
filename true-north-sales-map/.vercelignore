@@ -1,0 +1,8 @@
+# Private homeowner lead data. These files stay in git for tests and the data
+# check (scripts/validate-data.mjs reads data/leads.json from disk), but they are
+# never uploaded to Vercel, so the live site cannot serve them.
+# The signed-in app loads every lead from Supabase instead.
+data/leads.json
+data/*.csv
+source
+*.csv

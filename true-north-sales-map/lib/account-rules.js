@@ -1,7 +1,7 @@
 export const FIELD_ROLES = ['appointment_setter', 'canvasser', 'salesperson'];
 export const MANAGEMENT_ROLES = ['admin', 'manager'];
 export const ALL_ROLES = [...FIELD_ROLES, ...MANAGEMENT_ROLES];
-export const BOOTSTRAP_ADMIN_EMAILS = ['travisbishopmackie@gmail.com', 'truenorthrestorationss@gmail.com'];
+export const BOOTSTRAP_ADMIN_EMAILS = ['travisbishopmackie@gmail.com', 'truenorthrestorationss@gmail.com', 'spencer@truenorthrestorationsohio.com'];
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

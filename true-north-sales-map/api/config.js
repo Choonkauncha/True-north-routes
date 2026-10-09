@@ -2,7 +2,7 @@ export default {
   async fetch(request) {
     const url = process.env.SUPABASE_URL || '';
     const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || '';
-    const adminEmails = (process.env.ADMIN_EMAILS || 'truenorthrestorationss@gmail.com,travisbishopmackie@gmail.com')
+    const adminEmails = (process.env.ADMIN_EMAILS || 'truenorthrestorationss@gmail.com,travisbishopmackie@gmail.com,spencer@truenorthrestorationsohio.com')
       .split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
     const origin = new URL(request.url).origin;
     return new Response(JSON.stringify({

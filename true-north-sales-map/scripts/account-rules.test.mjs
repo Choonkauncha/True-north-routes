@@ -36,7 +36,7 @@ assert.equal(canManageAccount('salesperson', 'canvasser', 'create'), false);
 assert.equal(validatePassword('short'), '');
 assert.equal(validatePassword('long-enough'), 'long-enough');
 assert.equal(validateEmail(' TravisBishopMackie@gmail.com '), 'travisbishopmackie@gmail.com');
-assert.deepEqual(BOOTSTRAP_ADMIN_EMAILS, ['travisbishopmackie@gmail.com', 'truenorthrestorationss@gmail.com']);
+assert.deepEqual(BOOTSTRAP_ADMIN_EMAILS, ['travisbishopmackie@gmail.com', 'truenorthrestorationss@gmail.com', 'spencer@truenorthrestorationsohio.com']);
 
 const accountsSql = read('supabase/accounts.sql');
 for (const email of BOOTSTRAP_ADMIN_EMAILS) assert.ok(accountsSql.includes(email));

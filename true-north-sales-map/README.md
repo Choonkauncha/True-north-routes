@@ -34,13 +34,13 @@ Map-first canvassing operations for Vercel. The supplied dataset contains **17,2
 The live project is `https://ztdnpbrhiudklfqzgcbd.supabase.co`. Paste one file, create the first admin in the Auth dashboard, then set the Vercel env vars. Do not put a password in git.
 
 1. Supabase → SQL Editor → New query. Paste the whole file `supabase/setup_all.sql` and run it once. It is idempotent and already ordered: `schema.sql`, then Cam’s `supabase/migrations/20261008_access_clockin.sql`, then `supabase/forms_photos.sql`, then `supabase/accounts.sql` (audit log, role guard, and the first-admin trigger), then `supabase/migrations/20261008_role_form_library.sql`, then `supabase/migrations/20261008_document_review.sql`. Regenerate it with `node scripts/build-setup-sql.mjs` if one of those files changes. If the live project already ran the older setup, run `supabase/migrations/20261008_role_form_library.sql` and then `supabase/migrations/20261008_document_review.sql`. Do not apply either file from the app.
-2. Supabase → Authentication → Add user. Create a user with email `travisbishopmackie@gmail.com` or `truenorthrestorationss@gmail.com` and a password you choose. The `reps_bootstrap_admin` trigger inserts an active `public.reps` row with role `admin`. If that Auth user already existed before the SQL ran, the same script’s backfill insert attaches the admin row. Either order works.
+2. Supabase → Authentication → Add user. Create a user with email `travisbishopmackie@gmail.com`, `truenorthrestorationss@gmail.com`, or `spencer@truenorthrestorationsohio.com` and a password you choose. The `reps_bootstrap_admin` trigger inserts an active `public.reps` row with role `admin`. If that Auth user already existed before the SQL ran, the same script’s backfill insert attaches the admin row. Either order works.
 3. Authentication → URL Configuration. Set Site URL to the Vercel app origin, and add that origin, `http://localhost:4173`, and `<origin>/reset-password` to Redirect URLs. “Open as this user” sends a one-time magic link back to `/`. Forgot password sends the reset link to `/reset-password`.
 4. Vercel project Root Directory is `true-north-sales-map`. Environment variables:
    - `SUPABASE_URL` — `https://ztdnpbrhiudklfqzgcbd.supabase.co`
    - `SUPABASE_PUBLISHABLE_KEY` — browser-safe publishable key. `SUPABASE_ANON_KEY` is accepted if the publishable name is unset.
    - `SUPABASE_SECRET_KEY` — server-only secret. Used by `/api/accounts` and `/api/homeowner-signup`. Never send it to the browser. `SUPABASE_SERVICE_ROLE_KEY` is the fallback name the account API reads when `SUPABASE_SECRET_KEY` is unset.
-   - `ADMIN_EMAILS` — optional. Defaults to `truenorthrestorationss@gmail.com,travisbishopmackie@gmail.com`. This is the sign-in allow-list returned by `/api/config`. The SQL trigger uses those same two addresses and does not read this variable.
+   - `ADMIN_EMAILS` — optional. Defaults to `truenorthrestorationss@gmail.com,travisbishopmackie@gmail.com,spencer@truenorthrestorationsohio.com`. This is the sign-in allow-list returned by `/api/config`. The SQL trigger uses those same three addresses and does not read this variable.
 5. Redeploy. Environment-variable changes apply to new deployments.
 6. Open `/admin`, sign in as that admin, and use **Accounts** to create appointment setter, sales rep, and manager logins. The same Accounts action is on the Management dashboard in My account and in the map’s command center. Each person opens **My account** (map → More on a phone, or the header link) and changes the initial password.
 
@@ -111,12 +111,14 @@ Use two Supabase users: one `appointment_setter` or `salesperson`, and one `admi
 
 ### Lead files
 
-`data/leads.json` and `source/` stay publicly readable in this change. The live map in cloud mode loads leads from Supabase, but local mode and **Initialize cloud data** still fetch `/data/leads.json` with a plain request. `data/leads.json` is about 3.7MB, close to the serverless response limit, so putting that file through a function can break the import. A follow-up can require a signed-in rep without changing the map pins:
+The homeowner lead list is private. `data/leads.json` and `source/*` stay in git so `npm test` and `scripts/validate-data.mjs` can read them from disk, but the live site does not serve them:
 
-- Stop serving `data/leads.json` and `source/*` as static files.
-- Serve them from an authenticated function (or authorize in routing middleware and then continue to the file) using the same bearer-token check as `/api/field`.
-- Send the session token on the local-mode fetch and on the admin import fetch.
-- Leave `data/city-centers.json` and `data/manifest.json` public. They are map chrome, not the lead list.
+- `.vercelignore` keeps `data/leads.json`, `data/*.csv`, `source/` and every `*.csv` out of the Vercel upload.
+- `middleware.js` (Vercel Routing Middleware) answers `404` for anything under `/source/` and for every `/data/` file except `data/city-centers.json` and `data/manifest.json`, which are map chrome and stay public. Vercel checks static files before `rewrites`, so a rewrite cannot block a file; the middleware runs first.
+
+The signed-in map reads every lead from Supabase. When `/data/leads.json` returns 404, `startStaticLeads()` resolves to an empty list and `loadColdLeads()` pages all rows from `public.leads` (1,000 per request). Local device mode shows "The homeowner list is private. Sign in to load houses." with an empty map instead of an error, and the old **Initialize cloud data** button reports that there is nothing to import.
+
+Removing the files from git history is a separate decision and is not done here.
 
 ## Test locally
 
@@ -150,7 +152,7 @@ Appointment setters sign in, record the homeowner and property information, capt
 
 ### Suggested Supabase Auth setup
 1. Run `supabase/setup_all.sql` in the SQL Editor (or `schema.sql` first if you are applying files one at a time).
-2. In Supabase Authentication → Add user, create `travisbishopmackie@gmail.com` or `truenorthrestorationss@gmail.com` with a password that stays out of git. The trigger creates the admin `reps` row. You do not paste a manual insert.
+2. In Supabase Authentication → Add user, create `travisbishopmackie@gmail.com`, `truenorthrestorationss@gmail.com`, or `spencer@truenorthrestorationsohio.com` with a password that stays out of git. The trigger creates the admin `reps` row. You do not paste a manual insert.
 3. Create everyone else from `/admin` → **Accounts**.
 
 ## Photos and forms
