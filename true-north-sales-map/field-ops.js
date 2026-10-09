@@ -874,10 +874,18 @@ async function loadThread(repId, { stick = false, quiet = false } = {}) {
     && state.messages.at(-1)?.id === next.at(-1)?.id;
   state.thread = data.thread;
   state.messages = next;
-  if (data.thread?.id && !unchanged) {
+  const row = state.threads.find(thread => thread.rep.id === repId);
+  const wasUnread = Boolean(row?.unread);
+  const statusUnread = Number(state.status?.unread) > 0;
+  if (data.thread?.id && (!unchanged || wasUnread || (!state.status?.isAdmin && statusUnread))) {
     await api('/api/field', { method: 'POST', body: { action: 'read', threadId: data.thread.id } });
-    const row = state.threads.find(thread => thread.rep.id === repId);
     if (row) row.unread = 0;
+    if (state.status) {
+      state.status.unread = state.status.isAdmin
+        ? Math.max(0, Number(state.status.unread || 0) - (wasUnread ? 1 : 0))
+        : 0;
+      renderWidget();
+    }
     await refreshStatus().catch(() => {});
   }
   if (unchanged) return;

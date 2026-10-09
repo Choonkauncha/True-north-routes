@@ -10,6 +10,23 @@ import { loaderHoldHtml } from '../brand/loader.js';
 
 const HOLD_ID = 'tnPasswordHold';
 
+// Account verification must either finish or offer recovery, never spin forever.
+function gateFetch(url, options = {}) {
+  return fetch(url, { ...options, signal: AbortSignal.timeout(12000) });
+}
+
+function showLoadProblem(ctx) {
+  const el = host();
+  el.innerHTML = '<div class="tnGateCard"><h1 id="tnGateTitle">Let’s finish signing you in</h1><p role="alert">We couldn’t verify this account. Retry, or sign out to use a different account.</p><button type="button" id="tnGateRetry" class="tnGateSave">Retry account check</button><button type="button" id="tnGateOut" class="tnGateOut">Sign out</button></div>';
+  lockPage(true);
+  document.getElementById('tnGateRetry').onclick = () => {
+    el.innerHTML = loaderHoldHtml('Checking your account');
+    boot();
+  };
+  document.getElementById('tnGateOut').onclick = () => signOut(ctx);
+  document.getElementById('tnGateRetry').focus();
+}
+
 export function passwordGateMarkup({ error = '', done = false } = {}) {
   if (done) {
     return `<div class="tnGateCard"><img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="168" height="128"><div class="eyebrow">TRUE NORTH</div><h1>Password saved</h1><p class="tnGateOk">${PASSWORD_SAVED}</p><p>Opening the app…</p></div>`;
@@ -21,7 +38,7 @@ function styles() {
   if (document.getElementById('tnGateStyles')) return;
   const style = document.createElement('style');
   style.id = 'tnGateStyles';
-  style.textContent = `#tnPasswordHold{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));background:#0c1424;color:#17252d;overflow:auto}#tnPasswordHold .tnGateCard{width:min(440px,100%);background:#fff;border-radius:16px;padding:18px 16px 16px}#tnPasswordHold h1{margin:0 0 8px;font-size:24px;line-height:1.15;color:#0c1424}#tnPasswordHold p{margin:0 0 12px;color:#5c6d76;font-size:15px;line-height:1.4}#tnPasswordHold label{display:block;font-size:15px;font-weight:800;color:#0c1424;margin:12px 0 6px}#tnPasswordHold .tnGateField{display:flex;gap:8px;align-items:center}#tnPasswordHold input{flex:1;min-width:0;min-height:48px;border:1px solid #d4dee2;border-radius:12px;padding:12px 14px;font-size:16px}#tnPasswordHold .tnGateField button,.tnGateSave,.tnGateOut{min-height:48px;border-radius:12px;font-size:16px;font-weight:800}#tnPasswordHold .tnGateField button{min-width:64px;border:1px solid #d4dee2;background:#fff;color:#0c1424}#tnGateSave{width:100%;margin-top:14px;border:0;background:#0c1424;color:#fff}#tnGateOut{width:100%;margin-top:8px;border:2px solid #0c1424;background:#fff;color:#0c1424}.tnGateError{min-height:1.2em;color:#A44835;font-weight:700}.tnGateOk{color:#16315f;font-weight:800}.tnGateHelp{font-size:13px}`;
+  style.textContent = `#tnPasswordHold{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));background:#0c1424;color:#17252d;overflow:auto}#tnPasswordHold .tnGateCard{width:min(440px,100%);background:#fff;border-radius:16px;padding:18px 16px 16px}#tnPasswordHold h1{margin:0 0 8px;font-size:24px;line-height:1.15;color:#0c1424}#tnPasswordHold p{margin:0 0 12px;color:#5c6d76;font-size:15px;line-height:1.4}#tnPasswordHold label{display:block;font-size:15px;font-weight:800;color:#0c1424;margin:12px 0 6px}#tnPasswordHold .tnGateField{display:flex;gap:8px;align-items:center}#tnPasswordHold input{flex:1;min-width:0;min-height:48px;border:1px solid #d4dee2;border-radius:12px;padding:12px 14px;font-size:16px}#tnPasswordHold .tnGateField button,.tnGateSave,.tnGateOut{min-height:48px;border-radius:12px;font-size:16px;font-weight:800}#tnPasswordHold .tnGateField button{min-width:64px;border:1px solid #d4dee2;background:#fff;color:#0c1424}#tnPasswordHold .tnGateSave{width:100%;margin-top:14px;border:0;background:#0267ee;color:#fff}#tnGateOut{width:100%;margin-top:8px;border:2px solid #0c1424;background:#fff;color:#0c1424}.tnGateError{min-height:1.2em;color:#A44835;font-weight:700}.tnGateOk{color:#16315f;font-weight:800}.tnGateHelp{font-size:13px}`;
   document.head.appendChild(style);
 }
 
@@ -46,6 +63,11 @@ function lockPage(on) {
     if (on) el.setAttribute('inert', '');
     else el.removeAttribute('inert');
   });
+}
+
+function releaseAccountHold() {
+  document.getElementById(HOLD_ID)?.remove();
+  lockPage(false);
 }
 
 function showGate(ctx) {
@@ -76,7 +98,7 @@ function showSaved() {
 
 async function signOut(ctx) {
   try {
-    await fetch(`${ctx.url}/auth/v1/logout`, {
+    if (ctx?.url && ctx.token) await gateFetch(`${ctx.url}/auth/v1/logout`, {
       method: 'POST',
       headers: { apikey: ctx.key, Authorization: `Bearer ${ctx.token}`, 'content-type': 'application/json' }
     });
@@ -157,7 +179,7 @@ function writeSession(key, session) {
 }
 
 async function refresh(ctx, key, session) {
-  const response = await fetch(`${ctx.url}/auth/v1/token?grant_type=refresh_token`, {
+  const response = await gateFetch(`${ctx.url}/auth/v1/token?grant_type=refresh_token`, {
     method: 'POST',
     headers: { apikey: ctx.key, 'content-type': 'application/json' },
     body: JSON.stringify({ refresh_token: session.refresh_token })
@@ -165,6 +187,8 @@ async function refresh(ctx, key, session) {
   if (!response.ok) return session;
   const next = await response.json();
   if (!next?.access_token) return session;
+  const latest = readSession(ctx.url);
+  if (latest?.key !== key || latest?.session.refresh_token !== session.refresh_token) return latest?.session || null;
   writeSession(key, next);
   return next;
 }
@@ -172,7 +196,7 @@ async function refresh(ctx, key, session) {
 async function claimOpen(ctx) {
   const grantId = new URLSearchParams(location.search).get('tn_open');
   if (!grantId) return false;
-  const response = await fetch(`${ctx.url}/rest/v1/rpc/claim_impersonation`, {
+  const response = await gateFetch(`${ctx.url}/rest/v1/rpc/claim_impersonation`, {
     method: 'POST',
     headers: { apikey: ctx.key, Authorization: `Bearer ${ctx.token}`, 'content-type': 'application/json' },
     body: JSON.stringify({ grant_id: grantId })
@@ -187,47 +211,62 @@ function skipPath() {
 }
 
 async function boot() {
+  let ctx = null;
+  try {
   const waiting = document.getElementById(HOLD_ID);
   if (waiting && !waiting.querySelector('.bootOutlineTravel')) waiting.innerHTML = loaderHoldHtml();
   if (skipPath()) {
-    document.getElementById(HOLD_ID)?.remove();
+    releaseAccountHold();
     return;
   }
   let cfg = null;
   try {
-    const response = await fetch('/api/config');
+    const response = await gateFetch('/api/config');
+    if (!response.ok) throw new Error('Could not load account configuration');
     if (response.ok) cfg = await response.json();
-  } catch { /* static preview */ }
+  } catch (error) {
+    if (readStoredUser(localStorage)) throw error;
+  }
   if (!cfg?.configured) {
-    document.getElementById(HOLD_ID)?.remove();
+    releaseAccountHold();
     return;
   }
   const stored = readSession(cfg.url);
   if (!stored && !readStoredUser(localStorage)) {
-    document.getElementById(HOLD_ID)?.remove();
+    releaseAccountHold();
     return;
   }
-  const ctx = { url: String(cfg.url).replace(/\/$/, ''), key: cfg.publishableKey };
+  ctx = { url: String(cfg.url).replace(/\/$/, ''), key: cfg.publishableKey };
   let session = stored?.session;
-  if (session?.refresh_token) session = await refresh(ctx, stored.key, session);
+  if (session?.refresh_token && (!session.expires_at || session.expires_at * 1000 <= Date.now() + 60000)) session = await refresh(ctx, stored.key, session);
   if (!session?.access_token) {
-    document.getElementById(HOLD_ID)?.remove();
+    releaseAccountHold();
     return;
   }
   ctx.token = session.access_token;
   const impersonating = await claimOpen(ctx);
-  const statusResponse = await fetch(`${ctx.url}/rest/v1/rpc/password_gate_status`, {
+  const statusResponse = await gateFetch(`${ctx.url}/rest/v1/rpc/password_gate_status`, {
     method: 'POST',
     headers: { apikey: ctx.key, Authorization: `Bearer ${ctx.token}`, 'content-type': 'application/json' },
     body: '{}'
   });
-  const status = statusResponse.ok ? await statusResponse.json().catch(() => ({})) : {};
+  const latest = readSession(ctx.url)?.session;
+  if (latest?.access_token !== session.access_token) {
+    if (latest) return boot();
+    releaseAccountHold();
+    return;
+  }
+  if (!statusResponse.ok) throw new Error('Account verification failed');
+  const status = await statusResponse.json();
+  if (typeof status?.must_change !== 'boolean') throw new Error('Invalid account verification');
   if (!needsPasswordGate({ mustChange: status?.must_change, impersonating: impersonating || status?.impersonating })) {
-    document.getElementById(HOLD_ID)?.remove();
-    lockPage(false);
+    releaseAccountHold();
     return;
   }
   showGate(ctx);
+  } catch {
+    showLoadProblem(ctx);
+  }
 }
 
 if (typeof document !== 'undefined') boot();

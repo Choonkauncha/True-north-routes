@@ -64,8 +64,8 @@ assert.equal(canSeeForm('salesperson', peopleForm, { repId: 'other', assignments
 assert.equal(canSeeForm('appointment_setter', hidden), false);
 assert.equal(canSeeForm('admin', hidden), true);
 assert.equal(canSeeForm('manager', repForm), true);
-assert.equal(canSeeForm('appointment_setter', { ...setterForm, kind: 'file' }), false);
-assert.equal(canSeeForm('salesperson', { ...repForm, kind: 'file' }), false);
+assert.equal(canSeeForm('appointment_setter', { ...setterForm, kind: 'file' }), true);
+assert.equal(canSeeForm('salesperson', { ...repForm, kind: 'file' }), true);
 assert.equal(canSeeForm('admin', { ...setterForm, kind: 'file' }), true);
 
 assert.deepEqual(cleanPhotoNote('  north slope  '), { text: 'north slope' });

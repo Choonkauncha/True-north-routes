@@ -5,8 +5,8 @@ import vm from 'node:vm';
 import { leadCacheUsable, mergeLeadDelta, newestUpdatedAt, normalizeStamp, planLeadSync } from '../lib/lead-cache.js';
 
 const source = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-const syncSource = source.slice(source.indexOf('async function loadCloudLeadRows(){'), source.indexOf('async function loadColdLeads('));
-assert.ok(syncSource.startsWith('async function loadCloudLeadRows(){'));
+const syncSource = source.slice(source.indexOf('async function loadCloudLeadRows('), source.indexOf('async function loadColdLeads('));
+assert.ok(syncSource.startsWith('async function loadCloudLeadRows('));
 const oldStamp = '2026-10-08T20:00:00.000Z';
 const newStamp = '2026-10-08T21:00:00.000Z';
 const original = { id: 'a', status: 'New', lat: 40.1, lng: -82.4 };
@@ -74,7 +74,7 @@ assert.ok(recovered.requests.every(request => request.since === oldStamp), 'retr
 assert.equal(recovered.cached.leads[0].status, 'New', 'merging must not mutate the old cache');
 
 const current = scenario({ newest: oldStamp });
-assert.equal(await current.run(), null);
+assert.deepEqual(JSON.parse(JSON.stringify(await current.run())), [original], 'unchanged cache must rehydrate rows after account logout scrubs the map');
 assert.equal(current.requests.length, 0);
 assert.equal(current.saved.length, 0);
 console.log('Cloud lead sync failure, fallback, recovery and cache-hit tests passed.');

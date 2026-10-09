@@ -1,4 +1,5 @@
 import { bootFiles, attachSession } from './store.js';
+import { createDeferredAuthHandler } from '../lib/auth-events.js';
 import { roleLabel } from '../lib/role-access.js';
 import {
   TRAINING_BUCKET,
@@ -46,6 +47,7 @@ let draft = null;
 let statusItemId = '';
 let personId = '';
 let requiredOnly = false;
+let accountEpoch = 0;
 
 function revealAdmin() {
   document.getElementById('auth')?.classList.add('hidden');
@@ -61,20 +63,38 @@ function revealAdmin() {
 async function boot() {
   const section = document.getElementById('tab-training');
   ctx = await bootFiles();
-  const load = () => { if (ctx?.sb) refresh().catch(showError); };
+  const load = () => {
+    const epoch = accountEpoch;
+    if (ctx?.sb && ctx.session) refresh().catch(error => { if (epoch === accountEpoch) showError(error); });
+  };
   if (section) {
     new MutationObserver(() => {
       if (!section.classList.contains('hidden')) load();
     }).observe(section, { attributes: true, attributeFilter: ['class'] });
     if (!section.classList.contains('hidden')) load();
   }
-  ctx.sb?.auth.onAuthStateChange(async (_event, session) => {
-    if (!session) return;
-    await attachSession(ctx, session);
-  });
+  ctx.sb?.auth.onAuthStateChange(createDeferredAuthHandler({
+    initialSession: ctx.session,
+    onInvalidate() {
+      accountEpoch++;
+      ctx.session = null; ctx.rep = null;
+      items = []; people = []; progress = []; reminders = []; assignments = [];
+      draft = null; statusItemId = ''; personId = '';
+      root.innerHTML = '';
+    },
+    async onSession(session, current) {
+      const next = { ...ctx };
+      await attachSession(next, session);
+      if (!current()) return;
+      ctx.session = next.session; ctx.rep = next.rep;
+      if (!section || !section.classList.contains('hidden')) load();
+    },
+    onError: showError
+  }));
 }
 
 async function refresh() {
+  const epoch = accountEpoch;
   const [itemRes, peopleRes, progressRes, reminderRes, assignmentRes] = await Promise.all([
     ctx.sb.from('training_items').select('*').order('sort_order'),
     ctx.sb.from('reps').select('id,name,role,active').eq('active', true).order('name'),
@@ -82,6 +102,7 @@ async function refresh() {
     ctx.sb.from('training_reminders').select('*'),
     ctx.sb.from('training_assignments').select('*')
   ]);
+  if (epoch !== accountEpoch) return;
   const error = itemRes.error || peopleRes.error || progressRes.error || reminderRes.error || assignmentRes.error;
   if (error) throw error;
   items = itemRes.data || [];

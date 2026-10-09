@@ -144,9 +144,10 @@ db.training_assignments = [];
 db.training_reminders = [];
 let coachApi, coachLimiterFixture, coachCalls = [], liveTokenCalls = 0, coachGenerations=0, coachPostGate=null, coachGetGate=null, failNextCoachPost=false, failTrainingCompletion = false, injectCoachReply = true;
 let writes = [];
+let switchedAccount = false, warmLeadBoot = false, gateStatusFailure = false;
 function currentRep() {
   return {
-    ...reps[0],
+    ...reps[switchedAccount ? 1 : 0],
     role,
     name:
       role === "admin"
@@ -161,8 +162,8 @@ function currentRep() {
 function session() {
   const exp = Math.floor(Date.now() / 1000) + 3600;
   const user = {
-    id: userId,
-    email: "preview-admin@example.test",
+    id: currentRep().user_id,
+    email: currentRep().email,
     aud: "authenticated",
     role: "authenticated",
     user_metadata: { name: currentRep().name },
@@ -172,7 +173,7 @@ function session() {
     access_token:
       encode({ alg: "HS256", typ: "JWT" }) +
       "." +
-      encode({ ...user, sub: userId, exp }) +
+      encode({ ...user, sub: user.id, exp }) +
       ".preview",
     refresh_token: "preview-refresh-token",
     token_type: "bearer",
@@ -279,6 +280,8 @@ const server = http.createServer(async (req, res) => {
     return send(res, { radar: [], warnings: [], reports: [] });
   if (url.pathname.startsWith("/rest/v1/rpc/")) {
     const name = url.pathname.split("/").pop();
+    if (name === 'password_gate_status' && gateStatusFailure) return send(res, {message:'Synthetic account check failed'}, 503);
+    if (name === 'lead_map_boot' && warmLeadBoot) return send(res, {count: db.leads.length, newest:'2026-10-09T12:00:00.000Z', overlay:[], added:[]});
     return send(
       res,
       name === "password_gate_status"
@@ -291,7 +294,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname.startsWith("/rest/v1/")) {
     const name = url.pathname.split("/")[3];
     let rows = (db[name] || []).map((row) =>
-      name === "reps" && row.id === repId ? currentRep() : row,
+      name === "reps" && row.id === currentRep().id ? currentRep() : row,
     );
     if (req.method === "POST") {
       let body = "";

@@ -13,7 +13,7 @@ import {
 } from '../lib/map-layers.js';
 
 assert.equal(DEFAULT_LAYERS.pins, true);
-assert.equal(DEFAULT_LAYERS.opportunity, true);
+assert.equal(DEFAULT_LAYERS.opportunity, false);
 assert.equal(DEFAULT_LAYERS.territories, false);
 assert.equal(DEFAULT_LAYERS.density, false);
 assert.equal(DEFAULT_LAYERS.roofAge, false);
@@ -40,7 +40,7 @@ assert.deepEqual(resolveLayers(readSavedLayers(memory)), DEFAULT_LAYERS);
 const saved = writeSavedLayers(memory, { pins: false, warnings: true, extra: true });
 assert.equal(saved.pins, false);
 assert.equal(saved.warnings, true);
-assert.equal(saved.opportunity, true);
+assert.equal(saved.opportunity, false);
 assert.equal(saved.radar, false);
 assert.equal('extra' in saved, false);
 assert.equal(memory.getItem(LAYER_STORAGE_KEY)?.includes('"warnings":true'), true);
@@ -59,7 +59,7 @@ function layerChecked(id) {
   return Boolean(match && /\bchecked\b/.test(match[1]));
 }
 assert.equal(layerChecked('pins'), true);
-assert.equal(layerChecked('opportunity'), true);
+assert.equal(layerChecked('opportunity'), false);
 assert.equal(layerChecked('territories'), false);
 assert.equal(layerChecked('warnings'), false);
 assert.equal(layerChecked('reports'), false);

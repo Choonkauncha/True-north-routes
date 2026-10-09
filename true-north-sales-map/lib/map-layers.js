@@ -1,13 +1,13 @@
-/** Map layer defaults. v2 drops the old on-by-default storm and territory layers. */
+/** Map layer defaults. v3 starts with housing pins only. */
 
-export const LAYER_STORAGE_KEY = 'tnrc2:mapLayers:v2';
+export const LAYER_STORAGE_KEY = 'tnrc2:mapLayers:v3';
 
 /** Earlier keys are ignored so a device that never chose layers gets the new defaults. */
-export const LEGACY_LAYER_KEYS = ['tnrc2:mapLayers', 'tnrc2:mapLayers:v1', 'tnrc2:layers'];
+export const LEGACY_LAYER_KEYS = ['tnrc2:mapLayers', 'tnrc2:mapLayers:v1', 'tnrc2:mapLayers:v2', 'tnrc2:layers'];
 
 export const DEFAULT_LAYERS = {
   pins: true,
-  opportunity: true,
+  opportunity: false,
   territories: false,
   density: false,
   roofAge: false,

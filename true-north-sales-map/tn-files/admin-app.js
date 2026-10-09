@@ -1,4 +1,5 @@
-import { bootFiles, attachSession, signIn, hydratePhotoUrls, listTemplates, saveTemplate, listPhotos, listSubmissions, listReps, listAssignments, listIntakes, replaceAssignments, uploadLibraryFile, setDocumentReviewed, plainError } from './store.js';
+import { bootFiles, attachSession, hydratePhotoUrls, listTemplates, saveTemplate, listPhotos, listSubmissions, listReps, listAssignments, listIntakes, replaceAssignments, uploadLibraryFile, setDocumentReviewed, plainError } from './store.js';
+import { createDeferredAuthHandler } from '../lib/auth-events.js';
 import { esc, bindSignOut, mountSignIn, revealApp } from './ui.js';
 import { FIELD_TYPES, PREFILLS, blankField, isManagement, DRAFT_NOTICE, audienceLabel } from './logic.js';
 import { roleLabel } from '../lib/role-access.js';
@@ -14,20 +15,35 @@ let view = 'documents';
 let editor = null;
 let pendingFile = null;
 let propertyKeyOpen = '';
+let accountEpoch = 0;
 const docFilters = { query: '', type: 'all', personId: '', status: 'all' };
 
 async function boot() {
   ctx = await bootFiles();
   bindSignOut(ctx, document.getElementById('signOut'));
   const embedded = Boolean(document.getElementById('tab-files'));
-  if (ctx.mode === 'cloud' && !ctx.session) {
-    if (!embedded) renderSignIn();
-    ctx.sb.auth.onAuthStateChange(async (_event, session) => {
-      if (!session) return;
-      await attachSession(ctx, session);
+  ctx.sb?.auth.onAuthStateChange(createDeferredAuthHandler({
+    initialSession: ctx.session,
+    onInvalidate() {
+      accountEpoch++;
+      ctx.session = null; ctx.rep = null;
+      templates = []; photos = []; submissions = []; reps = []; assignments = []; intakes = [];
+      editor = null; pendingFile = null; propertyKeyOpen = '';
+      root.innerHTML = '';
+      if (!embedded) renderSignIn();
+    },
+    async onSession(session, current) {
+      const next = { ...ctx };
+      await attachSession(next, session);
+      if (!current()) return;
+      ctx.session = next.session; ctx.rep = next.rep;
       if (isManagement(ctx.rep?.role)) await loadAndRender();
       else if (!embedded) renderDenied();
-    });
+    },
+    onError(error) { root.innerHTML = `<p class="tnError">${esc(plainError(error))}</p>`; }
+  }));
+  if (ctx.mode === 'cloud' && !ctx.session) {
+    if (!embedded) renderSignIn();
     return;
   }
   if (ctx.mode === 'cloud' && !isManagement(ctx.rep?.role)) return renderDenied();
@@ -39,10 +55,9 @@ function renderSignIn() {
   document.getElementById('tnLogin').onsubmit = async (event) => {
     event.preventDefault();
     try {
-      await signIn(ctx, document.getElementById('tnEmail').value, document.getElementById('tnPassword').value);
-      if (!isManagement(ctx.rep?.role)) return renderDenied();
-      await loadAndRender();
-    } catch (error) { document.getElementById('tnLoginError').textContent = error.message; }
+      const { error } = await ctx.sb.auth.signInWithPassword({ email: document.getElementById('tnEmail').value.trim(), password: document.getElementById('tnPassword').value });
+      if (error) throw error;
+    } catch (error) { const note = document.getElementById('tnLoginError'); if (note) note.textContent = error.message; }
   };
 }
 
@@ -52,12 +67,16 @@ function renderDenied() {
 }
 
 async function loadAndRender() {
+  const epoch = accountEpoch;
   root.innerHTML = '<div class="tnSkeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
   try {
-    [templates, photos, submissions, reps, assignments, intakes] = await Promise.all([
+    const loaded = await Promise.all([
       listTemplates(ctx), listPhotos(ctx, { signUrls: false }), listSubmissions(ctx), listReps(ctx), listAssignments(ctx), listIntakes(ctx)
     ]);
+    if (epoch !== accountEpoch) return;
+    [templates, photos, submissions, reps, assignments, intakes] = loaded;
   } catch (error) {
+    if (epoch !== accountEpoch) return;
     revealApp();
     root.innerHTML = `<p class="tnError">${esc(error.message)}</p>`;
     return;

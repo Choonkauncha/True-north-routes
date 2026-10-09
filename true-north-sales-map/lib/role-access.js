@@ -53,7 +53,6 @@ export function fieldHomeLinks(role) {
  */
 export function canSeeForm(role, template, { repId = '', assignments = [], mode = 'cloud' } = {}) {
   if (!template) return false;
-  if (template.kind === 'file' && !isAdminRole(role)) return false;
   if (mode === 'local' && !role) return true;
   if (isAdminRole(role)) return true;
   if (template.active === false) return false;

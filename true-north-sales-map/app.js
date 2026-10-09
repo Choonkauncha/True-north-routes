@@ -17,6 +17,7 @@ import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/ac
 import { forgetRole, readStoredUser, rememberRole } from './lib/management-gate.js';
 import { assertHandoffPhoto, handoffPermissions, isHandoffSetter, validateHandoffPatch, visibleHandoffs } from './lib/handoff-access.js';
 import { canSeeReceipt, canUploadReceipt } from './lib/receipt-access.js';
+import { createDeferredAuthHandler } from './lib/auth-events.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -34,7 +35,7 @@ const state={
   stormPack:null, stormHouseIds:null, stormToken:0, radarLayers:[], radarTimer:null, radarSignature:'', warningLayer:null, warningSignature:'', reportLayer:null, reportSignature:'',
   routeLine:null, userMarker:null, routeStops:[], currentLocation:null,
   filters:{q:'',status:'',rep:'',territory:'',source:'',mine:false},
-  layerFlags:{pins:true,density:false,opportunity:true,roofAge:false,radar:false,warnings:false,reports:false,territories:false},
+  layerFlags:{pins:true,density:false,opportunity:false,roofAge:false,radar:false,warnings:false,reports:false,territories:false},
   routeMode:'driving', busy:false, config:null, realtimeChannel:null, refreshTimer:null,
   doorLeadId:null, doorSaving:false, doorUndo:null,
   homeArea:true, didFit:false, listSnap:'sheet-collapsed', pinBannerDismissed:false,
@@ -109,12 +110,16 @@ async function boot(){
       const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
       state.supabase=createClient(cfg.url,cfg.publishableKey);
       const {data}=await state.supabase.auth.getSession();
+      state.supabase.auth.onAuthStateChange(createDeferredAuthHandler({
+        initialSession:data.session,
+        onInvalidate(event,session){
+          if(event==='SIGNED_OUT' || (state.user && state.user.id!==session?.user?.id)) showLogin();
+        },
+        onSession:session=>enterCloud(session),
+        onError:error=>{console.error(error);showLogin();$('loginError').textContent='Could not load this account. Please sign in again.';}
+      }));
       if(data.session) await enterCloud(data.session);
       else showLogin();
-      state.supabase.auth.onAuthStateChange(async(event,session)=>{
-        if(session) await enterCloud(session);
-        else if(event==='SIGNED_OUT'){ cloudToken=''; state.cloudReady=false; showLogin(); }
-      });
     }catch(e){console.error(e);enterLocal(`Cloud client error: ${e.message}`)}
   }else{
     enterLocal('Cloud is not configured on this Vercel deployment. Local device mode is active.');
@@ -291,16 +296,25 @@ function bindStaticEvents(){
 }
 
 function enterLocal(message){
-  state.mode='local'; state.session=null; state.currentRep=null; state.cloudReady=false;
+  authEpoch++; cloudToken=''; cloudFlight=null;
+  if(state.realtimeChannel && state.supabase){
+    try{ state.supabase.removeChannel(state.realtimeChannel); }catch{ /* channel may already be closed */ }
+  }
+  state.realtimeChannel=null;
+  state.mode='local'; state.session=null; state.user=null; state.currentRep=null; state.cloudReady=false;
   hideLogin(); state.sessionReady=true; if(!state.map) initMapOnce();
   $('userMenu').classList.add('hidden'); $('adminBtn').classList.add('hidden'); $('adminBtn').hidden = true;
   $('connection').textContent='LOCAL DEVICE'; $('connection').className='chip local';
   $('cloudNotice').textContent=message||'Local mode'; $('cloudNotice').classList.remove('hidden');
   if(!state.bootDone) setBootProgress(0,0);
-  loadLocalDataset().catch(e=>{hideBoot();showFatal(e)});
+  const epoch=authEpoch;
+  loadLocalDataset().catch(e=>{if(epoch===authEpoch){hideBoot();showFatal(e)}});
 }
 async function loadLocalDataset(){
+  const epoch=authEpoch;
+  const current=()=>epoch===authEpoch;
   const manifest=state.staticManifest||await fetchJSON('/data/manifest.json').catch(()=>null);
+  if(!current()) return;
   const stamp=localStamp(manifest);
   const meta=JSON.parse(localStorage.getItem('tnrc2:leadsMeta')||'{}');
   state.reps=JSON.parse(localStorage.getItem('tnrc2:reps')||'[]');
@@ -311,6 +325,7 @@ async function loadLocalDataset(){
   $('datasetCount').textContent=total?`${fmt(total)} source records`:'';
   initMapOnce();
   const cached=await readLeadCache();
+  if(!current()) return;
   if(leadCacheUsable(cached) && cached.stamp===stamp){
     if(!total) $('datasetCount').textContent=`${fmt(cached.leads.length)} source records`;
     if(!state.bootDone) streamLeads(cached.leads, total||cached.leads.length, meta);
@@ -318,41 +333,49 @@ async function loadLocalDataset(){
   }
   if(state.staticPromise){
     const leads=await state.staticPromise;
+    if(!current()) return;
     if(!total && leads) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
+    if(!state.bootDone && leads) streamLeads(leads, total||leads.length, meta);
     rememberLeadCache(stamp, leads);
     return;
   }
   const response=await fetch('/data/leads.json');
+  if(!current()) return;
   if(!response.ok) throw new Error(`HTTP ${response.status}`);
   if(!response.body?.getReader){
     const text=await response.text();
-    const leads=await ingestLeadText(text, total, meta);
+    if(!current()) return;
+    const leads=await ingestLeadText(text, total, meta, current);
+    if(!current()) return;
     if(!total) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
     rememberLeadCache(stamp, leads);
     return;
   }
-  const leads=await readLeadResponse(response, total, meta);
+  const leads=await readLeadResponse(response, total, meta, current);
+  if(!current()) return;
   if(!total) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
   rememberLeadCache(stamp, leads);
 }
 function startStaticLeads(){
   if(state.staticPromise) return state.staticPromise;
+  const epoch=authEpoch;
+  const current=()=>epoch===authEpoch;
   state.staticPromise=(async()=>{
     const manifest=await fetchJSON('/data/manifest.json').catch(()=>null);
     state.staticManifest=manifest;
     const total=manifest?.totalRecords||0;
-    if(total && $('datasetCount')) $('datasetCount').textContent=`${fmt(total)} source records`;
+    if(current() && total && $('datasetCount')) $('datasetCount').textContent=`${fmt(total)} source records`;
     const response=await fetch('/data/leads.json');
     if(!response.ok) throw new Error(`HTTP ${response.status}`);
     if(!response.body?.getReader){
       const text=await response.text();
-      return ingestLeadText(text, total, null);
+      return ingestLeadText(text, total, null, current);
     }
-    return readLeadResponse(response, total, null);
+    return readLeadResponse(response, total, null, current);
   })();
   return state.staticPromise;
 }
-async function readLeadResponse(response, total, meta){
+async function readLeadResponse(response, total, meta, current=()=>true){
   const reader=response.body.getReader();
   const decoder=new TextDecoder();
   let text='';
@@ -363,7 +386,7 @@ async function readLeadResponse(response, total, meta){
   state.stopLeadRead=()=>{ accept=false; };
   const take=(batch, last)=>{
     if(batch.length) leads.push(...batch);
-    if(accept) ingestLeadChunk(batch, meta, total||leads.length, last);
+    if(accept && current()) ingestLeadChunk(batch, meta, total||leads.length, last);
   };
   while(true){
     const {done,value}=await reader.read();
@@ -383,8 +406,8 @@ async function readLeadResponse(response, total, meta){
   take(tail, true);
   return leads;
 }
-async function ingestLeadText(text, total, meta){
-  resetLeadStream();
+async function ingestLeadText(text, total, meta, current=()=>true){
+  if(current()) resetLeadStream();
   const cursor=createArrayCursor();
   const leads=[];
   let mark=0;
@@ -397,11 +420,11 @@ async function ingestLeadText(text, total, meta){
     mark=end;
     if(!batch.length && !last) continue;
     leads.push(...batch);
-    ingestLeadChunk(batch, meta, total||leads.length, last);
+    if(current()) ingestLeadChunk(batch, meta, total||leads.length, last);
     ingested=true;
     if(!last) await new Promise(resolve=>requestAnimationFrame(resolve));
   }
-  if(!ingested) ingestLeadChunk([], meta, total, true);
+  if(!ingested && current()) ingestLeadChunk([], meta, total, true);
   return leads;
 }
 
@@ -409,10 +432,16 @@ async function enterCloud(session){
   const token=session?.access_token||'';
   if(!token) return;
   if(token===cloudToken && (cloudFlight || state.cloudReady)) return cloudFlight;
+  authEpoch++;
   cloudToken=token;
   state.cloudReady=false;
-  cloudFlight=runEnterCloud(session).catch(error=>{ cloudToken=''; throw error; }).finally(()=>{ cloudFlight=null; });
-  return cloudFlight;
+  if(state.realtimeChannel && state.supabase){
+    try{ state.supabase.removeChannel(state.realtimeChannel); }catch{ /* channel may already be closed */ }
+  }
+  state.realtimeChannel=null;
+  const flight=runEnterCloud(session).finally(()=>{ if(cloudFlight===flight) cloudFlight=null; });
+  cloudFlight=flight;
+  return flight;
 }
 async function runEnterCloud(session){
   const epoch=authEpoch;
@@ -426,9 +455,10 @@ async function runEnterCloud(session){
   $('userMenu').classList.remove('hidden');
   $('userIdentity').textContent=session.user.email||session.user.id;
   $('cloudNotice').classList.add('hidden');
-  const sideP=loadSideData();
+  const current=()=>epoch===authEpoch;
+  const sideP=loadSideData(current).then(()=>null,error=>error);
   try{
-    await loadLeadBundle();
+    await loadLeadBundle(current);
     if(epoch!==authEpoch) return;
     const open=canOpenManagement({email:session.user.email, rep:state.currentRep, adminEmails:state.config?.adminEmails});
     $('adminBtn').hidden = !open;
@@ -439,10 +469,12 @@ async function runEnterCloud(session){
     startRealtime();
     state.cloudReady=true;
     updatePinBanner();
-    await sideP;
+    const sideError=await sideP;
     if(epoch!==authEpoch) return;
+    if(sideError) throw sideError;
     publishSideData();
   }catch(e){
+    if(!current()) return;
     console.error(e);
     cloudToken='';
     state.cloudReady=false;
@@ -452,18 +484,23 @@ async function runEnterCloud(session){
 }
 
 async function loadCloudData(){
-  const sideP=loadSideData();
-  await loadLeadBundle();
-  await sideP;
+  const epoch=authEpoch;
+  const current=()=>epoch===authEpoch && state.mode==='cloud';
+  const sideP=loadSideData(current).then(()=>null,error=>error);
+  await loadLeadBundle(current);
+  const sideError=await sideP;
+  if(!current()) return;
+  if(sideError) throw sideError;
   publishSideData();
 }
-async function loadLeadBundle(){
+async function loadLeadBundle(current=()=>true){
   const sb=state.supabase;
   const [reps, territories, leads]=await Promise.all([
     fetchAll(()=>sb.from('reps').select('id,user_id,name,role,active').eq('active',true).order('name')),
     fetchAll(()=>sb.from('territories').select('*').order('name')),
-    loadCloudLeadRows()
+    loadCloudLeadRows(current)
   ]);
+  if(!current()) return;
   state.reps=reps;
   state.currentRep=managementProfile({
     email:state.user?.email,
@@ -475,12 +512,13 @@ async function loadLeadBundle(){
   state.territories=territories;
   if(leads) replaceLeads(leads);
 }
-function loadSideData(){
+function loadSideData(current=()=>true){
   const sb=state.supabase;
   return Promise.all([
     fetchAll(()=>sb.from('appointments').select('*,canvasser:reps!appointments_canvasser_id_fkey(id,name),salesperson:reps!appointments_salesperson_id_fkey(id,name)').order('scheduled_at',{ascending:true})),
     fetchAll(()=>sb.from('lead_activity').select('id,lead_id,actor_id,action,metadata,created_at,actor:reps!lead_activity_actor_id_fkey(name)').order('created_at',{ascending:false}).limit(3000))
   ]).then(([appointments, activities])=>{
+    if(!current()) return;
     state.appointments=appointments;
     state.activities=activities;
   });
@@ -494,7 +532,7 @@ function publishSideData(){
   state.listPaintToken='';
   paintWorkList();
 }
-async function loadCloudLeadRows(){
+async function loadCloudLeadRows(current=()=>true){
   const sb=state.supabase;
   const raw=await readLeadCache();
   const cached=leadCacheUsable(raw)?raw:null;
@@ -517,23 +555,23 @@ async function loadCloudLeadRows(){
     }catch{/* a failed stamp check falls through to a full read */}
   }
   const plan=planLeadSync({cachedStamp:normalizeStamp(cached?.stamp||''), cachedCount:cachedLeads.length, remoteCount, remoteUpdatedAt});
-  if(plan==='use-cache') return null;
+  if(plan==='use-cache') return cachedLeads.map(normalizeLead);
   if(plan==='delta'){
     const since=cached.stamp;
     const head=await sb.from('leads').select('id',{count:'exact',head:true}).gt('updated_at', since);
     if(head.error) throw head.error;
     // A missing/empty count cannot certify a cache older than the remote stamp.
     // Reload instead of marking stale rows as current and skipping them next time.
-    if(!Number.isSafeInteger(head.count) || head.count<=0) return loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt);
+    if(!Number.isSafeInteger(head.count) || head.count<=0) return loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt, current);
     const delta=await fetchAllParallel(()=>sb.from('leads').select('*').gt('updated_at', since).order('updated_at'), head.count);
     const merged=mergeLeadDelta(cachedLeads, delta).map(normalizeLead);
     const stamp=remoteUpdatedAt||normalizeStamp(newestUpdatedAt(merged));
-    rememberLeadCache(stamp, merged);
+    if(current()) rememberLeadCache(stamp, merged);
     return merged;
   }
-  return loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt);
+  return loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt, current);
 }
-async function loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt){
+async function loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt, current=()=>true){
   const basePromise=state.staticPromise||startStaticLeads();
   let overlay=Array.isArray(boot?.overlay)?boot.overlay:null;
   let added=Array.isArray(boot?.added)?boot.added:null;
@@ -549,7 +587,7 @@ async function loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt){
     merged=(await fetchAllParallel(()=>sb.from('leads').select('*').order('id'), remoteCount)).map(normalizeLead);
   }
   const stamp=remoteUpdatedAt||normalizeStamp(newestUpdatedAt(merged));
-  rememberLeadCache(stamp, merged);
+  if(current()) rememberLeadCache(stamp, merged);
   return merged;
 }
 async function fetchOverlayRows(sb){
@@ -738,6 +776,7 @@ function scrubPrivateMap(){
 }
 function showLogin(){
   authEpoch++;
+  cloudFlight=null;
   state.sessionReady=false;
   document.documentElement.classList.add('tn-signed-out');
   const logo=document.querySelector('#loginModal .signInLogo');

@@ -1,4 +1,4 @@
-import { bootFiles, signIn, getLead, listTemplates, listAssignments, searchLeads, uploadFormAsset, saveSubmission, plainError } from './store.js';
+import { bootFiles, signIn, getLead, listTemplates, listAssignments, listSubmissions, openStoredFile, searchLeads, uploadFormAsset, saveSubmission, plainError } from './store.js';
 import { esc, bindSignOut, mountSignIn, revealApp, mountSignature, compressImage, houseBackHref } from './ui.js';
 import { screensFromFields, initialAnswers, validateScreen, snapshotHomeowner, formatAddress, PREVIEW_LEAD, audienceLabel } from './logic.js';
 import { canSeeForm, canUsePhotoBank } from '../lib/role-access.js';
@@ -6,7 +6,7 @@ import { canSeeForm, canUsePhotoBank } from '../lib/role-access.js';
 const app = document.getElementById('app');
 const params = new URLSearchParams(location.search);
 const preview = params.get('preview') === '1';
-let ctx, templates = [], template = null, lead = null, screens = [], sectionIndex = 0, answers = {}, media = new Map(), pads = [], phase = 'house', saved = null;
+let ctx, templates = [], sharedDocs = [], submissions = [], template = null, lead = null, screens = [], sectionIndex = 0, answers = {}, media = new Map(), pads = [], phase = 'house', saved = null;
 
 function queryLead() {
   if (!params.get('lead') && !params.get('address')) return null;
@@ -34,8 +34,17 @@ async function start() {
     const found = await getLead(ctx, params.get('lead')).catch(() => null);
     if (found) lead = { ...lead, ...found };
   }
-  const assignments = await listAssignments(ctx).catch(() => []);
-  templates = (await listTemplates(ctx)).filter((item) => item.active !== false && canSeeForm(ctx.rep?.role, item, { repId: ctx.rep?.id, assignments, mode: ctx.mode }));
+  const [assignments, availableTemplates, availableSubmissions] = await Promise.all([
+    listAssignments(ctx).catch(() => []),
+    listTemplates(ctx),
+    listSubmissions(ctx).catch(() => [])
+  ]);
+  templates = availableTemplates.filter((item) => item.active !== false && canSeeForm(ctx.rep?.role, item, { repId: ctx.rep?.id, assignments, mode: ctx.mode }));
+  submissions = availableSubmissions.filter((item) => ctx.mode === 'local' || item.submitted_by === ctx.rep?.id || item.submitter?.id === ctx.rep?.id);
+  sharedDocs = await Promise.all(templates.filter((item) => item.kind === 'file').map(async (item) => ({
+    ...item,
+    url: await openStoredFile(ctx, item.storage_path).catch(() => '')
+  })));
   if (params.get('template')) template = templates.find((item) => item.id === params.get('template')) || null;
   if (!lead) phase = 'house';
   else if (!template && templates.length === 1) { template = templates[0]; openTemplate(); }
@@ -85,7 +94,15 @@ function render() {
 }
 
 function renderHouse() {
-  app.innerHTML = `${banner()}<p class="tnProgress">Choose the house</p><h1 class="tnTitle">Which house?</h1><label class="tnLabel" for="houseQ">Search address or name</label><input class="tnInput" id="houseQ" placeholder="Start typing an address"><div id="houseHits" class="tnStack" style="margin-top:10px"></div><div class="tnSticky"><a class="tnTap" href="/">Back to map</a></div>`;
+  const submissionCards = submissions.length ? submissions.slice(0, 8).map((item) => {
+    const when = item.created_at ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(item.created_at)) : '';
+    return `<article class="tnCard"><b>${esc(item.template_name || 'Inspection submission')}</b><span>${esc(item.address_snapshot || item.homeowner_name || 'No address')} · ${esc(when)}</span><a class="tnTap" href="/form-print.html?id=${encodeURIComponent(item.id)}">View submission</a></article>`;
+  }).join('') : '<p class="tnSub">Your completed inspections will appear here.</p>';
+  const documentCards = sharedDocs.length ? sharedDocs.map((item) => item.url
+    ? `<article class="tnCard"><b>${esc(item.name)}</b><span>${esc(item.file_name || 'Document from management')}</span><a class="tnTap" href="${esc(item.url)}" target="_blank" rel="noopener">Open document</a></article>`
+    : `<article class="tnCard"><b>${esc(item.name)}</b><span>Document is available when you are online.</span></article>`).join('')
+    : '<p class="tnSub">Documents from management will appear here when assigned.</p>';
+  app.innerHTML = `${banner()}<p class="tnProgress">MY FORMS</p><h1 class="tnTitle">Your field paperwork</h1><p class="tnSub">Start an inspection, revisit your submissions, or open a document your manager shared with you.</p><section class="tnStack" data-tn-panel="my-submissions" data-tn-rank="primary"><div class="tnCard"><h2>Inspection submissions</h2>${submissionCards}</div><div class="tnCard"><h2>Documents from management</h2>${documentCards}</div></section><section data-tn-panel="book-inspection" data-tn-rank="primary" style="margin-top:18px"><p class="tnProgress">NEW INSPECTION</p><h2 class="tnTitle" style="font-size:1.55rem">Which house?</h2><label class="tnLabel" for="houseQ">Search address or name</label><input class="tnInput" id="houseQ" placeholder="Start typing an address"><div id="houseHits" class="tnStack" style="margin-top:10px"></div></section><div class="tnSticky"><a class="tnTap" href="/">Back to map</a></div>`;
   const input = document.getElementById('houseQ');
   let timer;
   input.oninput = () => { clearTimeout(timer); timer = setTimeout(() => runSearch(input.value), 200); };
