@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import middleware, { isPrivateLeadPath, config } from '../middleware.js';
+import middleware, { isPrivateLeadPath, config } from '../lib/lead-paths.js';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 // 1. Private lead files are never uploaded to Vercel.
 const ignore = read('.vercelignore').split('\n').map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
-for (const entry of ['data/leads.json', 'data/*.csv', 'source', '*.csv']) assert.ok(ignore.includes(entry), `.vercelignore is missing ${entry}`);
+for (const entry of ['data/leads.json', '**/data/leads.json', 'data/*.csv', '**/data/*.csv', 'source', '**/source', '*.csv', '**/*.csv']) assert.ok(ignore.includes(entry), `.vercelignore is missing ${entry}`);
 for (const kept of ['data/city-centers.json', 'data/manifest.json', 'api', '*.html', '*.js']) assert.equal(ignore.includes(kept), false, `${kept} must stay deployed`);
 
 // 2. The routing guard answers 404 for lead files and leaves the rest alone.
@@ -118,3 +118,6 @@ assert.match(pick('async function importLeadsToCloud(', 'async function syncTerr
 assert.match(read('tn-files/store.js'), /if \(!response\.ok\) return \[\];/);
 
 console.log('Lead privacy guard and missing-static-file tests passed.');
+
+import { existsSync } from 'node:fs';
+assert.ok(!existsSync(new URL('../middleware.js', import.meta.url)), 'a root middleware.js breaks the no-framework Vercel deploy');

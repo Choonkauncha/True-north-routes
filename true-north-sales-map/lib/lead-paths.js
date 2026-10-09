@@ -1,5 +1,7 @@
-// Second guard for private lead files. .vercelignore keeps them out of the
-// deployment; this answers 404 for them anyway in case one slips back in.
+// Which URL paths count as private lead files. .vercelignore keeps those files
+// out of the deployment; this helper documents and tests the same rule.
+// (Not a Vercel middleware: this project has no framework, and a root
+// middleware.js broke the deploy.)
 // Only /data/city-centers.json and /data/manifest.json stay public (map chrome).
 const PUBLIC_DATA = new Set(['/data/city-centers.json', '/data/manifest.json']);
 
