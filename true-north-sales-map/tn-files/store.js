@@ -267,27 +267,79 @@ function photoRecordUrl(row) {
   return '';
 }
 
-export async function listPhotos(ctx) {
-  if (ctx.mode === 'local') {
-    const rows = await idbAll('photos');
-    return rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).map((row) => ({ ...row, url: photoRecordUrl(row), uploader_name: row.uploader_name || 'This phone' }));
+const PHOTO_COLUMNS = 'id,lead_id,uploaded_by,storage_path,address_snapshot,caption,created_at,reviewed_at,uploader:reps!lead_photos_uploaded_by_fkey(id,name,role)';
+
+function photoAddressFilters(lead) {
+  const address = String(formatAddress(lead) || lead?.address || '').trim();
+  const addresses = address ? [address] : [];
+  // Quote PostgREST values and escape SQL wildcards: an address is data, not a filter expression.
+  return addresses.map((address) => `address_snapshot.ilike.${JSON.stringify(address.replace(/[\\%_]/g, '\\$&'))}`);
+}
+
+function scopePhotoQuery(query, lead) {
+  if (!lead) return query;
+  const addresses = photoAddressFilters(lead);
+  if (lead.id) {
+    const idFilter = `lead_id.eq.${JSON.stringify(String(lead.id))}`;
+    const legacy = addresses.length ? `and(lead_id.is.null,or(${addresses.join(',')}))` : '';
+    return query.or([idFilter, legacy].filter(Boolean).join(','));
   }
-  const withReview = 'id,lead_id,uploaded_by,storage_path,address_snapshot,caption,created_at,reviewed_at,uploader:reps!lead_photos_uploaded_by_fkey(id,name,role)';
-  const withoutReview = 'id,lead_id,uploaded_by,storage_path,address_snapshot,caption,created_at,uploader:reps!lead_photos_uploaded_by_fkey(id,name,role)';
-  let result = await ctx.sb.from('lead_photos').select(withReview).order('created_at', { ascending: false }).limit(500);
-  if (result.error && /reviewed_at/i.test(result.error.message)) {
-    result = await ctx.sb.from('lead_photos').select(withoutReview).order('created_at', { ascending: false }).limit(500);
-  }
-  if (result.error) throw result.error;
-  const photos = result.data || [];
-  await Promise.all(photos.map(async (photo) => {
-    try {
-      const signed = await ctx.sb.storage.from('lead-photos').createSignedUrl(photo.storage_path, 60 * 60);
-      photo.url = signed.data?.signedUrl || '';
-    } catch { photo.url = ''; }
-    photo.uploader_name = photo.uploader?.name || '';
-    if (!('reviewed_at' in photo)) photo.reviewed_at = null;
+  if (addresses.length) return query.or(addresses.join(','));
+  throw new Error('Choose a property before loading photos.');
+}
+
+async function hydratePhotos(ctx, photos, signUrls) {
+  const rows = photos.map((photo) => ({ ...photo, url: signUrls ? photoRecordUrl(photo) : '', uploader_name: photo.uploader?.name || photo.uploader_name || (ctx.mode === 'local' ? 'This phone' : ''), reviewed_at: photo.reviewed_at || null }));
+  if (ctx.mode === 'local' || !signUrls) return rows;
+  // A gallery page creates only its own URLs, with a small concurrency budget.
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(4, rows.length) }, async () => {
+    while (next < rows.length) {
+      const photo = rows[next++];
+      if (!photo.storage_path) continue;
+      try {
+        const signed = await ctx.sb.storage.from('lead-photos').createSignedUrl(photo.storage_path, 60 * 60);
+        photo.url = signed.data?.signedUrl || '';
+      } catch { photo.url = ''; }
+    }
   }));
+  return rows;
+}
+
+export async function hydratePhotoUrls(ctx, photos) {
+  return hydratePhotos(ctx, photos || [], true);
+}
+
+export async function listPhotoPage(ctx, { lead = null, offset = 0, pageSize = 24, signUrls = true } = {}) {
+  const start = Number.isInteger(offset) && offset >= 0 ? offset : 0;
+  const size = Math.min(100, Math.max(1, Number.isInteger(pageSize) ? pageSize : 24));
+  let rows;
+  if (ctx.mode === 'local') {
+    rows = await idbAll('photos');
+    if (lead) rows = photosForLead(rows, lead);
+    rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)) || String(b.id).localeCompare(String(a.id)));
+    rows = rows.slice(start, start + size + 1);
+  } else {
+    const read = (columns) => scopePhotoQuery(ctx.sb.from('lead_photos').select(columns), lead)
+      .order('created_at', { ascending: false }).order('id', { ascending: false }).range(start, start + size);
+    let result = await read(PHOTO_COLUMNS);
+    if (result.error && /reviewed_at/i.test(result.error.message)) result = await read(PHOTO_COLUMNS.replace(',reviewed_at', ''));
+    if (result.error) throw result.error;
+    rows = result.data || [];
+  }
+  const hasMore = rows.length > size;
+  return { photos: await hydratePhotos(ctx, rows.slice(0, size), signUrls), nextOffset: hasMore ? start + size : null };
+}
+
+// Preserve the existing document-library interface while bounding parallel storage work.
+export async function listPhotos(ctx, options = {}) {
+  const photos = [];
+  let offset = 0;
+  do {
+    const page = await listPhotoPage(ctx, { ...options, offset, pageSize: 100 });
+    photos.push(...page.photos);
+    offset = page.nextOffset;
+  } while (offset !== null && (ctx.mode === 'local' || photos.length < 500));
   return photos;
 }
 
@@ -697,8 +749,12 @@ export function deleteEstimate(ctx, row) {
 
 export function photosForLead(photos, lead) {
   const id = lead?.id || '';
-  const key = normalizeAddressKey(formatAddress(lead) || lead?.address || '');
-  return (photos || []).filter((photo) => (id && photo.lead_id === id) || (key && normalizeAddressKey(photo.address_snapshot).includes(key)));
+  const keys = [normalizeAddressKey(formatAddress(lead) || lead?.address)].filter(Boolean);
+  return (photos || []).filter((photo) => {
+    if (id && photo.lead_id === id) return true;
+    if (id && photo.lead_id) return false;
+    return keys.includes(normalizeAddressKey(photo.address_snapshot));
+  });
 }
 
 export function groupPhotosByAddress(photos) {

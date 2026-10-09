@@ -1,0 +1,68 @@
+.tnTrainingWorkspace{max-width:1060px;margin:0 auto;padding-bottom:24px}
+.tnCoachHeading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:4px 0 18px}
+.tnCoachHeading .eyebrow{margin:0 0 8px;font-size:10px;letter-spacing:.16em;color:#88dfcb}
+.tnCoachHeading h1{margin:0;font-size:clamp(25px,3.3vw,36px);letter-spacing:-.025em;line-height:1.15}
+.tnCoachCompass{display:grid;place-items:center;position:relative;width:48px;height:48px;border:1px solid #476460;border-radius:50%;color:#89dfc7;font-size:9px;flex:none}
+.tnCoachCompass>span{font-size:30px;line-height:1}
+.tnTrainingTabs{display:flex;gap:6px;border-bottom:1px solid #304649;padding-bottom:10px;margin-bottom:16px}
+.tnTrainingTabs button{padding:10px 18px;border:1px solid #365456;border-radius:10px;background:#17272a;color:#afc8c7;font-weight:750}
+.tnTrainingTabs button[aria-selected=true]{background:#82dfc6;color:#102722;border-color:#82dfc6}
+.tnCoachCard{background:#142326;border:1px solid #344e50;border-radius:18px;padding:24px}
+.tnCoachWelcome{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}
+.tnCoachWelcome p{margin:0 0 6px;color:#9eb8b6;font-size:12px}
+.tnCoachWelcome h2{margin:0;font-size:clamp(20px,2.4vw,26px);letter-spacing:-.02em;line-height:1.2}
+.tnCoachMode{border:1px solid #41635c;border-radius:20px;padding:4px 9px;white-space:nowrap;color:#b1e6d7;font-size:11px}
+.tnCoachFocus{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:12px;padding:15px 16px;border:1px solid #315a50;background:#183c33;border-radius:12px;margin-bottom:14px}
+.tnCoachFocusMark{color:#8be3c7;font-size:25px}
+.tnCoachFocus b{font-size:14px}
+.tnCoachFocus p{margin:5px 0 0;font-size:12px;color:#b9d2cb;line-height:1.5}
+.tnCoachFocus a{color:#a4efdc;text-decoration:none;font-weight:700;font-size:12px;display:flex;align-items:center;min-height:44px;gap:8px;max-width:155px}
+.tnCoachTopics{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+.tnCoachTopics button{padding:8px 12px;border:1px solid #425c5f;border-radius:20px;background:#203439;color:#d4e5e3;font-size:12px}
+.tnCoachLive{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;margin:0 0 14px;padding:13px 14px;border:1px solid #365b59;background:#102e2d;border-radius:12px}.tnCoachLive>div:first-child{display:flex;flex-direction:column;gap:3px}.tnCoachLive>div:first-child b{font-size:13px;color:#d5eee7}.tnCoachLive>div:first-child span{font-size:11px;color:#a9c6be}.tnCoachLiveActions{display:flex;gap:7px;align-items:center}.tnCoachLiveActions button{min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #4f8172;background:#1e4c42;color:#c8f4e5;font-size:12px;font-weight:700}.tnCoachLiveActions button[hidden]{display:none}.tnCoachLive>p{grid-column:1/-1;margin:0;color:#9ee2ca;font-size:11px}.tnCoachLiveThread{grid-column:1/-1;max-height:130px;overflow:auto;border-top:1px solid #28504b;padding-top:8px}.tnCoachLiveThread[hidden]{display:none}.tnCoachLiveLine{display:flex;gap:7px;margin:4px 0;font-size:12px;line-height:1.45}.tnCoachLiveLine b{color:#9ee2ca;min-width:38px}.tnCoachLiveLine span{color:#d5e8e2;overflow-wrap:anywhere}
+.tnCoachLive>.tnCoachLiveDisclosure{color:#a8beb8;line-height:1.45}
+.tnCoachThread{max-height:290px;min-height:140px;overflow:auto;overscroll-behavior:contain;padding:14px;border-radius:12px;background:#0f1a1d;border:1px solid #2d4347;scrollbar-gutter:stable}
+.tnCoachMessage{max-width:92%;padding:0 0 16px;margin:0 0 14px;border-bottom:1px solid #263f43}
+.tnCoachMessage:last-child{padding-bottom:0;margin-bottom:0;border-bottom:0}
+.tnCoachMessage>b{font-size:11px;color:#8fdac4;text-transform:uppercase;letter-spacing:.055em}
+.tnCoachMessage>p{margin:7px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;color:#d9e6e3;font-size:14px;line-height:1.65}
+.tnCoachMessage.is-user{margin-left:auto;border-left:2px solid #528577;padding-left:12px}
+.tnCoachMessage.is-user>b{color:#acbfca}
+.tnCoachForm{margin:16px 0 0}
+.tnCoachForm>label{display:block;margin-bottom:8px;font-size:13px;font-weight:700}
+.tnCoachComposer{display:flex;align-items:stretch;gap:10px}
+.tnCoachComposer textarea{width:100%;resize:vertical;min-height:66px;max-height:160px;padding:12px;background:#182b2f;border:1px solid #4e6a6e;border-radius:10px;color:#edf5f1;font:inherit;font-size:16px;line-height:1.45}
+.tnCoachComposer button{padding:10px 18px;border:0;border-radius:10px;white-space:nowrap;background:#82dfc6;color:#0e2922;font-weight:750;min-width:108px}
+.tnCoachFormMeta{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:#a6bcba;margin-top:8px}
+.tnCoachFormMeta button{border:0;background:transparent;color:#c5dad5;font-size:11px;padding:6px}
+.tnCoachStatus{font-size:12px;color:#f5ca90;margin:8px 0 0;line-height:1.5}
+.tnCoachStatus:empty{display:none}
+.tnCoachProfile{margin-top:12px;border-top:1px solid #334b4e;font-size:12px;color:#b5cbc6;padding-top:4px}
+.tnCoachProfile summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;color:#d3e3df;list-style:none}
+.tnCoachProfile summary::before{content:'+';font-size:18px;color:#8de2c8}.tnCoachProfile[open] summary::before{content:'−'}
+.tnCoachProfile summary span{margin-left:auto;font-size:10px;color:#9bb5ae}
+.tnCoachProfile p{line-height:1.55}
+.tnCoachStats{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px}
+.tnCoachStats>div{padding:10px;background:#1a3033;border-radius:8px}.tnCoachStats b{display:block;font-size:20px;color:#def3eb}.tnCoachStats span{font-size:10px}
+.tnCoachProfile button,.tnCoachNotice button{background:#263f43;color:#e0efea;border:1px solid #47666a;border-radius:8px;padding:8px 12px}
+.tnCoachNotice{padding:18px;background:#263b3e;border:1px solid #56716c;border-radius:12px;color:#e0eeea;line-height:1.6}.tnCoachNotice button{display:block;margin-top:12px}
+.tnCoachLoading{padding:28px;text-align:center;color:#b4d7cb;border:1px solid #35534c;border-radius:16px}
+body.tn-workspace #tnLessonsPanel .tnTrainHead h1{font-size:22px}body.tn-workspace #tnLessonsPanel .tnTrainLead{font-size:12px}
+body.tn-workspace .tnTrainList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+body.tn-workspace .tnTrainCard{padding:12px;gap:12px;text-align:left;min-width:0;align-items:center}
+body.tn-workspace .tnTrainThumb{width:72px;min-width:72px;height:64px;border-radius:10px;background:#284340;display:grid;place-items:center}
+.tnTrainThumb svg{width:27px;height:27px;color:#8be0c7}
+body.tn-workspace .tnTrainBody{min-width:0}.tnTrainTitle{overflow-wrap:anywhere}
+.tnLessonProgress{margin-top:8px;display:flex;align-items:center;gap:9px;font-size:10px;color:#bad0c9}.tnLessonProgressTrack{display:block;flex:1;height:4px;background:#355251;border-radius:8px;overflow:hidden}.tnLessonProgressTrack>i{display:block;height:100%;background:#86dfc5}
+.tnTrainContinue{font-size:11px;color:#a7efda;margin-top:7px;display:block}
+.tnTrainingTabs button:focus-visible,.tnCoachCard :focus-visible{outline:3px solid #8de3c9;outline-offset:3px}
+@media(max-width:650px){.tnCoachHeading{margin:2px 0 14px}.tnCoachCompass{width:40px;height:40px}.tnCoachCard{padding:15px;border-radius:14px}.tnCoachWelcome{gap:8px}.tnCoachWelcome h2{font-size:21px}.tnCoachMode{font-size:9px;padding:3px 6px}.tnCoachFocus{grid-template-columns:18px minmax(0,1fr);padding:12px;gap:9px}.tnCoachFocus a{grid-column:2;max-width:none;min-height:44px}.tnCoachThread{max-height:240px;padding:12px;min-height:110px}.tnCoachTopics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.tnCoachTopics button{border-radius:9px;text-align:left;font-size:11px;padding:8px}.tnCoachComposer{flex-direction:column}.tnCoachComposer button{align-self:flex-end;min-height:44px}.tnCoachComposer textarea{min-height:66px}.tnCoachFormMeta{align-items:flex-start}.tnCoachFormMeta>span{max-width:185px}.tnCoachMessage{max-width:100%}.tnCoachMessage>p{font-size:13px}body.tn-workspace .tnTrainList{grid-template-columns:minmax(0,1fr)}.tnCoachProfile summary span{max-width:108px;text-align:right}}
+@media print{.tnCoachCard,.tnTrainingTabs{display:none}}
+
+.tnTrainingTabs button,.tnCoachTopics button,.tnCoachProfile summary,.tnCoachFormMeta button,.tnCoachProfile button,.tnCoachNotice button{min-height:44px}
+
+body.tn-workspace .tnTrainCard{grid-template-columns:72px minmax(0,1fr)}
+body.tn-workspace .tnTrainDesc{color:#b4cac4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+body.tn-workspace .tnTrainEmpty{grid-column:1/-1;color:#c5d9d3}
+
+.tnCoachPractice{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 12px}.tnCoachPractice>button{background:#183c33;border:1px solid #4a7165;color:#b9efdd;font-size:12px;border-radius:8px;padding:8px 12px;min-height:44px}.tnCoachPractice>span{font-size:11px;color:#a2bdb5}.tnCoachPractice>div{display:flex;gap:8px;flex-basis:100%}.tnCoachPractice>div[hidden]{display:none}.tnCoachPractice>div button{border:1px solid #425c5f;background:#203439;color:#d4e5e3;border-radius:8px;min-height:44px;padding:8px 12px;font-size:12px}

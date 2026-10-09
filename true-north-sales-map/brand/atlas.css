@@ -1,0 +1,1894 @@
+/* ATLAS — a complete, local visual system for True North.
+   Existing hidden, permission, navigation and collapsed states remain authoritative. */
+:root {
+  color-scheme: dark;
+  --atlas-bg: #101819;
+  --atlas-surface: #192426;
+  --atlas-raised: #202e30;
+  --atlas-line: #334547;
+  --atlas-text: #eef5f2;
+  --atlas-muted: #a5b8b8;
+  --atlas-accent: #83e3cb;
+  --atlas-ink: #102b27;
+  --workspace-header: 72px;
+  --tn-navy: var(--atlas-text);
+  --tn-navy-deep: #101819;
+  --tn-canvas: var(--atlas-bg);
+  --tn-surface: var(--atlas-surface);
+  --tn-ink: var(--atlas-text);
+  --tn-muted: var(--atlas-muted);
+  --tn-line: var(--atlas-line);
+  --tn-line-strong: #4a6264;
+  --tn-blue: var(--atlas-accent);
+  --tn-blue-press: #b0efdf;
+  --tn-blue-soft: #223e38;
+  --tn-blue-ink: #a3efd9;
+  --tn-danger: #ffb2a8;
+  --tn-danger-bg: #442a2a;
+  --tn-success: #99e0b3;
+  --tn-success-bg: #253c31;
+  --navy: var(--atlas-text);
+  --navy2: #1a2b2c;
+  --orange: var(--atlas-accent);
+  --orangeSoft: #223e38;
+  --ink: var(--atlas-text);
+  --muted: var(--atlas-muted);
+  --line: var(--atlas-line);
+  --red: #ffb2a8;
+  --green: #99e0b3;
+  --shadow: 0 20px 60px rgb(0 0 0 / 28%);
+  --shadow-soft: 0 8px 24px rgb(0 0 0 / 12%);
+}
+body.tn-workspace {
+  background: var(--atlas-bg);
+  color: var(--atlas-text);
+  font-family:
+    "Avenir Next", Avenir, Inter, ui-sans-serif, system-ui, sans-serif;
+}
+body.has-workspace-nav {
+  padding-left: 0;
+}
+body.tn-workspace :focus-visible {
+  outline-color: var(--atlas-accent);
+}
+body.tn-workspace .tnHeader :focus-visible {
+  outline-color: var(--atlas-accent);
+}
+body.tn-workspace input,
+body.tn-workspace textarea,
+body.tn-workspace select {
+  accent-color: var(--atlas-accent);
+}
+body.tn-workspace h1,
+body.tn-workspace h2,
+body.tn-workspace h3,
+body.tn-workspace .tnTitle {
+  color: var(--atlas-text);
+}
+body.tn-workspace h1,
+body.tn-workspace .tnTitle {
+  font-size: clamp(30px, 3.3vw, 48px);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+body.tn-workspace h2 {
+  font-size: 21px;
+  font-weight: 600;
+}
+body.tn-workspace p,
+body.tn-workspace .tnSub,
+body.tn-workspace .small,
+body.tn-workspace .helper,
+body.tn-workspace .tnHelp,
+body.tn-workspace .tnMeta,
+body.tn-workspace .muted {
+  color: var(--atlas-muted);
+}
+body.tn-workspace .eyebrow,
+body.tn-workspace .tnProgress,
+body.tn-workspace .sectionTitle {
+  color: var(--atlas-accent);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+}
+body.tn-workspace a {
+  color: var(--atlas-accent);
+}
+body.tn-workspace button,
+body.tn-workspace a,
+body.tn-workspace input,
+body.tn-workspace select,
+body.tn-workspace textarea {
+  transition:
+    background-color 0.16s,
+    border-color 0.16s,
+    box-shadow 0.16s;
+}
+
+/* A two-level horizontal workspace replaces the permanent global sidebar. */
+body.tn-workspace .topbar,
+body.tn-workspace .tnHeader {
+  background: #142022;
+  border-bottom: 1px solid #2e4042;
+  padding: 0 28px;
+  position: sticky;
+  top: 0;
+  z-index: 1060;
+}
+body.tn-workspace .brandName,
+body.tn-workspace .brandText b,
+body.tn-workspace .brandName span,
+body.tn-workspace .brandText b .brandRest {
+  color: var(--atlas-text);
+  letter-spacing: 0.08em;
+}
+body.tn-workspace .brandSub,
+body.tn-workspace .brandText > span {
+  color: var(--atlas-muted);
+}
+body.tn-workspace .brandEmblem,
+body.tn-workspace .logoMark {
+  width: 35px;
+  height: 35px;
+}
+.workspaceNav {
+  position: sticky;
+  inset: auto;
+  top: var(--workspace-header);
+  width: 100%;
+  height: 60px;
+  min-height: 60px;
+  padding: 0 28px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 22px;
+  background: #142022;
+  overflow: visible;
+  border-bottom: 1px solid var(--atlas-line);
+  z-index: 1050;
+  flex: none;
+}
+.workspaceBrand {
+  flex-direction: row;
+  padding: 0;
+  border: 0;
+  gap: 8px;
+  color: var(--atlas-muted);
+}
+.workspaceBrand svg {
+  color: var(--atlas-accent);
+  width: 23px;
+  height: 23px;
+}
+.workspaceBrand span {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+.workspaceNavLabel,
+.workspaceNavFoot {
+  display: none;
+}
+.workspaceNavItems {
+  display: flex;
+  height: 100%;
+  gap: 5px;
+  align-items: center;
+}
+.workspaceNavItems a {
+  min-height: 38px;
+  padding: 9px 12px;
+  gap: 8px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--atlas-muted);
+}
+.workspaceNavItems a svg {
+  width: 17px;
+  height: 17px;
+}
+.workspaceNavItems a:hover {
+  background: #213337;
+  color: var(--atlas-text);
+}
+.workspaceNavItems a[aria-current] {
+  color: var(--atlas-accent);
+  background: #253d38;
+  border-color: #38534a;
+  box-shadow: none;
+}
+body.tn-workspace .headerLinks > a:not(.hidden):not([hidden]),
+body.tn-workspace .headerLinks > button:not(.hidden):not([hidden]),
+body.tn-workspace .topRight .ghostBtn,
+body.tn-workspace .quickLinkBtn,
+body.tn-workspace .userMenu button {
+  background: transparent;
+  border-color: #405356;
+  color: var(--atlas-muted);
+}
+body.tn-workspace .headerLinks > a:hover,
+body.tn-workspace .headerLinks > button:hover {
+  background: var(--atlas-raised);
+  color: var(--atlas-text);
+}
+body.tn-workspace .headerLinks .tnFieldOps .tnMsgBtn,
+body.tn-workspace .headerLinks .tnFieldOps .tnShiftsLink,
+body.tn-workspace .topRight .tnFieldOps .tnMsgBtn,
+body.tn-workspace .topRight .tnFieldOps .tnShiftsLink {
+  background: #213235;
+  border: 1px solid #435a5d;
+  color: var(--atlas-text);
+  min-height: 40px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  box-shadow: none;
+}
+body.tn-workspace .chip {
+  color: #a8d2c8;
+  background: #223632;
+  border-color: #405950;
+}
+.atlasJump {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: #1d2d2f;
+  border: 1px solid #405356;
+  border-radius: 8px;
+  color: var(--atlas-muted);
+  min-height: 40px;
+  padding: 9px 12px;
+  font-size: 12px;
+  flex: none;
+}
+.atlasJump svg {
+  width: 17px;
+  height: 17px;
+}
+.atlasJump kbd {
+  font: inherit;
+  font-size: 10px;
+  padding: 3px 5px;
+  border: 1px solid #405356;
+  border-radius: 4px;
+  margin-left: 12px;
+}
+.atlasJump:hover {
+  border-color: var(--atlas-accent);
+  color: var(--atlas-text);
+}
+
+/* Quiet surfaces, strong labels, and one consistent action hierarchy. */
+body.tn-workspace .card,
+body.tn-workspace .tnCard,
+body.tn-workspace .tnAccountCard,
+body.tn-workspace .tableWrap,
+body.tn-workspace .tnTrainCard,
+body.tn-workspace .tnPhoto,
+body.tn-workspace .tnPhotoCard,
+body.tn-workspace .tnRecordCard,
+body.tn-workspace .tnFolder,
+body.tn-workspace .tnDocItem,
+body.tn-workspace .tnFieldCard,
+body.tn-workspace .tnLibrarySection,
+body.tn-workspace .tnDocSection {
+  background: var(--atlas-surface);
+  border-color: var(--atlas-line);
+  border-radius: 14px;
+  box-shadow: none;
+}
+body.tn-workspace .tnCard,
+body.tn-workspace .tnAccountCard {
+  color: var(--atlas-text);
+}
+body.tn-workspace .tnCard > b,
+body.tn-workspace .tnRecordCard b,
+body.tn-workspace .tnFolderHead b,
+body.tn-workspace .tnDocName,
+body.tn-workspace .tnAccountCard b,
+body.tn-workspace .tnPhotoNote {
+  color: var(--atlas-text);
+}
+body.tn-workspace .tnCard > span {
+  color: var(--atlas-muted);
+}
+body.tn-workspace .tnCheck,
+body.tn-workspace .tnCheck.on {
+  background: #203235;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-workspace .tnChoice.on,
+body.tn-workspace .tnCheck.on {
+  border-color: var(--atlas-accent);
+  box-shadow: inset 0 0 0 1px var(--atlas-accent);
+}
+body.tn-workspace .btn,
+body.tn-workspace .tnTap,
+body.tn-workspace .outlineBtn,
+body.tn-workspace .tnOutline,
+body.tn-workspace .tnTrainBtn {
+  background: #213235;
+  color: var(--atlas-text);
+  border-color: #435a5d;
+  border-radius: 8px;
+  font-weight: 600;
+}
+body.tn-workspace .btn.primary,
+body.tn-workspace .btn.dark,
+body.tn-workspace .tnTap.primary,
+body.tn-workspace .tnTap.dark,
+body.tn-workspace .darkBtn,
+body.tn-workspace .primaryBtn,
+body.tn-workspace .saveBtn,
+body.tn-workspace .tnTrainBtn.primary,
+body.tn-workspace .tnTrainBtn.dark {
+  background: var(--atlas-accent);
+  border-color: var(--atlas-accent);
+  color: var(--atlas-ink);
+}
+body.tn-workspace .btn.primary:hover,
+body.tn-workspace .tnTap.dark:hover,
+body.tn-workspace .primaryBtn:hover,
+body.tn-workspace .saveBtn:hover {
+  background: #b0efdf;
+  border-color: #b0efdf;
+}
+body.tn-workspace .btn.danger,
+body.tn-workspace .tnTap.danger {
+  background: #442a2a;
+  color: #ffb2a8;
+  border-color: #80504d;
+}
+body.tn-workspace .field label,
+body.tn-workspace .tnLabel,
+body.tn-workspace .drawer label,
+body.tn-workspace .modalCard label {
+  color: #d4e0dc;
+}
+body.tn-workspace .field input,
+body.tn-workspace .field select,
+body.tn-workspace .field textarea,
+body.tn-workspace .filter input,
+body.tn-workspace .filter select,
+body.tn-workspace .tnInput,
+body.tn-workspace .tnSelect,
+body.tn-workspace .tnArea,
+body.tn-workspace .drawer input:not([type="checkbox"]),
+body.tn-workspace .drawer select,
+body.tn-workspace .drawer textarea,
+body.tn-workspace .modalCard input:not([type="checkbox"]):not([type="range"]),
+body.tn-workspace .modalCard select,
+body.tn-workspace .modalCard textarea {
+  background: #122022;
+  border-color: #4a6264;
+  color: var(--atlas-text);
+  border-radius: 8px;
+}
+body.tn-workspace input::placeholder,
+body.tn-workspace textarea::placeholder {
+  color: #9caeb0;
+}
+body.tn-workspace .field input:focus,
+body.tn-workspace .field select:focus,
+body.tn-workspace .field textarea:focus,
+body.tn-workspace .tnInput:focus {
+  background: #142527;
+  border-color: var(--atlas-accent);
+  box-shadow: 0 0 0 3px rgb(131 227 203 / 14%);
+}
+body.tn-workspace .notice,
+body.tn-workspace .tnBanner,
+body.tn-workspace .appointmentFocusNotice {
+  background: #223e38;
+  border-color: #426b5e;
+  color: #b6ecdb;
+}
+body.tn-workspace .success,
+body.tn-workspace .tnSuccess {
+  background: #253c31;
+  border-color: #466d54;
+  color: #b5edc8;
+}
+body.tn-workspace .error,
+body.tn-workspace .tnError,
+body.tn-workspace .loginError,
+body.tn-workspace .tnTrainError {
+  color: #ffb2a8;
+}
+body.tn-workspace .formHeader,
+body.tn-workspace .formSection {
+  border-color: var(--atlas-line);
+}
+.formSectionNav {
+  border-color: var(--atlas-line);
+  gap: 6px;
+}
+.formSectionNav a {
+  color: var(--atlas-muted);
+  background: #172325;
+  border-color: var(--atlas-line);
+  border-radius: 7px;
+}
+.formSectionNav a span {
+  color: var(--atlas-accent);
+}
+.formSectionNav a:hover,
+.formSectionNav a[aria-current] {
+  background: #253d38;
+  border-color: #426b5e;
+  color: var(--atlas-accent);
+}
+body.tn-workspace .tnSeg,
+body.tn-workspace .tnMyTabs,
+body.tn-workspace .tnChips {
+  background: #122022;
+}
+body.tn-workspace .tnSeg button,
+body.tn-workspace .tnChip {
+  color: var(--atlas-muted);
+}
+body.tn-workspace .tnChip {
+  background: #223639;
+  border-color: #4a6264;
+}
+body.tn-workspace .tnSeg button.on,
+body.tn-workspace .tnChip.on {
+  background: #2b4840;
+  color: var(--atlas-accent);
+  box-shadow: none;
+}
+body.tn-workspace .tnSticky {
+  background: #101819f5;
+  border-color: var(--atlas-line);
+}
+body.tn-workspace .tnFoldBar {
+  border-color: var(--atlas-line);
+}
+body.tn-workspace .tnFoldHead,
+body.tn-workspace .tnFoldChevronBtn {
+  color: var(--atlas-muted);
+}
+body.tn-workspace .tnFoldHead:hover,
+body.tn-workspace .tnFoldChevronBtn:hover {
+  background: #2a3d40;
+}
+body.tn-workspace .tnForgot {
+  color: var(--atlas-accent);
+}
+
+/* Management has a separate section rail, a live summary, and action queues. */
+body.tn-admin-workspace .dashboardShell {
+  grid-template-columns: 214px minmax(0, 1fr);
+  min-height: calc(100dvh - 132px);
+}
+body.tn-admin-workspace .rail,
+body.tn-admin-workspace .rail.tnFold {
+  background: #142022;
+  top: 132px;
+  height: calc(100dvh - 132px);
+  border-right: 1px solid var(--atlas-line);
+  padding: 20px 14px;
+}
+body.tn-admin-workspace .rail button,
+body.tn-admin-workspace .rail a.railLink {
+  color: var(--atlas-muted);
+  border-radius: 7px;
+  padding: 11px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+body.tn-admin-workspace .rail button svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+body.tn-admin-workspace .rail button.active {
+  background: #253d38;
+  color: var(--atlas-accent);
+  border-color: #38534a;
+}
+body.tn-admin-workspace .rail button:hover,
+body.tn-admin-workspace .rail a.railLink:hover {
+  background: #203235;
+  color: var(--atlas-text);
+  border-color: #334547;
+}
+body.tn-admin-workspace .rail .sectionLabel {
+  color: #92aaa8;
+  letter-spacing: 0.14em;
+}
+body.tn-admin-workspace .dashMain {
+  background: var(--atlas-bg);
+  padding: 32px;
+}
+body.tn-admin-workspace #tab-overview .dashTitle {
+  padding: 30px;
+  border: 1px solid #3c5b53;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at 95% 10%, #315246 0, transparent 65%), #1b302d;
+  position: relative;
+  overflow: hidden;
+}
+body.tn-admin-workspace #tab-overview .dashTitle h1 {
+  max-width: 560px;
+  font-size: clamp(32px, 3.3vw, 48px);
+}
+body.tn-admin-workspace #tab-overview .dashTitle p {
+  color: #b4cac3;
+  margin: 12px 0;
+}
+.atlasHeroMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 7px 10px;
+  border: 1px solid #51746a;
+  border-radius: 6px;
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  color: #b7eddb;
+}
+.atlasHeroMeta::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--atlas-accent);
+}
+body.tn-admin-workspace #metrics {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+body.tn-admin-workspace .metric {
+  padding: 20px;
+  border-radius: 12px;
+}
+body.tn-admin-workspace .metric::before {
+  display: none;
+}
+body.tn-admin-workspace .metric b {
+  font-size: 38px;
+  color: var(--atlas-text);
+  font-weight: 550;
+  margin-top: 18px;
+  font-variant-numeric: tabular-nums;
+}
+body.tn-admin-workspace .metric span {
+  color: var(--atlas-muted);
+  font-size: 12px;
+  min-height: 36px;
+}
+.atlasMetricHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.atlasMetricHead svg {
+  width: 20px;
+  height: 20px;
+  color: var(--atlas-accent);
+}
+.atlasMetricHead small {
+  color: #a3b8b4;
+  font-size: 10px;
+}
+.dashboardRefreshed {
+  color: #afc5bd;
+}
+.dashboardSectionHead {
+  margin-top: 32px;
+}
+.dashboardSectionHead span {
+  color: var(--atlas-muted);
+}
+.attentionGrid {
+  margin-bottom: 24px;
+  gap: 12px;
+}
+.attentionCard {
+  padding: 20px;
+  border-radius: 12px;
+  background: #192426;
+  color: var(--atlas-text);
+  border-color: var(--atlas-line);
+}
+.attentionCard:hover {
+  background: #233532;
+  border-color: #568777;
+}
+.attentionCount {
+  height: 46px;
+  min-width: 46px;
+  border-radius: 9px;
+  color: var(--atlas-muted);
+  background: #26393b;
+  font-size: 24px;
+  font-weight: 550;
+}
+.attentionCount.hasWork {
+  background: #453a23;
+  color: #f4d18a;
+}
+.attentionCard b {
+  font-size: 14px;
+}
+.attentionCard small {
+  color: var(--atlas-muted);
+  font-size: 12px;
+}
+.attentionCard > span:last-child {
+  color: var(--atlas-accent);
+}
+body.tn-workspace .table th {
+  color: #aec1bd;
+  background: #1c2d2e;
+  border-color: var(--atlas-line);
+  font-size: 10px;
+}
+body.tn-workspace .table td {
+  color: #b8cac6;
+  border-color: #2b3e40;
+}
+body.tn-workspace .table td b,
+body.tn-workspace .activityItem strong {
+  color: var(--atlas-text);
+}
+body.tn-workspace .table tr:hover td {
+  background: #213436;
+}
+body.tn-workspace .pill,
+body.tn-workspace .status,
+body.tn-workspace .tnTrainPill,
+body.tn-workspace .tnTrainBadge {
+  background: #2a3e40;
+  color: #c3d5d0;
+  border-color: #455e60;
+}
+body.tn-workspace .pill.orange {
+  background: #2b4840;
+  color: #a3efd9;
+}
+body.tn-workspace .pill.green {
+  background: #2c4435;
+  color: #b5e9c6;
+}
+body.tn-workspace .pill.red {
+  background: #442a2a;
+  color: #ffb2a8;
+}
+body.tn-workspace .activityItem {
+  border-color: #2b3e40;
+}
+body.tn-workspace .activityTime,
+.dashboardPagination {
+  color: var(--atlas-muted);
+}
+body.tn-workspace .linkLike {
+  color: var(--atlas-accent);
+}
+
+/* Personal workspaces: role-led hero and descriptive, illustrated action tiles. */
+body.tn-workspace.tn-standalone .container,
+body.tn-workspace.tn-standalone .tnApp {
+  width: min(1120px, 100%);
+  padding: 36px 32px 64px;
+}
+body.tn-workspace.tn-setter .container,
+body.tn-workspace:has(#shiftsApp) .container,
+body.tn-workspace:has(#tnFilesRoot) .container {
+  width: min(1360px, 100%);
+}
+body.tn-workspace .profileHero {
+  padding: 36px;
+  border-color: #466b61;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at 95% 0, #315246, transparent 70%), #1b302d;
+  gap: 24px;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+body.tn-workspace .profileHero h1 {
+  overflow-wrap: anywhere;
+}
+body.tn-workspace .profileHero p {
+  max-width: 640px;
+}
+.profileAvatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: #a3efd9;
+  color: #163d32;
+  font-size: 28px;
+  border: 7px solid #294e40;
+  flex: none;
+}
+.profileRole {
+  background: #28483e;
+  color: #a3efd9;
+  border-color: #507265;
+  font-weight: 550;
+  letter-spacing: 0.025em;
+}
+.atlasProfileStart {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  margin-top: 8px;
+}
+.atlasProfileStart svg {
+  width: 18px;
+  height: 18px;
+}
+body.tn-workspace .profileHero[data-role="salesperson"] {
+  background:
+    radial-gradient(ellipse at 95% 0, #5a5038, transparent 70%), #302e25;
+  border-color: #766b4e;
+}
+body.tn-workspace .profileHero[data-role="salesperson"] .eyebrow {
+  color: #f4d18a;
+}
+body.tn-workspace .profileHero[data-role="salesperson"] .profileRole {
+  background: #4b4029;
+  color: #f4d18a;
+  border-color: #766b4e;
+}
+body.tn-workspace .profileHero[data-role="salesperson"] .profileAvatar {
+  background: #f4d18a;
+  color: #453a23;
+  border-color: #574b30;
+}
+body.tn-workspace .profileHero[data-role="admin"],
+body.tn-workspace .profileHero[data-role="manager"] {
+  background:
+    radial-gradient(ellipse at 95% 0, #464b62, transparent 70%), #242c36;
+  border-color: #5d6479;
+}
+body.tn-workspace .profileHero[data-role="admin"] .profileRole,
+body.tn-workspace .profileHero[data-role="manager"] .profileRole {
+  background: #363e53;
+  color: #d3d9f7;
+  border-color: #5d6479;
+}
+body.tn-workspace .profileHero[data-role="admin"] .profileAvatar,
+body.tn-workspace .profileHero[data-role="manager"] .profileAvatar {
+  background: #d3d9f7;
+  color: #353c52;
+  border-color: #464e67;
+}
+.profileSection {
+  margin: 30px 0;
+}
+.profileSectionHead span {
+  color: var(--atlas-muted);
+}
+.profileActionGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.profileAction {
+  min-height: 160px;
+  padding: 22px;
+  border-color: var(--atlas-line);
+  border-radius: 12px;
+  background: var(--atlas-surface);
+  color: var(--atlas-text) !important;
+  text-decoration: none;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 10px;
+}
+.profileAction:hover {
+  background: #233532;
+  border-color: #568777;
+}
+.profileAction > svg {
+  width: 26px;
+  height: 26px;
+  color: var(--atlas-accent);
+  margin-bottom: 12px;
+}
+.profileAction b {
+  color: var(--atlas-text);
+  font-size: 16px;
+}
+.profileAction span {
+  color: var(--atlas-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 90%;
+}
+.profileAction i {
+  position: absolute;
+  right: 20px;
+  top: 22px;
+  color: #83e3cb;
+  font-size: 19px;
+  font-style: normal;
+}
+.profileEmpty {
+  background: var(--atlas-surface);
+  border-color: #4a6264;
+}
+.profileEmpty b {
+  color: var(--atlas-text);
+}
+body.tn-workspace .accountCreate {
+  background: #1e3631;
+  border-color: #426b5e;
+}
+body.tn-workspace .accountCreate summary {
+  color: var(--atlas-accent);
+}
+.accountCreate summary span,
+.accountFilters label {
+  color: var(--atlas-muted);
+}
+body.tn-workspace .accountCreate .tnCard {
+  border-top-color: #426b5e;
+}
+.accountPersonAvatar {
+  background: #294b41;
+  color: #a3efd9 !important;
+  border-radius: 50%;
+}
+.accountStatus {
+  background: #293c3e;
+  color: #c0d3cd !important;
+}
+.accountStatus.active {
+  background: #294635;
+  color: #b5e9c6 !important;
+}
+body.tn-workspace .tnAccountBtns button {
+  background: #213235;
+  color: var(--atlas-text);
+  border-color: #435a5d;
+}
+body.tn-workspace .tnAccountBtns button[data-act="work"] {
+  background: #28483e;
+  color: var(--atlas-accent);
+  border-color: #426b5e;
+}
+body.tn-workspace .tnAccountLocked {
+  background: #2b383b;
+  border-color: #42565a;
+  color: #b5c8c4;
+}
+
+/* The field map retains geographic imagery; only its interface is themed. */
+body.tn-map-workspace .mapShell {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+body.tn-map-workspace .mapCanvas .leaflet-tile-pane {
+  filter: none;
+}
+body.tn-map-workspace .mapSearch,
+body.tn-map-workspace .mapHud,
+body.tn-map-workspace .mapInfo,
+body.tn-map-workspace .weatherCard,
+body.tn-map-workspace .mapLegend,
+body.tn-map-workspace .layerMenu,
+body.tn-map-workspace .filterPanel,
+body.tn-map-workspace .mapControl,
+body.tn-map-workspace #filterBtn {
+  background: #192426f5;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+  box-shadow: 0 4px 16px #0002;
+}
+body.tn-map-workspace .mapSearch input {
+  background: transparent;
+  color: var(--atlas-text);
+}
+body.tn-map-workspace .mapSearch svg,
+body.tn-map-workspace .searchHint {
+  color: var(--atlas-muted);
+}
+body.tn-map-workspace .mapHud .stat b {
+  color: var(--atlas-text);
+}
+body.tn-map-workspace .hudTitle,
+body.tn-map-workspace .stat span,
+body.tn-map-workspace .hudProgress span {
+  color: #aec1bd;
+}
+body.tn-map-workspace .hudProgress {
+  border-color: #3d5355;
+}
+body.tn-map-workspace .hudProgress b,
+body.tn-map-workspace .mapInfo b {
+  color: var(--atlas-accent);
+}
+body.tn-map-workspace .sidePanel {
+  background: #142022;
+  border-color: var(--atlas-line);
+}
+body.tn-map-workspace .nextCard {
+  background: #1b302d;
+  border-color: var(--atlas-line);
+  padding: 26px 22px;
+}
+body.tn-map-workspace .nextCard strong {
+  color: var(--atlas-text);
+}
+body.tn-map-workspace .nextCard p,
+body.tn-map-workspace .addr span,
+body.tn-map-workspace .rowMeta {
+  color: var(--atlas-muted);
+}
+body.tn-map-workspace .nextCardActions button {
+  background: #223639;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-map-workspace .nextCardActions button:first-child {
+  background: var(--atlas-accent);
+  color: var(--atlas-ink);
+  border-color: var(--atlas-accent);
+}
+body.tn-map-workspace .nextCardActions #drawAreaBtn {
+  background: #223639;
+  color: var(--atlas-text);
+  border: 1px solid #4a6264;
+}
+body.tn-map-workspace .leadRow {
+  border-color: #2c3e40;
+}
+body.tn-map-workspace .leadRow {
+  background: #192426;
+}
+body.tn-map-workspace .addr {
+  color: #b8cac6;
+}
+body.tn-map-workspace .filterBar,
+body.tn-map-workspace .tabs,
+body.tn-map-workspace .tab,
+body.tn-map-workspace .panelIntro {
+  background: #192426;
+  color: var(--atlas-muted);
+  border-color: var(--atlas-line);
+}
+body.tn-map-workspace .filterBar select {
+  background: #122022;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-map-workspace .filterBar .mine,
+body.tn-map-workspace .panelIntro span,
+body.tn-map-workspace .tab span {
+  color: var(--atlas-muted);
+}
+body.tn-map-workspace .tab.active {
+  color: var(--atlas-accent);
+  background: #253d38;
+}
+body.tn-map-workspace .iconBtn,
+body.tn-map-workspace .mapIconBtn,
+body.tn-map-workspace .weatherToggle {
+  background: #192426;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-map-workspace .weatherWidget {
+  background: #192426f5;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-map-workspace #weatherPlace,
+body.tn-map-workspace .weatherMeta,
+body.tn-map-workspace .weatherRange,
+body.tn-map-workspace .weatherHour span {
+  color: var(--atlas-muted);
+}
+body.tn-map-workspace .weatherHour {
+  background: #26393b;
+  color: var(--atlas-text);
+  border-color: var(--atlas-line);
+}
+body.tn-map-workspace .leaflet-popup-content-wrapper,
+body.tn-map-workspace .leaflet-popup-tip {
+  background: #192426;
+  color: var(--atlas-text);
+}
+body.tn-map-workspace .pinPopup button {
+  background: #223639;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-map-workspace .pinPopup .routeToggle {
+  background: var(--atlas-accent);
+  color: var(--atlas-ink);
+  border-color: var(--atlas-accent);
+}
+body.tn-map-workspace .layerMenu label:hover {
+  background: #2a3d40;
+}
+body.tn-map-workspace .leadRow:hover {
+  background: #203235;
+}
+body.tn-map-workspace .leadRow.active {
+  background: #284139;
+  box-shadow: inset 3px 0 var(--atlas-accent);
+}
+body.tn-map-workspace .leadRow h3,
+body.tn-map-workspace .leadRow strong {
+  color: var(--atlas-text);
+}
+body.tn-map-workspace .mapControl[aria-expanded="true"] {
+  background: #28483e;
+  border-color: #83e3cb;
+  color: var(--atlas-accent);
+}
+body.tn-map-workspace .routeTray,
+body.tn-map-workspace .navBar {
+  background: #142022;
+  border-color: #4a6264;
+  box-shadow: 0 12px 30px #0003;
+}
+body.tn-map-workspace .routeTrayActions button {
+  background: #223639;
+  border-color: #4a6264;
+  color: var(--atlas-text);
+}
+body.tn-map-workspace .routeTrayActions #routeTrayBtn,
+body.tn-map-workspace .routeTrayActions #startRouteBtn {
+  background: var(--atlas-accent);
+  border-color: var(--atlas-accent);
+  color: var(--atlas-ink);
+}
+body.tn-map-workspace .routeModeToggle {
+  background: #142022;
+  border-color: #4a6264;
+}
+body.tn-map-workspace .routeModeToggle button,
+body.tn-map-workspace .routeTrayCopy span {
+  color: #b8cac6;
+}
+body.tn-map-workspace .routeModeToggle button.on {
+  background: #294b41;
+  color: var(--atlas-accent);
+}
+body.tn-map-workspace .routeTray .routeModeToggle button.isOn {
+  background: #294b41;
+  color: var(--atlas-accent);
+}
+body.tn-map-workspace .cloudNotice {
+  background: #29382a;
+  color: #d5ddbe;
+}
+body.tn-map-workspace .weatherStack {
+  color: #edf5f2;
+}
+body.tn-map-workspace .leaflet-bar a {
+  background: #192426;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-map-workspace .leaflet-control-attribution {
+  color: #263c37;
+}
+
+/* Messages, training, documents, and inspection detail share the same surfaces. */
+body.tn-workspace .modalCard,
+body.tn-workspace .drawerCard,
+body.tn-workspace .doorSheetCard,
+body.tn-workspace .tnMsgPanel,
+body.tn-workspace .tnMoreMenu,
+body.tn-workspace .tnSheet,
+body.tn-workspace .tnConsent > div {
+  background: var(--atlas-surface);
+  color: var(--atlas-text);
+  border: 1px solid var(--atlas-line);
+}
+body.tn-workspace .doorSheetFooter {
+  background: #192426;
+  border-color: var(--atlas-line);
+}
+body.tn-workspace .doorSheetFooter .tnDoorActions .tnTap {
+  background: #223639;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-workspace .tnGallery .tnPhotoCard > button.tnTap {
+  background: #223639;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-workspace .modalOverlay,
+body.tn-workspace .drawer,
+body.tn-workspace .tnMsgOverlay {
+  background: #071314b8;
+}
+body.tn-workspace .closeBtn {
+  color: var(--atlas-muted);
+}
+body.tn-workspace .closeBtn:hover {
+  background: #2a3d40;
+}
+body.tn-workspace .detailGrid > div,
+body.tn-workspace .drawerAddr,
+body.tn-workspace .tnChoice,
+body.tn-workspace .tnProperty,
+body.tn-workspace .tnTrainPerson,
+body.tn-workspace .tnPointMeta,
+body.tn-workspace .tnThreadBtn,
+body.tn-workspace .tnPersonBtn {
+  background: #203235;
+  color: var(--atlas-text);
+  border-color: #3d5355;
+}
+body.tn-workspace .detailGrid small,
+body.tn-workspace .tnFolderHead span,
+body.tn-workspace .tnDocName span,
+body.tn-workspace .tnDocName small,
+body.tn-workspace .tnTrainDesc,
+body.tn-workspace .tnTrainMeta {
+  color: var(--atlas-muted);
+}
+body.tn-workspace .fieldActions button,
+body.tn-workspace .adminActions button,
+body.tn-workspace .tnMoreMenu a,
+body.tn-workspace .tnMoreMenu button {
+  background: #223639;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-workspace .tnTrainThumb {
+  background: #263e37;
+}
+body.tn-workspace .tnTrainThumb i,
+body.tn-workspace .tnTrainBack {
+  color: var(--atlas-accent);
+}
+body.tn-workspace .tnTrainTitle,
+body.tn-workspace .tnTrainHead h1,
+body.tn-workspace .tnTrainSlide li,
+body.tn-workspace .tnTrainForm label {
+  color: var(--atlas-text);
+}
+body.tn-workspace .tnTrainLead,
+body.tn-workspace .tnTrainMeta time,
+body.tn-workspace .tnTrainMeta span.quiet {
+  color: var(--atlas-muted);
+}
+body.tn-workspace .tnTrainForm {
+  background: #192426;
+  border-color: var(--atlas-line);
+}
+body.tn-workspace .tnTrainForm input:not([type="checkbox"]),
+body.tn-workspace .tnTrainForm select,
+body.tn-workspace .tnTrainForm textarea {
+  background: #122022;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-workspace .tnTrainControls button {
+  background: #223639;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-workspace .tnTrainControls .primary {
+  background: var(--atlas-accent);
+  color: var(--atlas-ink);
+  border-color: var(--atlas-accent);
+}
+body.tn-workspace .tnTrainMeter {
+  background: #334547;
+}
+body.tn-workspace .tnTrainMeter span {
+  background: var(--atlas-accent);
+}
+body.tn-workspace .tnTrainCard:hover {
+  border-color: #568777;
+  box-shadow: none;
+}
+body.tn-workspace .tnTrainFilters button {
+  background: #223639;
+  color: var(--atlas-muted);
+  border-color: #4a6264;
+}
+body.tn-workspace .tnTrainFilters button[aria-pressed="true"] {
+  background: var(--atlas-accent);
+  border-color: var(--atlas-accent);
+  color: var(--atlas-ink);
+}
+body.tn-workspace .tnTrainStage,
+body.tn-workspace .tnTrainControls,
+body.tn-workspace .tnTrainCheck,
+body.tn-workspace .tnTrainPeople,
+body.tn-workspace .tnTrainBody {
+  background: #192426;
+  border-color: var(--atlas-line);
+}
+body.tn-workspace .tnTrainSlide {
+  background: #233532;
+  color: var(--atlas-text);
+}
+body.tn-workspace .tnTrainSlide .slideBar {
+  background: #28483e;
+}
+body.tn-workspace .tnMsgHead,
+body.tn-workspace .tnThreadList,
+body.tn-workspace .tnComposer {
+  background: #142022;
+  border-color: var(--atlas-line);
+  color: var(--atlas-text);
+}
+body.tn-workspace .tnMsgHead h2,
+body.tn-workspace .tnConvo h3 {
+  color: var(--atlas-text);
+}
+body.tn-workspace .tnBubble {
+  background: #2a3d40;
+  color: #edf5f2;
+}
+body.tn-workspace .tnBubble.mine {
+  background: #28483e;
+  color: #c8f4e7;
+}
+body.tn-workspace .tnBubble small {
+  color: #b5c8c4;
+}
+body.tn-workspace .tnSkeleton {
+  background: #203235;
+}
+body.tn-workspace .tnDayBar {
+  background: #2c4b41;
+}
+body.tn-workspace .tnEmpty,
+body.tn-workspace .empty,
+body.tn-workspace .tnTrainEmpty {
+  color: var(--atlas-muted);
+}
+
+/* Search is a native dialog, with keyboard and mobile-friendly navigation. */
+.atlasCommand {
+  color: var(--atlas-text);
+  background: #192426;
+  border: 1px solid #4a6264;
+  border-radius: 16px;
+  padding: 0;
+  width: min(580px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  box-shadow: 0 30px 90px #0008;
+}
+.atlasCommand::backdrop {
+  background: #071314bb;
+}
+.atlasCommandHead {
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 24px 24px 18px;
+}
+.atlasCommandHead h2 {
+  font-size: 22px;
+  margin: 0;
+}
+.atlasCommandClose {
+  width: 36px;
+  height: 36px;
+  background: #25383b;
+  color: var(--atlas-text);
+  border: 1px solid #4a6264;
+  border-radius: 8px;
+  font-size: 24px;
+  flex: none;
+}
+.atlasCommandSearch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--atlas-line);
+  border-bottom: 1px solid var(--atlas-line);
+  padding: 12px 24px;
+}
+.atlasCommandSearch svg {
+  width: 20px;
+  color: var(--atlas-accent);
+}
+.atlasCommandSearch input {
+  width: 100%;
+  min-height: 38px;
+  background: transparent;
+  border: 0;
+  color: var(--atlas-text);
+  font-size: 16px;
+  outline-offset: 4px;
+}
+.atlasCommandResults {
+  padding: 10px;
+  max-height: 390px;
+  overflow-y: auto;
+}
+.atlasCommandResult {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 9px;
+  text-decoration: none;
+  color: var(--atlas-text) !important;
+  min-height: 68px;
+}
+.atlasCommandResult > svg {
+  width: 23px;
+  height: 23px;
+  flex: none;
+  color: var(--atlas-accent);
+}
+.atlasCommandResult > svg:last-child {
+  width: 18px;
+  margin-left: auto;
+}
+.atlasCommandResult b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+.atlasCommandResult small {
+  display: block;
+  color: var(--atlas-muted);
+  font-size: 12px;
+  margin-top: 5px;
+}
+.atlasCommandResult:hover,
+.atlasCommandResult:focus {
+  background: #29433b;
+}
+.atlasCommandFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--atlas-line);
+  padding: 14px 20px;
+  color: var(--atlas-muted);
+  font-size: 11px;
+}
+.atlasWalkthrough {
+  color: var(--atlas-accent);
+  background: transparent;
+  border: 1px solid #4a6264;
+  padding: 10px;
+  border-radius: 7px;
+  min-height: 40px;
+}
+.atlasCommandEmpty {
+  padding: 18px;
+  font-size: 14px;
+}
+
+/* Opaque branded authentication, and a deliberately light tutorial card. */
+body.tn-workspace .authCard,
+body.tn-workspace #tnLogin,
+body.tn-workspace #loginModal .modalCard {
+  background: #192426;
+  border-color: #4a6264;
+}
+body.tn-workspace .loginCard {
+  background: #192426;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-workspace .loginCard h1,
+body.tn-workspace .loginCard h2 {
+  color: var(--atlas-text);
+}
+body.tn-workspace .loginCard label {
+  color: #d4e0dc;
+}
+body.tn-workspace .loginCard input {
+  background: #122022;
+  color: var(--atlas-text);
+  border-color: #4a6264;
+}
+body.tn-workspace .signInLogo,
+body.tn-workspace .signInLogo {
+  padding: 8px;
+  border-radius: 12px;
+}
+body.tn-workspace .authCard h1 {
+  font-size: 30px;
+}
+body.tn-workspace .pageHelpButton {
+  background: #294b41;
+  border-color: #568777;
+  color: #c8f4e7;
+}
+body.tn-workspace .pageHelpButton:hover { background: #3a6659; color: #d7f8ec; }
+body.tn-workspace .pageTourCard {
+  color-scheme: light;
+}
+body.tn-workspace .pageTourCard h2,
+body.tn-workspace .pageTourCard h3 {
+  color: #142a25;
+}
+body.tn-workspace .pageTourCard p {
+  color: #405e55;
+}
+body.tn-workspace .pageTourCard button {
+  transition: none;
+}
+body.tn-workspace .workspaceMenuBtn {
+  background: #213235;
+  color: var(--atlas-text);
+  border-color: #435a5d;
+}
+
+@media (min-width: 1101px) {
+  body.tn-workspace .workspaceNav {
+    display: flex;
+  }
+  body.tn-map-workspace .routeTray,
+  body.tn-map-workspace .navBar {
+    left: calc((100% - 360px) / 2);
+    width: min(560px, calc(100% - 400px));
+    max-width: calc(100% - 400px);
+  }
+  body.tn-map-workspace.mapFocus .routeTray,
+  body.tn-map-workspace.mapFocus .navBar {
+    left: 50%;
+    width: min(560px, calc(100% - 40px));
+    max-width: calc(100% - 40px);
+  }
+}
+@media (max-width: 1250px) and (min-width: 1101px) {
+  .workspaceNav {
+    padding: 0 20px;
+    gap: 12px;
+  }
+  .workspaceBrand span {
+    display: none;
+  }
+  .workspaceNavItems a {
+    padding: 9px 10px;
+  }
+  body.tn-admin-workspace .dashboardShell {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  body.tn-admin-workspace .dashMain {
+    padding: 24px;
+  }
+  body.tn-admin-workspace .metric {
+    padding: 16px;
+  }
+}
+@media (max-width: 1100px) {
+  .workspaceNav {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    width: min(300px, 88vw);
+    padding: 28px 20px;
+    flex-direction: column;
+    align-items: stretch;
+    overflow-y: auto;
+    gap: 24px;
+  }
+  .workspaceNav.isOpen {
+    display: flex;
+  }
+  .workspaceBrand {
+    justify-content: flex-start;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--atlas-line);
+  }
+  .workspaceNavItems {
+    flex-direction: column;
+    height: auto;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .workspaceNavItems a {
+    min-height: 48px;
+    font-size: 14px;
+    padding: 12px;
+    gap: 12px;
+  }
+  .workspaceNavFoot {
+    display: block;
+    padding: 24px 12px;
+  }
+  .workspaceNavFoot a,
+  .workspaceNavFoot p {
+    color: var(--atlas-muted) !important;
+  }
+  .workspaceNavFoot a svg {
+    color: var(--atlas-accent);
+  }
+  .atlasJump kbd,
+  .atlasJump > span {
+    display: none;
+  }
+  .atlasJump {
+    width: 44px;
+    height: 44px;
+    padding: 11px;
+    justify-content: center;
+  }
+  body.tn-admin-workspace .rail,
+  body.tn-admin-workspace .rail.tnFold {
+    top: 72px;
+    height: calc(100dvh - 72px);
+  }
+  body.tn-map-workspace .mapShell {
+    grid-template-columns: minmax(0, 1fr) 310px;
+  }
+  body.tn-admin-workspace #metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .attentionGrid {
+    grid-template-columns: 1fr;
+  }
+  .profileActionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 960px) {
+  body.tn-admin-workspace .dashboardShell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body.tn-admin-workspace .rail,
+  body.tn-admin-workspace .rail.tnFold {
+    position: static;
+    height: auto;
+    padding: 10px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--atlas-line);
+  }
+  body.tn-admin-workspace .rail button,
+  body.tn-admin-workspace .rail a.railLink {
+    width: auto;
+    white-space: nowrap;
+    min-width: auto;
+    font-size: 12px;
+    gap: 7px;
+  }
+  body.tn-admin-workspace .rail button svg {
+    width: 16px;
+    height: 16px;
+  }
+  body.tn-admin-workspace #tab-overview .dashTitle {
+    padding: 24px;
+  }
+  body.tn-admin-workspace .dashMain {
+    padding: 24px;
+  }
+  body.tn-map-workspace .mapShell {
+    grid-template-columns: 1fr;
+  }
+  body.tn-map-workspace #listSheet.sidePanel {
+    background: #142022;
+    border-color: var(--atlas-line);
+  }
+  body.tn-map-workspace #listSheet .listSheetGrab {
+    background: #1b302d;
+    color: var(--atlas-text);
+  }
+  body.tn-map-workspace .mobileBar {
+    background: #142022;
+    border-color: #4a6264;
+  }
+  body.tn-map-workspace .mobileBar button {
+    background: #223639;
+    color: #d9e8e2;
+  }
+  body.tn-map-workspace .mobileBar button:nth-child(2) {
+    background: var(--atlas-accent);
+    color: var(--atlas-ink);
+  }
+}
+@media (max-width: 600px) {
+  body.tn-workspace .tnHeader {
+    padding: 0 12px;
+    gap: 6px;
+    min-height: 64px;
+    height: 64px;
+  }
+  body.tn-workspace .tnHeader .brandText b {
+    font-size: 11px;
+  }
+  body.tn-workspace .tnHeader .brandText b .brandRest {
+    display: none;
+  }
+  body.tn-workspace .headerLinks {
+    gap: 5px;
+  }
+  body.tn-workspace .tnHeader .headerLinks > a,
+  body.tn-workspace .tnHeader .headerLinks > button {
+    font-size: 11px;
+    padding: 9px;
+  }
+  body.tn-workspace .tnHeader .tnAccountLink {
+    display: none !important;
+  }
+  body.tn-workspace .tnHeader .headerLinks a[href^="/account"] {
+    display: none !important;
+  }
+  body.tn-workspace .tnHeader .brandText > span {
+    display: none;
+  }
+  body.tn-workspace .tnHeader .brand {
+    flex: 1;
+  }
+  body.tn-workspace .tnHeader .tnFieldOps .tnShiftsLink {
+    display: none;
+  }
+  body.tn-workspace .tnHeader .tnFieldOps {
+    position: static;
+    gap: 5px;
+  }
+  body.tn-workspace .tnHeader .tnFieldOps .tnMsgBtn {
+    font-size: 0;
+    min-width: 40px;
+    padding: 8px;
+  }
+  body.tn-workspace .tnHeader .tnFieldOps .tnMsgBtn::before {
+    content: "✉";
+    font-size: 19px;
+  }
+  body.tn-workspace .tnHeader:has(.tnClockBtn:not([hidden])) {
+    height: 112px;
+    min-height: 112px;
+    align-items: flex-start;
+    padding-top: 10px;
+  }
+  body.tn-workspace .tnHeader:has(.tnClockBtn:not([hidden])) > .brand,
+  body.tn-workspace .tnHeader:has(.tnClockBtn:not([hidden])) > .headerLinks {
+    min-height: 42px;
+  }
+  body.tn-workspace .tnHeader .tnFieldOps:has(.tnClockBtn:not([hidden])) {
+    position: absolute;
+    top: 62px;
+    bottom: auto;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    border-top: 1px solid #334547;
+    padding-top: 7px;
+  }
+  body.tn-workspace .tnHeader .tnFieldOps .tnClockBtn {
+    min-height: 36px;
+    font-size: 12px;
+    border-radius: 6px;
+    flex: 1;
+  }
+  body.tn-workspace
+    .tnHeader
+    .tnFieldOps:has(.tnClockBtn:not([hidden]))
+    .tnMsgBtn {
+    min-height: 36px;
+    flex: 1;
+    font-size: 12px;
+  }
+  body.tn-workspace
+    .tnHeader
+    .tnFieldOps:has(.tnClockBtn:not([hidden]))
+    .tnMsgBtn::before {
+    font-size: 14px;
+  }
+  body.tn-workspace .brandEmblem {
+    width: 28px;
+    height: 28px;
+  }
+  .workspaceMenuBtn {
+    padding: 10px;
+    min-height: 42px;
+  }
+  .workspaceMenuBtn > span {
+    display: none;
+  }
+  body.tn-workspace .atlasJump {
+    width: 38px;
+    padding: 9px;
+  }
+  body.tn-map-workspace #tnMore {
+    background: #223639;
+    color: var(--atlas-text);
+    border-color: #4a6264;
+    font-size: 12px;
+  }
+  body.tn-workspace.tn-standalone .container,
+  body.tn-workspace.tn-standalone .tnApp {
+    padding: 24px 16px 48px;
+  }
+  body.tn-workspace h1,
+  body.tn-workspace .tnTitle {
+    font-size: 32px;
+  }
+  body.tn-workspace .pad,
+  body.tn-workspace .card.pad,
+  body.tn-workspace .tnCard {
+    padding: 20px;
+  }
+  body.tn-workspace .profileHero {
+    padding: 24px;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .profileAvatar {
+    width: 64px;
+    height: 64px;
+    font-size: 20px;
+    border-width: 5px;
+  }
+  .profileActionGrid {
+    gap: 10px;
+  }
+  .profileAction {
+    min-height: 170px;
+    padding: 18px;
+  }
+  .profileAction b {
+    font-size: 14px;
+  }
+  .profileAction i {
+    right: 16px;
+    top: 18px;
+  }
+  .profileAction span {
+    max-width: 100%;
+    font-size: 12px;
+  }
+  body.tn-admin-workspace .dashMain {
+    padding: 20px 16px 40px;
+  }
+  body.tn-admin-workspace #tab-overview .dashTitle {
+    flex-direction: column;
+    gap: 18px;
+    padding: 24px;
+  }
+  body.tn-admin-workspace #tab-overview .dashTitle h1 {
+    font-size: 32px;
+  }
+  body.tn-admin-workspace #metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  body.tn-admin-workspace #metrics .metric:last-child {
+    grid-column: 1 / -1;
+  }
+  body.tn-admin-workspace .metric {
+    padding: 18px;
+  }
+  body.tn-admin-workspace .metric b {
+    font-size: 36px;
+    margin-top: 12px;
+  }
+  body.tn-admin-workspace .metric span {
+    min-height: auto;
+  }
+  .dashboardSectionHead {
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .attentionCard {
+    padding: 18px;
+  }
+  .atlasCommandHead {
+    padding: 20px;
+  }
+  .atlasCommandHead h2 {
+    font-size: 20px;
+  }
+  .atlasCommandFoot > span {
+    display: none;
+  }
+  .atlasCommandFoot {
+    justify-content: flex-end;
+  }
+  body.tn-map-workspace .topbar {
+    gap: 5px;
+    padding: 0 10px;
+  }
+  body.tn-map-workspace .topbar .brand {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+  body.tn-map-workspace:has(#legendKey) .topbar .brand { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  body.tn-map-workspace:has(#legendKey) .topbar .brandWords { min-width: 0; overflow: hidden; }
+  body.tn-map-workspace:has(#legendKey) .topbar .brandName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.tn-map-workspace .topbar .userMenu {
+    display: none;
+  }
+  body.tn-map-workspace .brand {
+    gap: 6px;
+  }
+  body.tn-map-workspace .brandName {
+    font-size: 10px;
+  }
+  body.tn-map-workspace .topRight {
+    gap: 4px;
+  }
+  body.tn-map-workspace .primaryBtn {
+    padding: 9px;
+    font-size: 11px;
+  }
+  body.tn-map-workspace .modalCard {
+    padding: 24px;
+  }
+  body.tn-map-workspace .mobileBar #mobileRoute {
+    background: var(--atlas-accent);
+    color: var(--atlas-ink);
+  }
+  body.tn-map-workspace .mobileBar .tnMsgBtn,
+  body.tn-map-workspace .mobileBar .tnShiftsLink {
+    background: #223639;
+    color: var(--atlas-text);
+    border: 1px solid #4a6264;
+    box-shadow: none;
+  }
+  body.tn-map-workspace #mobileBar .tnMsgBtn, body.tn-map-workspace #mobileBar .tnShiftsLink { background: #223639; color: var(--atlas-text); border: 1px solid #4a6264; box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.tn-workspace *,
+  body.tn-workspace *::before,
+  body.tn-workspace *::after {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* Full-screen navigation and the printable inspection retain their dedicated layouts. */
+html.isNavigating .workspaceNav,
+html.isNavigating .atlasJump {
+  display: none !important;
+}
+html.isNavigating body.tn-map-workspace .navBar {
+  left: max(8px, env(safe-area-inset-left));
+  right: max(8px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  width: auto;
+  max-width: none;
+  transform: none;
+}
+body.tn-workspace:has(.tnPrintSheet) {
+  color-scheme: light;
+  background: #eef2f4;
+  color: #122033;
+}
+body.tn-workspace .tnPrintSheet {
+  color-scheme: light;
+  background: white;
+  color: #122033;
+}
+body.tn-workspace .tnPrintSheet h1,
+body.tn-workspace .tnPrintSheet h2,
+body.tn-workspace .tnPrintSheet h3 {
+  color: #122033;
+}
+body.tn-workspace .tnPrintSheet p,
+body.tn-workspace .tnPrintSheet .tnMeta {
+  color: #40526a;
+}
+@media print {
+  :root {
+    color-scheme: light;
+  }
+  body.tn-workspace {
+    background: white !important;
+    color: #122033 !important;
+    padding: 0 !important;
+  }
+  .workspaceNav,
+  .atlasJump,
+  .atlasCommand {
+    display: none !important;
+  }
+}

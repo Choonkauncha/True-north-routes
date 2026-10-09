@@ -147,6 +147,7 @@ assert.equal(await acquireScreenWakeLock({}), null);
 const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const api = fs.readFileSync(new URL('../api/route.js', import.meta.url), 'utf8');
+const routeRequest = fs.readFileSync(new URL('../lib/route-request.js', import.meta.url), 'utf8');
 assert.ok(app.includes('requestAnimationFrame'));
 assert.ok(app.includes('acquireScreenWakeLock'));
 assert.ok(app.includes("textContent='Re-center'"));
@@ -154,7 +155,8 @@ assert.ok(app.includes('createGpsFilter'));
 assert.ok(app.includes('snapToRoute'));
 assert.ok(app.includes('prefers-reduced-motion') || app.includes('reducedMotion()'));
 assert.ok(css.includes('.navArrow'));
-assert.ok(api.includes('body.steps===true'));
+assert.ok(api.includes('normalizeRouteRequest'));
+assert.ok(routeRequest.includes("body.steps === true && service === 'route'"));
 assert.ok(!app.slice(app.indexOf('function beginInAppNav'), app.indexOf('function endNavigation')).includes('role==='));
 
 const pages = fs.readdirSync(new URL('..', import.meta.url)).filter((name) => name.endsWith('.html'));

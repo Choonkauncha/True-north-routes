@@ -223,6 +223,22 @@ begin
   if new.percent < 0 or new.percent > 100 then
     raise exception 'Percent must be between 0 and 100';
   end if;
+  -- Training progress is monotonic. A stale tab/device may report an older
+  -- snapshot, but it must never erase a completion or reduce recorded work.
+  if tg_op = 'UPDATE' then
+    new.started_at := coalesce(least(old.started_at, new.started_at), old.started_at, new.started_at);
+    new.last_position_seconds := greatest(old.last_position_seconds, new.last_position_seconds);
+    new.max_watched_seconds := greatest(old.max_watched_seconds, new.max_watched_seconds);
+    new.percent := greatest(old.percent, new.percent);
+    new.completed_at := coalesce(old.completed_at, new.completed_at);
+    new.view_count := greatest(old.view_count, new.view_count);
+    select coalesce(array_agg(distinct page order by page), '{}'::integer[])
+      into new.pages_viewed
+      from unnest(coalesce(old.pages_viewed, '{}'::integer[]) || coalesce(new.pages_viewed, '{}'::integer[])) as page;
+    select coalesce(jsonb_agg(value), '[]'::jsonb)
+      into new.watched_ranges
+      from (select distinct value from jsonb_array_elements(coalesce(old.watched_ranges, '[]'::jsonb) || coalesce(new.watched_ranges, '[]'::jsonb))) ranges;
+  end if;
   new.updated_at := now();
   return new;
 end;

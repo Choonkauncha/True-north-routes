@@ -5,12 +5,15 @@
   "version": "2.0.0",
   "scripts": {
     "start": "python -m http.server 4173",
-    "test": "node scripts/field-rules.test.mjs && node scripts/forms-photos.test.mjs && node scripts/role-access.test.mjs && node scripts/documents.test.mjs && node scripts/records.test.mjs && node scripts/account-rules.test.mjs && node scripts/must-change-password.test.mjs && node scripts/reps-select.test.mjs && node scripts/password-reset.test.mjs && node scripts/validate-data.mjs && node scripts/route-picks.test.mjs && node scripts/route-nav.test.mjs && node scripts/route-tray.test.mjs && node scripts/weather.test.mjs && node scripts/storm-maps.test.mjs && node scripts/lead-cache.test.mjs && node scripts/lead-sync.test.mjs && node scripts/nav-motion.test.mjs && node scripts/training-progress.test.mjs && node scripts/map-layers.test.mjs && node scripts/area-route.test.mjs && node scripts/loader-screen.test.mjs && node scripts/collapse-panels.test.mjs && node scripts/homeowner-profile.test.mjs && node scripts/handoff-access.test.mjs && node scripts/receipt-access.test.mjs && node scripts/training-cdn-imports.test.mjs && node scripts/dashboard.test.mjs && node scripts/page-tours.test.mjs && node scripts/more-menu.test.mjs",
+    "test": "node scripts/field-rules.test.mjs && node scripts/forms-photos.test.mjs && node scripts/role-access.test.mjs && node scripts/documents.test.mjs && node scripts/records.test.mjs && node scripts/account-rules.test.mjs && node scripts/must-change-password.test.mjs && node scripts/reps-select.test.mjs && node scripts/password-reset.test.mjs && node scripts/validate-data.mjs && node scripts/route-picks.test.mjs && node scripts/route-nav.test.mjs && node scripts/route-tray.test.mjs && node scripts/weather.test.mjs && node scripts/storm-maps.test.mjs && node scripts/lead-cache.test.mjs && node scripts/lead-sync.test.mjs && node scripts/nav-motion.test.mjs && node scripts/training-progress.test.mjs && node scripts/map-layers.test.mjs && node scripts/area-route.test.mjs && node scripts/loader-screen.test.mjs && node scripts/collapse-panels.test.mjs && node scripts/homeowner-profile.test.mjs && node scripts/handoff-access.test.mjs && node scripts/receipt-access.test.mjs && node scripts/training-cdn-imports.test.mjs && node scripts/dashboard.test.mjs && node scripts/page-tours.test.mjs && node scripts/more-menu.test.mjs && node scripts/cloud-lead-sync.test.mjs && node scripts/route-api.test.mjs && node scripts/training-save.test.mjs && node scripts/photo-loading.test.mjs && node scripts/shift-day-load.test.mjs && node scripts/coach.test.mjs && node scripts/coach-practice.test.mjs && node scripts/live-token.test.mjs && node scripts/live-coach.test.mjs",
     "test:ui": "node scripts/ui-smoke.cjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.117.3",
     "esbuild": "^0.28.2",
     "playwright": "^1.64.0"
+  },
+  "dependencies": {
+    "ai": "^7.0.136"
   }
 }

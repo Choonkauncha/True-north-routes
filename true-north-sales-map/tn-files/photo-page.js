@@ -1,4 +1,4 @@
-import { bootFiles, signIn, getLead, listPhotos, savePhoto, updatePhotoNote, takePending, photosForLead, plainError } from './store.js';
+import { bootFiles, signIn, getLead, listPhotoPage, savePhoto, updatePhotoNote, takePending, plainError } from './store.js';
 import { compressImage, esc, bindSignOut, mountSignIn, revealApp, houseBackHref } from './ui.js';
 import { canUsePhotoBank, formatAddress } from './logic.js';
 
@@ -8,6 +8,9 @@ let ctx;
 let lead = leadFromParams();
 let pendingBlob = null;
 let previewUrl = '';
+let galleryGeneration = 0;
+let galleryPhotos = [];
+let galleryOffset = 0;
 
 function leadFromParams() {
   if (!params.get('lead') && !params.get('address') && !params.get('name')) return null;
@@ -77,6 +80,8 @@ function renderBlocked() {
 }
 
 function render() {
+  ++galleryGeneration;
+  releaseGalleryPhotos();
   const title = lead?.address || lead?.name || 'Photo';
   const place = formatAddress(lead);
   if (previewUrl) {
@@ -95,6 +100,7 @@ async function onPick(event) {
   if (!file) return;
   try {
     pendingBlob = await compressImage(file);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = URL.createObjectURL(pendingBlob);
     render();
   } catch (error) {
@@ -112,6 +118,7 @@ async function onSave() {
   try {
     await savePhoto(ctx, { lead, blob: pendingBlob, caption: document.getElementById('caption').value.trim() });
     pendingBlob = null;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = '';
     renderSaved();
   } catch (err) {
@@ -121,26 +128,69 @@ async function onSave() {
 }
 
 async function renderSaved() {
+  ++galleryGeneration;
+  releaseGalleryPhotos();
   const query = new URLSearchParams({ lead: lead?.id || '', name: lead?.name || '', address: lead?.address || '', city: lead?.city || '', state: lead?.state || '', zip: lead?.zip || '' }).toString();
   app.innerHTML = shell(`<div class="tnSuccess"><img class="brandLogo" src="/brand/logo-emblem.webp" alt="True North Restorations" width="64" height="64"><h1 class="tnTitle">Photo saved</h1><p class="tnSub">${esc(formatAddress(lead) || 'This house')}</p></div><div class="tnStack"><label class="tnTap primary">Add another<input id="take" type="file" accept="image/*" capture="environment"></label><a class="tnTap dark" href="/forms.html?${esc(query)}">Fill Form</a></div><div id="gallery" class="tnGallery" style="margin-top:14px"></div>`);
   document.getElementById('take').onchange = onPick;
   loadGallery();
 }
 
-async function loadGallery() {
+function releaseGalleryPhotos() {
+  for (const photo of galleryPhotos) if (photo.blob && photo.url?.startsWith('blob:')) URL.revokeObjectURL(photo.url);
+  galleryPhotos = [];
+}
+
+function paintGallery(gallery) {
+  gallery.innerHTML = galleryPhotos.length ? galleryPhotos.map((photo) => `<figure class="tnPhotoCard" data-photo="${esc(photo.id)}">
+    ${photo.url ? `<button type="button" data-src="${esc(photo.url)}" aria-label="View ${esc(photo.caption || 'house photo')}"><img alt="${esc(photo.caption || 'House photo')}" src="${esc(photo.url)}" loading="lazy" decoding="async"></button>` : '<p class="tnSub">Image unavailable. Reload photos to try again.</p>'}
+    <figcaption class="tnPhotoNote" data-note>${esc(photo.caption || 'No note yet')}</figcaption>
+    <button type="button" class="tnTap" data-edit-note>Edit note</button>
+  </figure>`).join('') : '<p class="tnSub">No photos yet. Take a photo above to start this property’s inspection history.</p>';
+  if (galleryPhotos.some((photo) => !photo.url)) gallery.insertAdjacentHTML('beforeend', '<button type="button" class="tnTap" data-reload-photos>Reload unavailable photos</button>');
+  const reload = gallery.querySelector('[data-reload-photos]');
+  if (reload) reload.onclick = () => loadGallery();
+  if (galleryOffset !== null) gallery.insertAdjacentHTML('beforeend', '<button type="button" class="tnTap" data-load-more>Load older photos</button>');
+  gallery.querySelectorAll('[data-src]').forEach((button) => { button.onclick = () => openLightbox(button.dataset.src, button); });
+  gallery.querySelectorAll('[data-edit-note]').forEach((button) => { button.onclick = () => editNote(button.closest('[data-photo]'), galleryPhotos); });
+  const more = gallery.querySelector('[data-load-more]');
+  if (more) more.onclick = () => loadGallery(false);
+}
+
+async function loadGallery(reset = true) {
   const gallery = document.getElementById('gallery');
   if (!gallery) return;
+  const generation = ++galleryGeneration;
+  if (reset) {
+    releaseGalleryPhotos();
+    galleryOffset = 0;
+    gallery.innerHTML = '<p class="tnSub" role="status">Loading this property’s photos…</p>';
+  }
+  gallery.querySelector('[data-gallery-error]')?.remove();
+  gallery.querySelector('[data-gallery-retry]')?.remove();
+  gallery.setAttribute('aria-busy', 'true');
+  const more = gallery.querySelector('[data-load-more]');
+  if (more) { more.disabled = true; more.textContent = 'Loading…'; }
+  let page;
   try {
-    const photos = photosForLead(await listPhotos(ctx), lead);
-    gallery.innerHTML = photos.length ? photos.map((photo) => `<figure class="tnPhotoCard" data-photo="${esc(photo.id)}">
-      <button type="button" data-src="${esc(photo.url)}"><img alt="${esc(photo.caption || 'House photo')}" src="${esc(photo.url)}"></button>
-      <figcaption class="tnPhotoNote" data-note>${esc(photo.caption || 'No note yet')}</figcaption>
-      <button type="button" class="tnTap" data-edit-note>Edit note</button>
-    </figure>`).join('') : '<p class="tnSub">No photos yet.</p>';
-    gallery.querySelectorAll('[data-src]').forEach((button) => { button.onclick = () => openLightbox(button.dataset.src); });
-    gallery.querySelectorAll('[data-edit-note]').forEach((button) => { button.onclick = () => editNote(button.closest('[data-photo]'), photos); });
+    page = await listPhotoPage(ctx, { lead, offset: galleryOffset || 0, pageSize: 24 });
+    if (generation !== galleryGeneration || !gallery.isConnected || gallery !== document.getElementById('gallery')) {
+      for (const photo of page.photos) if (photo.blob && photo.url?.startsWith('blob:')) URL.revokeObjectURL(photo.url);
+      return;
+    }
+    const ids = new Set(galleryPhotos.map((photo) => photo.id));
+    galleryPhotos.push(...page.photos.filter((photo) => !ids.has(photo.id)));
+    galleryOffset = page.nextOffset;
+    paintGallery(gallery);
   } catch (error) {
-    gallery.innerHTML = `<p class="tnError">${esc(plainError(error))}</p>`;
+    if (generation !== galleryGeneration || !gallery.isConnected) return;
+    if (reset) gallery.innerHTML = '';
+    gallery.querySelector('[data-gallery-error]')?.remove();
+    gallery.insertAdjacentHTML('beforeend', `<p class="tnError" data-gallery-error>${esc(plainError(error))}</p><button type="button" class="tnTap" data-gallery-retry>Retry photos</button>`);
+    gallery.querySelector('[data-gallery-retry]').onclick = () => loadGallery(reset);
+    if (more) { more.disabled = false; more.textContent = 'Load older photos'; }
+  } finally {
+    if (generation === galleryGeneration && gallery.isConnected) gallery.removeAttribute('aria-busy');
   }
 }
 
@@ -164,12 +214,17 @@ function editNote(card, photos) {
   };
 }
 
-function openLightbox(src) {
-  const box = document.createElement('div');
+function openLightbox(src, opener) {
+  const box = document.createElement('dialog');
   box.className = 'tnLightbox';
-  box.innerHTML = `<button class="tnTap" type="button">Close</button><img alt="House photo" src="${esc(src)}">`;
-  box.querySelector('button').onclick = () => box.remove();
+  box.setAttribute('aria-label', 'Property photo viewer');
+  box.style.cssText = 'width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;border:0;box-sizing:border-box';
+  box.innerHTML = `<button class="tnTap" type="button">Close photo</button><img alt="House photo" src="${esc(src)}">`;
+  box.querySelector('button').onclick = () => box.close();
+  box.addEventListener('close', () => { box.remove(); if (opener?.isConnected) opener.focus(); }, { once: true });
   document.body.append(box);
+  // Native modal semantics provide Escape dismissal and contain keyboard focus.
+  box.showModal();
 }
 
 start();

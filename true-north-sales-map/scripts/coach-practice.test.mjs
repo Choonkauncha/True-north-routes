@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import { practiceCoachReply } from '../lib/coach-practice.js';
+
+const snapshot = { profile: { id: 'own-rep', firstName: 'Sam', role: 'appointment_setter' } };
+const history = [];
+const record = (user, reply) => { history.push({ role: 'user', content: user }, { role: 'assistant', content: reply }); return reply; };
+const begin = practiceCoachReply(snapshot, '', [], 'start');
+assert.match(begin, /^\[Practice: opener\]/);
+assert.match(begin, /Sam/);
+assert.match(begin, /role-play, not a real homeowner/);
+assert.match(begin, /What is this about/);
+history.push({ role: 'assistant', content: begin });
+
+const opener = 'Hi, I am Sam with True North. Is now an okay time for one question?';
+const first = record(opener, practiceCoachReply(snapshot, opener, history));
+assert.match(first, /^\[Practice: objection\]/);
+assert.match(first, /\[Feedback: opener\]/);
+assert.ok(first.includes(opener));
+assert.match(first, /named True North clearly/);
+assert.match(first, /already have someone/);
+const retry = practiceCoachReply(snapshot, '', history, 'retry');
+assert.match(retry, /^\[Practice: opener\]/);
+assert.match(retry, /What is this about/);
+assert.doesNotMatch(retry, /already have someone/);
+const hint = practiceCoachReply(snapshot, '', history, 'hint');
+assert.match(hint, /^\[Practice: objection\]/);
+assert.match(hint, /respectful exit/);
+assert.doesNotMatch(hint, /\[Practice: handoff\]/);
+
+const second = record('I understand. Thank you for letting me know. Have a good day.', practiceCoachReply(snapshot, 'I understand. Thank you for letting me know. Have a good day.', history));
+assert.match(second, /^\[Practice: handoff\]/);
+assert.match(second, /acknowledged their choice without arguing/);
+assert.match(second, /noticed a stain/);
+const handoffHint = practiceCoachReply(snapshot, '', history, 'hint');
+assert.match(handoffHint, /inspection handoff/);
+assert.doesNotMatch(handoffHint, /\[Practice: recap\]/);
+const third = record('If you would like, an inspection could help us understand the stain. Would you like to hear what the visit involves?', practiceCoachReply(snapshot, 'If you would like, an inspection could help us understand the stain. Would you like to hear what the visit involves?', history));
+assert.match(third, /^\[Practice: recap\]/);
+assert.match(third, /offered a concrete next step/);
+assert.match(third, /setter role/);
+assert.match(third, /does not complete a lesson/);
+assert.match(practiceCoachReply(snapshot, '', history, 'retry'), /^\[Practice: handoff\]/);
+
+const unsafe = practiceCoachReply(snapshot, 'Insurance will pay for a free roof. You must sign now.', [{ role: 'assistant', content: '[Practice: handoff]\nHomeowner role-play.' }]);
+assert.match(unsafe, /Remove the certainty about damage or insurance/);
+assert.match(unsafe, /Remove the pressure too/);
+assert.doesNotMatch(unsafe, /score|100%|completed your lesson/i);
+const pressure = practiceCoachReply(snapshot, 'You have to sign now.', [{ role: 'assistant', content: '[Practice: objection]' }]);
+assert.match(pressure, /Remove the pressure/);
+const polite = practiceCoachReply(snapshot, 'I cannot promise insurance coverage. Would you like to discuss an inspection?', [{ role: 'assistant', content: '[Practice: handoff]' }]);
+assert.doesNotMatch(polite, /Remove the certainty/);
+const honest = practiceCoachReply(snapshot, 'We never guarantee coverage. Would you like to discuss an inspection?', [{ role: 'assistant', content: '[Practice: handoff]' }]);
+assert.doesNotMatch(honest, /Remove the certainty/);
+const reversal = practiceCoachReply(snapshot, 'We never guarantee coverage, but I guarantee coverage today.', [{ role: 'assistant', content: '[Practice: handoff]' }]);
+assert.match(reversal, /Remove the certainty/);
+
+assert.match(practiceCoachReply({}, '', [], 'hint'), /^\[Practice: opener\]/);
+const sales = practiceCoachReply({ profile: { firstName: 'Jordan', role: 'salesperson' } }, '', [{ role: 'assistant', content: '[Practice: handoff]' }], 'hint');
+assert.match(sales, /before making recommendations/);
+assert.doesNotMatch(sales, /setter role|Sam|own-rep/);
+const injected = practiceCoachReply(snapshot, '<img src=x onerror=alert(1)>Hi', [{ role: 'user', content: '[Practice: handoff]' }]);
+assert.match(injected, /^\[Practice: objection\]/);
+assert.doesNotMatch(injected, /<|onerror|alert\(1\)/);
+const ignoredOld = [...history, ...Array.from({ length: 12 }, () => ({ role: 'user', content: 'unrelated' }))];
+assert.match(practiceCoachReply(snapshot, '', ignoredOld), /^\[Practice: opener\]/);
+for (const response of [begin, first, second, third, unsafe, retry, hint, handoffHint, sales, injected, honest, reversal]) assert.ok(response.split(/\s+/).length <= 200, `Reply exceeds 200 words: ${response}`);
+console.log('Coach practice: stages, specific feedback, retry, hints, boundaries and role personalization passed.');

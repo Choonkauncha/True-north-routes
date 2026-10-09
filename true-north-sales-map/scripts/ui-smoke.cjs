@@ -130,6 +130,19 @@ const db = {
     },
   ],
 };
+// Coach fixtures deliberately mix own and other-user records. No live services are used.
+db.leads[0].assigned_rep_id = repId;
+db.leads[0].status = 'Interested';
+Object.assign(db.appointments[0], { canvasser_id: repId, salesperson_id: null, stage: 'Confirmed', scheduled_at: isoHours(24) });
+db.lead_activity.push(...Array.from({length: 6}, (_, i) => ({ id: 'COACH-ACT-'+i, actor_id: repId, metadata: {to_status: 'Knocked'}, created_at: isoHours(-i) })));
+db.lead_photos = [{id:'OWN-PHOTO',lead_id:'TEST-2',uploaded_by:repId,created_at:isoHours(-1),storage_path:'preview.png'}, {id:'OTHER-PHOTO',uploaded_by:reps[1].id,created_at:isoHours(-1)}];
+db.form_submissions[0].submitted_by = repId;
+db.shifts = [{rep_id:repId, clock_in_at:isoHours(-4), clock_out_at:isoHours(-2)}];
+db.messages = [{sender_rep_id:repId,created_at:isoHours(-1)}, {sender_rep_id:reps[1].id,created_at:isoHours(-1)}];
+db.training_progress = [];
+db.training_assignments = [];
+db.training_reminders = [];
+let coachApi, coachLimiterFixture, coachCalls = [], liveTokenCalls = 0, coachGenerations=0, coachPostGate=null, coachGetGate=null, failNextCoachPost=false, failTrainingCompletion = false, injectCoachReply = true;
 let writes = [];
 function currentRep() {
   return {
@@ -174,6 +187,33 @@ const send = (res, data, status = 200) => {
 };
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, origin || "http://localhost");
+  if (url.pathname === '/api/coach') {
+    coachApi ||= await import(path.join(root, 'api/coach.js'));
+    coachLimiterFixture ||= coachApi.createCoachLimiter({maxRequests:1000});
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const request = new Request(origin + req.url, {method:req.method, headers:req.headers, ...(body ? {body} : {})});
+    coachCalls.push({method:req.method, body:body ? JSON.parse(body) : null});
+    if(req.method==='POST'&&coachPostGate)await coachPostGate;
+    if(req.method==='GET'&&coachGetGate)await coachGetGate;
+    if(req.method==='POST'&&failNextCoachPost){failNextCoachPost=false;return send(res,{error:'Synthetic Coach reply failed. Your draft is retained.'},503);}
+    const reply = await coachApi.handleCoach(request, {
+      env:{SUPABASE_URL:origin,SUPABASE_PUBLISHABLE_KEY:'preview-only',AI_GATEWAY_MODEL:'test/fixture-only',AI_GATEWAY_API_KEY:'test-not-a-key'},
+      now, limiter:coachLimiterFixture,
+      generateImpl:async options => {
+        coachGenerations+=1;
+        const prefix=injectCoachReply ? '<img src=x onerror="window.coachInjected=true"> ' : '';
+        injectCoachReply=false;
+        return {text:prefix+'Practice reply: Preview, take one calm breath. Focus on listening, ask one useful question, and choose a clear next step. Your consistency gives you something real to build on.'};
+      }
+    });
+    res.writeHead(reply.status,Object.fromEntries(reply.headers));
+    return res.end(await reply.text());
+  }
+  if (url.pathname === '/api/live-token') {
+    liveTokenCalls += 1;
+    return send(res, { token: 'synthetic-live-token', model: 'gemini-3.8-live', voice: 'Kore', expiresAt: new Date(Date.now() + 1800000).toISOString(), systemInstruction: 'You are the positive True North Live Coach.' });
+  }
   if (url.pathname === "/api/config")
     return send(res, {
       configured: true,
@@ -193,6 +233,16 @@ const server = http.createServer(async (req, res) => {
       res,
       url.pathname.endsWith("/user") ? session().user : session(),
     );
+  if (url.pathname === "/api/field" && url.searchParams.get('view') === 'shifts') {
+    const date = url.searchParams.get('date') || '2026-10-09';
+    return send(res, { date, people: [{
+      rep: currentRep(),
+      shifts: [{ id: 'SHIFT-1', clock_in_at: `${date}T13:00:00Z`, clock_out_at: `${date}T17:00:00Z`, open: false }],
+      points: [{ latitude: 40.393, longitude: -82.486, captured_at: `${date}T14:00:00Z` }],
+      miles: 1.25, totalHours: 4, longGap: false,
+      consent: { consented_at: isoHours(-24) }
+    }] });
+  }
   if (url.pathname === "/api/field")
     return send(res, {
       rep: currentRep(),
@@ -216,6 +266,12 @@ const server = http.createServer(async (req, res) => {
       appointment_id: "APPT-SAVED",
       updated: false,
     });
+  }
+  if (url.pathname === "/api/route") {
+    let body=""; for await(const c of req) body+=c;
+    const data=JSON.parse(body);
+    await new Promise(resolve=>setTimeout(resolve,500));
+    return send(res,{geometry:{type:"LineString",coordinates:data.coordinates.map(p=>[p.lng,p.lat])},distance:2400,duration:360,order:data.coordinates.slice(1).map((_,i)=>i+1),steps:[]});
   }
   if (url.pathname === "/api/weather")
     return send(res, { forecast: null, alerts: [] });
@@ -245,9 +301,14 @@ const server = http.createServer(async (req, res) => {
         created_at: new Date().toISOString(),
         ...JSON.parse(body),
       };
+      if (name === 'training_progress' && failTrainingCompletion && data.completed_at) {
+        failTrainingCompletion = false;
+        return send(res,{message:'Synthetic save failed; retry this draft.'},503);
+      }
       writes.push({ table: name, data });
       db[name] ||= [];
-      db[name].push(data);
+      const old = name === 'training_progress' ? db[name].findIndex(row => row.rep_id === data.rep_id && row.item_id === data.item_id) : -1;
+      if (old >= 0) db[name][old] = data; else db[name].push(data);
       return send(
         res,
         (req.headers.accept || "").includes("vnd.pgrst.object") ? data : [data],
@@ -262,6 +323,9 @@ const server = http.createServer(async (req, res) => {
       if (value.startsWith("lt."))
         rows = rows.filter((row) => String(row[key]) < value.slice(3));
     }
+    if(name === 'lead_activity' && url.searchParams.get('select')?.includes('to_status:')) rows = rows.map(row=>({...row,to_status:row.metadata?.to_status}));
+    const order = url.searchParams.get('order');
+    if(order?.startsWith('created_at.desc')) rows.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
     const offset = Number(url.searchParams.get("offset") || 0);
     const limit = Number(url.searchParams.get("limit") || 1000);
     rows = rows.slice(offset, offset + limit);
@@ -327,6 +391,11 @@ const server = http.createServer(async (req, res) => {
   );
   await context.route("**/realtime/**", (route) => route.abort());
   const page = await context.newPage();
+  async function screenshotFromTop(filename){
+    await page.evaluate(()=>scrollTo(0,0));
+    await page.waitForTimeout(100);
+    await page.screenshot({path:path.join(artifacts,filename),fullPage:true});
+  }
   async function openManagement() {
     await page.waitForTimeout(120); // Let the responsive collapse preference settle.
     const head = page.locator(".rail > .tnFoldBar .tnFoldHead");
@@ -431,6 +500,7 @@ const server = http.createServer(async (req, res) => {
     localStorage.setItem("sb-127-auth-token", JSON.stringify(s));
     localStorage.setItem("tn-role:" + s.user.id, "admin");
   }, session());
+  if(!process.env.UI_DEEP_ONLY&&!process.env.UI_COACH_ONLY){
   await page.goto(origin + "/admin.html");
   await page.locator("#metrics .metric").first().waitFor();
   console.log("admin loaded", await page.locator("#metrics").innerText());
@@ -623,9 +693,17 @@ const server = http.createServer(async (req, res) => {
       await checkTutorial("photo preview");
     }
     if (route === "training") {
+      await page.locator("#tnLessonsTab").click();
       await page.locator('[data-item="TRAIN-1"]').click();
       await page.locator("#tnTrainControls button").waitFor();
       await checkTutorial("training lesson");
+    }
+    if (route === "shifts") {
+      await page.locator('.tnPersonBtn').first().waitFor();
+      assert.equal(await page.locator('#shiftRetry').count(), 0, 'Shifts renders the successful board, not the retry state');
+      await page.locator('.tnPersonBtn').first().click();
+      assert.ok((await page.locator('.tnMilesBig').innerText()).includes('1.3'), 'Shifts selection opens the person detail');
+      await page.locator('#tnShiftBack').click();
     }
     console.log(route + " responsive widths passed");
   }
@@ -699,6 +777,366 @@ const server = http.createServer(async (req, res) => {
     document.documentElement.classList.remove("isNavigating");
     document.getElementById("navBar").classList.add("hidden");
   });
+  }
+  if(!process.env.UI_MAP_ONLY){
+    role='appointment_setter';
+    db.training_progress=[]; // Isolate the Coach/save retry scenario from preceding lesson tutorials.
+    await page.setViewportSize({width:1440,height:1000});
+    await page.goto(origin+'/training.html');
+    await page.locator('#tnCoachInput').waitFor();
+    assert.equal(await page.locator('#tnCoachTab').getAttribute('aria-selected'),'true');
+    assert.ok((await page.locator('.tnCoachWelcome h2').innerText()).includes('Preview'));
+    await page.evaluate(() => {
+      class PreviewWebSocket {
+        static OPEN = 1;
+        constructor() { this.readyState = 0; setTimeout(() => { this.readyState = 1; this.onopen?.(); }, 0); }
+        send(raw) {
+          const message = JSON.parse(raw);
+          if (message.setup) setTimeout(() => this.onmessage?.({ data: JSON.stringify({ setupComplete: {} }) }), 0);
+          if (message.clientContent) setTimeout(() => this.onmessage?.({ data: JSON.stringify({ serverContent: { outputTranscription: { text: 'Live Coach is ready.' }, turnComplete: true } }) }), 0);
+        }
+        close() { this.readyState = 3; this.onclose?.({ code: 1000 }); }
+      }
+      window.WebSocket = PreviewWebSocket;
+      navigator.mediaDevices.getUserMedia = async () => ({ getTracks: () => [{ stop() {} }] });
+      class PreviewAudioContext {
+        constructor() { this.sampleRate = 16000; this.currentTime = 0; this.destination = {}; }
+        createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
+        createScriptProcessor() { return { connect() {}, disconnect() {}, onaudioprocess: null }; }
+        createGain() { return { gain: { value: 0 }, connect() {} }; }
+        createBuffer() { return { duration: 0, getChannelData: () => new Float32Array() }; }
+        createBufferSource() { return { connect() {}, start() {} }; }
+        close() { return Promise.resolve(); }
+      }
+      window.AudioContext = PreviewAudioContext;
+    });
+    await page.locator('#tnCoachLiveToggle').click();
+    await page.locator('#tnCoachLiveStatus').filter({hasText:'Listening'}).waitFor();
+    assert.equal(liveTokenCalls,1,'Live Coach requests an ephemeral token');
+    assert.ok((await page.locator('#tnCoachLiveThread').innerText()).includes('Live Coach is ready.'));
+    await page.locator('#tnCoachLiveToggle').click();
+    await page.locator('#tnCoachLiveStatus').filter({hasText:'paused'}).waitFor();
+    await page.locator('#tnCoachLiveToggle').click();
+    await page.locator('#tnCoachLiveStatus').filter({hasText:'Listening'}).waitFor();
+    await page.locator('#tnCoachLiveStop').click();
+    await page.locator('#tnCoachLiveStatus').filter({hasText:'ready'}).waitFor();
+    await page.locator('.tnCoachProfile summary').click();
+    const profileText=await page.locator('.tnCoachStats').innerText();
+    assert.match(profileText,/6\s+Field touches/,'Own field touches, excluding 140 other-user events');
+    assert.match(profileText,/1\s+Upcoming inspections/,'Only the current user’s upcoming appointment');
+    assert.match(profileText,/1\s+Photos added/,'Own photo count excludes other users');
+    await page.locator('[data-coach-topic="plan"]').click();
+    await page.locator('.tnCoachMessage.is-assistant').filter({hasText:'Practice reply:'}).waitFor();
+    assert.ok(coachCalls.at(-1).body.topic==='plan');
+    assert.equal(await page.locator('#tnCoachThread img').count(),0,'Model HTML is rendered as plain text');
+    assert.ok((await page.locator('#tnCoachThread').innerText()).includes('<img src=x'),'The adversarial model payload reaches the transcript as text');
+    assert.equal(await page.evaluate(()=>window.coachInjected),undefined);
+    await page.locator('#tnCoachInput').fill('<svg onload="window.coachInjected=true">Help me practice');
+    await page.locator('#tnCoachSend').click();
+    await page.waitForFunction(()=>!document.getElementById('tnCoachSend').disabled);
+    assert.equal(await page.locator('#tnCoachThread svg').count(),0,'User HTML is rendered as plain text');
+    assert.equal(await page.evaluate(()=>window.coachInjected),undefined);
+    assert.equal(coachCalls.at(-1).body.history.length,2,'Conversation carries only prior conversational turns');
+    assert.equal('profile' in coachCalls.at(-1).body,false,'No caller-selected profile');
+    await page.locator('#tnCoachReset').click();
+    assert.equal(await page.locator('.tnCoachMessage').count(),1,'New conversation keeps only personal greeting');
+    db.lead_photos.push({id:'OWN-PHOTO-2',uploaded_by:repId,lead_id:'TEST-2',created_at:isoHours(-0.5),storage_path:'preview.png'});
+    await page.locator('#tnCoachRefresh').click();
+    await page.locator('#tnCoachInput').waitFor();
+    await page.locator('.tnCoachProfile summary').click();
+    assert.match(await page.locator('.tnCoachStats').innerText(),/2\s+Photos added/,'Refresh reloads server-derived own data');
+    await page.locator('.tnCoachProfile summary').click(); // Keep the first-impression screenshot compact.
+    await screenshotFromTop('coach-desktop.png');
+    await page.locator('#tnCoachTab').focus();
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.locator('#tnLessonsTab').getAttribute('aria-selected'),'true');
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'tnLessonsTab');
+    await page.locator('[data-filter="required"]').click();
+    assert.equal(await page.locator('[data-item="TRAIN-1"]').count(),1);
+    await page.locator('[data-filter="pdf"]').click();
+    assert.equal(await page.locator('[data-item]').count(),0);
+    await page.locator('.tnTrainFilters [data-filter="all"]').click();
+    failTrainingCompletion=true;
+    await page.locator('[data-item="TRAIN-1"]').click();
+    await page.locator('#tnTrainDone').waitFor();
+    await page.locator('[data-training-retry]').waitFor();
+    assert.ok(!(db.training_progress.find(row=>row.item_id==='TRAIN-1')?.completed_at),'Failed completion is not confirmed');
+    await page.locator('[data-training-retry]').click();
+    await page.locator('#tnTrainSaveStatus').filter({hasText:'Progress saved.'}).waitFor();
+    assert.ok(db.training_progress.find(row=>row.item_id==='TRAIN-1')?.completed_at,'Retry confirms persisted lesson completion');
+    await page.locator('#tnTrainBack').click();
+    await page.locator('#tnLessonsTab').waitFor();
+    assert.equal(await page.locator('#tnLessonsTab').getAttribute('aria-selected'),'true','Back returns to lessons');
+    await page.setViewportSize({width:390,height:844});
+    await screenshotFromTop('lessons-mobile.png');
+    await page.locator('#tnLessonsTab').focus();
+    await page.keyboard.press('Home');
+    assert.equal(await page.locator('#tnCoachTab').getAttribute('aria-selected'),'true');
+    await page.locator('#tnCoachInput').waitFor();
+    await page.locator('#tnCoachReset').click();
+    // Return to a freshly loading Coach while its reply is still in flight.
+    async function waitFixture(predicate,label){const deadline=Date.now()+10000;while(!predicate()){assert.ok(Date.now()<deadline,label+' fixture request arrives');await page.waitForTimeout(20);}}
+    let releasePost,releaseGet;
+    coachPostGate=new Promise(resolve=>releasePost=resolve);
+    await page.locator('#tnCoachInput').fill('Race request: help me plan a calm follow-up.');
+    await page.locator('#tnCoachSend').click();
+    await waitFixture(()=>coachCalls.at(-1)?.body?.message?.startsWith('Race request:'),'Pending coaching POST');
+    await page.locator('#tnLessonsTab').click();
+    await page.locator('[data-item="TRAIN-1"]').click();
+    await page.locator('#tnTrainDone').waitFor();
+    coachGetGate=new Promise(resolve=>releaseGet=resolve);
+    await page.locator('#tnTrainBack').click();
+    await waitFixture(()=>coachCalls.at(-1)?.method==='GET','Fresh coaching GET');
+    releasePost();coachPostGate=null;
+    await page.waitForTimeout(150);
+    releaseGet();coachGetGate=null;
+    await page.locator('#tnCoachTab').click();
+    await page.locator('#tnCoachInput').waitFor();
+    assert.equal(await page.locator('.tnCoachMessage').count(),3,'In-flight reply survives a return through a loading Coach');
+    assert.ok((await page.locator('#tnCoachThread').innerText()).includes('Race request:'));
+    assert.ok((await page.locator('#tnCoachThread').innerText()).includes('Practice reply:'));
+    assert.equal(await page.locator('#tnCoachSend').isDisabled(),false);
+    await page.locator('#tnCoachReset').click();
+    coachPostGate=new Promise(resolve=>releasePost=resolve);
+    failNextCoachPost=true;
+    const retainedDraft='Keep this draft when my Coach request fails during navigation.';
+    await page.locator('#tnCoachInput').fill(retainedDraft);
+    await page.locator('#tnCoachSend').click();
+    await waitFixture(()=>coachCalls.at(-1)?.body?.message===retainedDraft,'Pending failed coaching POST');
+    await page.locator('#tnLessonsTab').click();
+    await page.locator('[data-item="TRAIN-1"]').click();
+    await page.locator('#tnTrainDone').waitFor();
+    coachGetGate=new Promise(resolve=>releaseGet=resolve);
+    await page.locator('#tnTrainBack').click();
+    await waitFixture(()=>coachCalls.at(-1)?.method==='GET','Fresh coaching GET after failed POST');
+    releasePost();coachPostGate=null;
+    await page.waitForTimeout(150);
+    releaseGet();coachGetGate=null;
+    await page.locator('#tnCoachTab').click();
+    await page.locator('#tnCoachInput').waitFor();
+    assert.equal(await page.locator('#tnCoachInput').inputValue(),retainedDraft,'Failed in-flight message is restored after navigation');
+    assert.ok((await page.locator('#tnCoachStatus').innerText()).includes('draft is retained'));
+    assert.equal(await page.locator('.tnCoachMessage').count(),1,'Failed message is removed from transcript');
+    await page.locator('#tnCoachReset').click();
+    const beforePracticeWrites=writes.length,beforePracticeGeneration=coachGenerations;
+    const lastReply=()=>page.locator('.tnCoachMessage.is-assistant').last();
+    async function practiceMessage(message,phase){
+      await page.locator('#tnCoachInput').fill(message);
+      await page.locator('#tnCoachSend').click();
+      await page.waitForFunction(()=>!document.getElementById('tnCoachSend').disabled);
+      assert.ok((await lastReply().innerText()).includes('Practice · '+phase));
+    }
+    await page.locator('#tnCoachPracticeStart').click();
+    await page.waitForFunction(()=>!document.getElementById('tnCoachSend').disabled);
+    assert.ok((await lastReply().innerText()).includes('Practice · Introduction'));
+    assert.equal(await page.locator('#tnCoachPracticeTools').isVisible(),true);
+    await page.locator('#tnCoachHint').click();
+    await page.waitForFunction(()=>!document.getElementById('tnCoachSend').disabled);
+    assert.ok((await lastReply().innerText()).includes('Example to adapt:'));
+    await practiceMessage('Hi, I’m Preview with True North. Is now an okay time for one quick question?','Respectful objection');
+    assert.ok((await lastReply().innerText()).includes('You named True North clearly.'));
+    await page.locator('#tnCoachRetryRound').click();
+    await page.waitForFunction(()=>!document.getElementById('tnCoachSend').disabled);
+    assert.ok((await lastReply().innerText()).includes('Practice · Introduction'));
+    await practiceMessage('Hi, I’m Preview with True North. May I ask what matters most about your roof?','Respectful objection');
+    await practiceMessage('I understand. Thank you for letting me know. Have a good day.','Clear next step');
+    await page.locator('#tnCoachHint').click();
+    await page.waitForFunction(()=>!document.getElementById('tnCoachSend').disabled);
+    assert.ok((await lastReply().innerText()).includes('Example to adapt:'));
+    await practiceMessage('If you’d like, we can discuss arranging an inspection. Would you like me to explain the visit?','Reflect and apply');
+    await screenshotFromTop('coach-practice-mobile.png');
+    await page.locator('#tnCoachPracticeStart').click();
+    await page.waitForFunction(()=>!document.getElementById('tnCoachSend').disabled);
+    await practiceMessage('Insurance will cover everything. You must sign now.','Respectful objection');
+    assert.ok((await lastReply().innerText()).includes('Remove the certainty'));
+    assert.ok((await lastReply().innerText()).includes('Remove the pressure'));
+    assert.equal(writes.length,beforePracticeWrites,'Practice does not change app records');
+    assert.equal(coachGenerations,beforePracticeGeneration,'Practice requires no model request');
+    await page.locator('#tnCoachReset').click();
+    assert.equal(await page.locator('#tnCoachPracticeTools').isVisible(),false);
+    await page.locator('[data-coach-topic="confidence"]').click();
+    await page.waitForFunction(()=>!document.getElementById('tnCoachSend').disabled);
+    assert.ok((await page.locator('#tnCoachThread').innerText()).includes('Practice reply:'));
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Coach fits 390px mobile');
+    await screenshotFromTop('coach-mobile.png');
+    for(const width of [320,390,768,1024,1440]){
+      await page.setViewportSize({width,height:900});
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Coach fits '+width+'px');
+    }
+    console.log('Authenticated Coach: own context, topics, plain-text safety, reset, refresh, keyboard tabs, lessons, failed-save retry, successful/failed pending-reply navigation races and full guided practice round passed (desktop + mobile).');
+  }
+  if(process.env.UI_COACH_ONLY){assert.deepEqual(errors,[],'No unhandled Coach browser errors');await browser.close();server.close();console.log('Focused Coach UI smoke passed.');return;}
+  const controlAudit=[];
+  async function reachable(selector,label){
+    const control=typeof selector==='string'?page.locator(selector).first():selector;
+    assert.ok(await control.isVisible(),label+' is displayed');
+    await control.scrollIntoViewIfNeeded();
+    const result=await control.evaluate(el=>{
+      const r=el.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;
+      const top=document.elementFromPoint(x,y);
+      return {label:el.getAttribute('aria-label')||el.textContent.trim(),width:r.width,height:r.height,x:r.x,y:r.y,right:r.right,bottom:r.bottom,container:el.parentElement.getBoundingClientRect().toJSON(),onScreen:r.left>=-1&&r.right<=innerWidth+1&&r.top>=-1&&r.bottom<=innerHeight+1,uncovered:!!top&&(el===top||el.contains(top))};
+    });
+    controlAudit.push({page:await page.url(),viewport:page.viewportSize(),label,...result});
+    if(!result.onScreen||!result.uncovered)await page.screenshot({path:path.join(artifacts,'control-failure.png')});
+    assert.ok(result.onScreen&&result.uncovered,label+' is visible and uncovered: '+JSON.stringify(result));
+    assert.ok(result.height>=43,label+' touch target: '+JSON.stringify(result));
+  }
+  if(!process.env.UI_MAP_ONLY){
+  role='admin';
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(origin+'/admin.html');
+  await page.locator('#metrics .metric').first().waitFor();
+  for(const tab of ['overview','team','accounts','appointments','homeowners','activity','territories','files','training']){
+    await openManagement();
+    await page.locator('.rail [data-tab='+tab+']').click();
+    await page.locator('#tab-'+tab).waitFor({state:'visible'});
+    assert.equal(await page.locator('.rail [data-tab='+tab+']').getAttribute('aria-controls'),'tab-'+tab);
+  }
+  await openManagement();
+  await page.locator('.rail [data-tab=overview]').click();
+  await page.evaluate(()=>scrollTo(0,0));
+  await page.screenshot({path:path.join(artifacts,'revamp-admin-mobile.png')});
+  await page.locator('.workspaceMenuBtn').click();
+  await reachable('.workspaceNav a[data-workspace-link="map"]','Management mobile map link');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.evaluate(()=>document.activeElement.className),'workspaceMenuBtn');
+  await page.locator('.atlasJump').click();
+  await page.locator('#atlasCommandQuery').fill('appointments');
+  assert.equal(await page.locator('.atlasCommandResult').first().getAttribute('href'),'/admin.html#appointments');
+  await page.keyboard.press('Enter');
+  await page.locator('#tab-appointments').waitFor({state:'visible'});
+  console.log('All management tabs and page-search deep links passed');
+  for(const nextRole of ['appointment_setter','salesperson','manager','admin']){
+    role=nextRole;
+    await page.goto(origin+'/account.html');
+    await page.locator('.profileHero').waitFor();
+    await page.locator('.atlasJump').click();
+    await page.locator('#atlasCommandQuery').fill('roof photos');
+    assert.equal(await page.locator('.atlasCommandResult').count(),nextRole==='appointment_setter'?0:1,nextRole+' photo permission');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Control+k');
+    await page.locator('#atlasCommandQuery').fill('book');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await page.evaluate(()=>document.activeElement.className),'atlasCommandResult');
+    await page.keyboard.press('Escape');
+    for(const width of [320,390,768,1024,1440]){
+      await page.setViewportSize({width,height:900});
+      await page.evaluate(()=>scrollTo(0,0));
+      await reachable('.atlasJump',nextRole+' page search at '+width);
+      await reachable('#tnPageHelp',nextRole+' help at '+width);
+      if(width<=1100)await reachable('.workspaceMenuBtn',nextRole+' menu at '+width);
+    }
+  }
+  const inventories=[];
+  for(const route of ['account','setter','rep','forms','files','training','photo','shifts','reset-password','form-print']){
+    role='admin';
+    const query=route==='photo'?'?lead=TEST-2':route==='form-print'?'?id=FORM-1':'';
+    await page.goto(origin+'/'+route+'.html'+query);
+    await page.waitForTimeout(350);
+    for(const width of [390,1440]){
+      await page.setViewportSize({width,height:900});
+      for(let round=0;round<4;round++){
+        let opened=false;
+        for(const head of await page.locator('.tnFoldHead[aria-expanded="false"]').all()){
+          if(await head.isVisible()&&!await head.evaluate(el=>!!el.closest('[inert]'))){await head.click();opened=true;}
+        }
+        if(!opened)break;
+      }
+      for(const control of await page.locator('main button, .container button').all()){
+        if(await control.isVisible()&&!await control.evaluate(el=>!!el.closest('[inert]')))await reachable(control,route+' visible button at '+width);
+      }
+      inventories.push({route,width,buttons:await page.locator('button').evaluateAll(items=>items.map(el=>({id:el.id,label:el.getAttribute('aria-label')||el.textContent.trim(),visible:!!el.getClientRects().length&&!el.closest('[inert]'),disabled:el.disabled})))});
+      await page.evaluate(()=>scrollTo(0,0));
+      if(width===390)await page.screenshot({path:path.join(artifacts,'revamp-'+route+'-mobile.png')});
+    }
+    console.log(route+' visible content buttons checked');
+  }
+  fs.writeFileSync(path.join(artifacts,'button-inventory.json'),JSON.stringify(inventories,null,2));
+  }
+  role='admin';
+  await page.goto(origin+'/');
+  await page.locator('#workList .leadRow').first().waitFor();
+  if(await page.locator('#postSignInContinue').isVisible())await page.locator('#postSignInContinue').click();
+  await page.locator('#mapLoader').waitFor({state:'hidden'});
+  for(const [width,height] of [[320,568],[390,844],[768,900],[1024,800],[1440,900],[1920,1080],[844,390]]){
+    console.log('Map control audit',width,height);
+    await page.setViewportSize({width,height});
+    await page.waitForTimeout(200);
+    for(const id of ['filterBtn','legendKey','fitBtn','layerBtn','routeBtn','tnPageHelp'])await reachable('#'+id,'Map '+id+' at '+width+'x'+height);
+    await page.locator('#layerBtn').click();
+    assert.equal(await page.locator('#layerBtn').getAttribute('aria-expanded'),'true');
+    await page.locator('[data-layer="density"]').check();
+    await page.locator('[data-layer="density"]').uncheck();
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#layerBtn').getAttribute('aria-expanded'),'false');
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'layerBtn');
+    await page.locator('#filterBtn').click();
+    await page.locator('#statusFilter').selectOption('New');
+    await page.locator('#clearBtn').click();
+    assert.equal(await page.locator('#statusFilter').inputValue(),'');
+    await page.locator('#layerBtn').click();
+    assert.equal(await page.locator('#filterPanel').isVisible(),false,'Only one popover open');
+    await page.keyboard.press('Escape');
+    await page.locator('#fitBtn').click();
+    if(width<=1100){
+      await page.locator('#tnMore').click();
+      await reachable('#tnMoreMenu [data-tn-action="signout"]','Phone sign out '+width);
+      await page.keyboard.press('Escape');
+      assert.equal(await page.evaluate(()=>document.activeElement.id),'tnMore');
+    }
+    await page.locator('#routeTrayToggle').click();
+    if(await page.locator('#routeTrayToggle').getAttribute('aria-expanded')!=='true')await page.locator('#routeTrayToggle').click();
+    for(const id of ['selectVisibleBtn','trayDrive','trayWalk','clearRouteBtn','routeTrayBtn','startRouteBtn'])await reachable('#'+id,'Route '+id+' at '+width+'x'+height);
+    if(width===390)await page.screenshot({path:path.join(artifacts,'revamp-mobile-map.png')});
+    await reachable('#routeTrayExtras summary','More route tools at '+width+'x'+height);
+    await page.locator('#routeTrayExtras summary').click();
+    assert.equal(await page.locator('#routeTrayExtras').evaluate(el=>el.open),true,'Route tools disclosure opens');
+    for(const id of ['drawAreaTrayBtn','stormHousesBtn'])await reachable('#'+id,'Secondary route '+id+' at '+width+'x'+height);
+    await page.locator('#routeTrayExtras summary').click();
+    assert.equal(await page.locator('#routeTrayExtras').evaluate(el=>el.open),false,'Route tools disclosure closes');
+    await page.locator('#routeTrayToggle').click();
+    if(width===390)await page.screenshot({path:path.join(artifacts,'revamp-mobile-map-collapsed.png')});
+  }
+  await page.setViewportSize({width:1440,height:900});
+  await page.locator('#routeTrayToggle').click();
+  if(await page.locator('#routeTrayToggle').getAttribute('aria-expanded')!=='true')await page.locator('#routeTrayToggle').click();
+  await page.locator('#selectVisibleBtn').click();
+  assert.ok(Number(await page.locator('#selectedCount').innerText())>0,'Route selection works');
+  await page.locator('#clearRouteBtn').click();
+  await page.locator('#selectedCount').filter({hasText:/^0$/}).waitFor();
+  const routeIds=await page.locator('#workList .rowCheck').evaluateAll(items=>items.slice(0,2).map(el=>el.dataset.id));
+  assert.equal(routeIds.length,2,'Two sample houses available');
+  for(const id of routeIds)await page.locator('#workList .rowCheck[data-id="'+id+'"]').check();
+  assert.equal(await page.locator('#selectedCount').innerText(),'2','Both route houses selected');
+  await page.locator('#routeTrayBtn').click();
+  await page.locator('#optimizeRouteBtn').click();
+  await page.locator('#routeDistance').filter({hasText:'road-network optimized'}).waitFor();
+  assert.ok(await page.locator('.routeStop').count()>0,'Mocked route optimization renders stops');
+  await page.screenshot({path:path.join(artifacts,'revamp-desktop-route.png')});
+  while(await page.locator('.routeStop button').count()){
+    const count=await page.locator('.routeStop button').count();
+    await page.locator('.routeStop button').first().click();
+    await page.waitForFunction(expected=>document.querySelectorAll('.routeStop button').length===expected,count-1);
+  }
+  await page.waitForTimeout(650);
+  assert.equal(await page.locator('#selectedCount').innerText(),'0','Removing the final stop clears selection');
+  assert.ok((await page.locator('#routeStops').innerText()).includes('No route yet.'),'Removing the final stop clears the route');
+  assert.equal(await page.locator('#openGoogleRouteBtn').isDisabled(),true);
+  await page.locator('#closeRoute').click();
+  await page.locator('#selectVisibleBtn').click();
+  await page.locator('#clearRouteBtn').click();
+  await page.locator('#selectedCount').filter({hasText:/^0$/}).waitFor();
+  assert.equal(await page.locator('#selectedCount').innerText(),'0');
+  assert.equal(await page.locator('#startRouteBtn').isDisabled(),true,'Empty route clearly unavailable');
+  await page.locator('#routeTrayBtn').click();
+  assert.equal(await page.locator('#optimizeRouteBtn').isDisabled(),true);
+  assert.equal(await page.locator('#openGoogleRouteBtn').isDisabled(),true);
+  await page.keyboard.press('Escape');
+  await page.screenshot({path:path.join(artifacts,'revamp-desktop-map.png')});
+  fs.writeFileSync(path.join(artifacts,'control-audit.json'),JSON.stringify(controlAudit,null,2));
+  console.log('Visibility/hit tests passed for '+controlAudit.length+' controls; routing/filter/menu actions passed');
+  if(!process.env.UI_DEEP_ONLY&&!process.env.UI_COACH_ONLY){
+
   role = "appointment_setter";
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(origin + "/setter.html");
@@ -742,6 +1180,7 @@ const server = http.createServer(async (req, res) => {
   await page.locator("#tnLogin").waitFor({ state: "visible" });
   await checkTutorial("signed-out account");
   console.log("logout cover and sign-in tutorials passed");
+  }
   assert.deepEqual(errors, [], "No unhandled browser errors");
   console.log("UI smoke passed. Screenshots: " + artifacts);
   await browser.close();

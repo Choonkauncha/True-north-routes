@@ -4,6 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { build } from 'esbuild';
 
 const root = path.resolve(import.meta.dirname, '..');
 const types = {
@@ -26,9 +27,9 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 
 const browser = await chromium.launch({
-  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || '/usr/bin/google-chrome',
+  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? {executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE} : {}),
   headless: true,
-  args: ['--no-sandbox']
+  args: process.env.PLAYWRIGHT_CHROMIUM_ARGS ? JSON.parse(process.env.PLAYWRIGHT_CHROMIUM_ARGS) : ['--no-sandbox']
 });
 
 function menuBox(page) {
@@ -44,6 +45,8 @@ function menuBox(page) {
 
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const bundle = await build({entryPoints:[path.join(root,'node_modules/@supabase/supabase-js/dist/index.mjs')],bundle:true,format:'esm',platform:'browser',write:false});
+  await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm',route=>route.fulfill({contentType:'text/javascript',body:bundle.outputFiles[0].text}));
   await page.goto(origin + '/', { waitUntil: 'domcontentloaded' });
   await page.evaluate(() => document.documentElement.classList.remove('tn-signed-out'));
   await page.addScriptTag({ type: 'module', content: "import '/field-ops.js';" });

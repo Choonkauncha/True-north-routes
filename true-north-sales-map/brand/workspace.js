@@ -1,4 +1,5 @@
 import "./page-help.js";
+import { mountAtlas } from "./atlas.js";
 
 /** Shared workspace chrome. Authorization stays in the existing page modules. */
 const body = document.body;
@@ -25,6 +26,7 @@ const paths = {
     '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   arrow: '<path d="M7 17 17 7M7 7h10v10"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  shifts: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 function icon(key) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[key] || paths.arrow}</svg>`;
@@ -46,15 +48,16 @@ function mountNavigation() {
     ["forms", "/forms", "My forms"],
     ["photos", "/rep", "Roof photos"],
     ["training", "/training", "Training"],
+    ["shifts", "/shifts", "Shifts"],
     ["account", "/account", "My account"],
     ["management", "/admin", "Management"],
   ];
-  nav.innerHTML = `<a class="workspaceBrand" href="/" aria-label="True North home"><img src="/brand/logo-full.webp" alt="True North Restorations" width="168" height="128"><span>FIELD WORKSPACE</span></a><div class="workspaceNavLabel">YOUR WORKSPACE</div><div class="workspaceNavItems">${items.map(([key, href, label]) => `<a href="${href === "/" ? "/" : href + ".html"}" data-workspace-link="${key}" ${key === "management" || key === "photos" ? "hidden" : ""} ${page === href || (key === "photos" && page === "/photo") || (key === "management" && ["/files", "/shifts"].includes(page)) ? 'aria-current="page"' : ""}>${icon(key)}<span>${label}</span></a>`).join("")}</div><div class="workspaceNavFoot"><a href="/homeowner.html">Inspection form ${icon("arrow")}</a><p>Inspect honestly.<br>Document clearly.<br>Earn the job.</p></div>`;
+  nav.innerHTML = `<a class="workspaceBrand" href="/" aria-label="True North home"><img src="/brand/logo-full.webp" alt="True North Restorations" width="168" height="128"><span>FIELD WORKSPACE</span></a><div class="workspaceNavLabel">YOUR WORKSPACE</div><div class="workspaceNavItems">${items.map(([key, href, label]) => `<a href="${href === "/" ? "/" : href + ".html"}" data-workspace-link="${key}" ${["management", "photos", "shifts"].includes(key) ? "hidden" : ""} ${page === href || (key === "photos" && page === "/photo") || (key === "management" && page === "/files") ? 'aria-current="page"' : ""}>${icon(key)}<span>${label}</span></a>`).join("")}</div><div class="workspaceNavFoot"><a href="/homeowner.html">Inspection form ${icon("arrow")}</a><p>Inspect honestly.<br>Document clearly.<br>Earn the job.</p></div>`;
   body.prepend(nav);
   body.classList.add("has-workspace-nav");
 
-  // The management rail already provides mobile navigation; the map has its More menu.
-  if (!isMap && !isAdmin) {
+  // Every office/field page gets the same workspace menu; the map retains More.
+  if (!isMap) {
     const button = document.createElement("button");
     button.className = "workspaceMenuBtn";
     button.type = "button";
@@ -87,6 +90,9 @@ function mountNavigation() {
       close();
       button.focus();
     };
+    nav.addEventListener('click', (event) => {
+      if (event.target.closest('a') && nav.classList.contains('isOpen')) close();
+    });
     nav.addEventListener("keydown", (event) => {
       if (!nav.classList.contains("isOpen")) return;
       if (event.key === "Escape") {
@@ -113,6 +119,9 @@ function mountNavigation() {
   const sync = () => {
     const management = nav.querySelector('[data-workspace-link="management"]');
     const photo = nav.querySelector('[data-workspace-link="photos"]');
+    const shifts = nav.querySelector('[data-workspace-link="shifts"]');
+    const shiftSource = document.querySelector('.tnFieldOps .tnShiftsLink');
+    shifts.hidden = !(shiftSource && !shiftSource.hidden && !shiftSource.classList.contains('hidden'));
     const managementSource = document.querySelector(
       "#adminBtn, .tnHeader .tnManageLink, #managementDashboard",
     );
@@ -144,6 +153,7 @@ function mountNavigation() {
   });
   const app = document.querySelector("main");
   if (app) observer.observe(app, { childList: true, subtree: true });
+  mountAtlas(nav, header);
 }
 
 function enhanceContent() {

@@ -3,6 +3,7 @@ import './tn-files/password-reset.js';
 import { formatHours, formatMiles, incomingAlert, pointLabel, roleLabel } from './lib/field-rules.js';
 import { canUsePhotoBank, fieldHomeLinks } from './lib/role-access.js';
 import { mountSignInScreen, revealApp } from './brand/loader.js';
+import { createShiftDayLoader } from './lib/shift-day-load.js';
 
 const state = {
   sb: null,
@@ -32,6 +33,26 @@ const state = {
   map: null,
   trailLayer: null
 };
+
+const shiftDayLoader = createShiftDayLoader({
+  fetchDay: date => api(`/api/field?view=shifts&date=${encodeURIComponent(date)}`),
+  isAuthorized: () => Boolean(state.token && state.status?.isAdmin),
+  onLoading(date) {
+    state.shiftDate = date;
+    state.shifts = null;
+    renderShiftDayState(date);
+  },
+  onSuccess(data) {
+    state.shifts = data;
+    if (state.selectedRepId && !data.people.some(person => person.rep.id === state.selectedRepId)) {
+      state.selectedRepId = null;
+      state.shiftFocus = false;
+    }
+    renderShiftBoard();
+  },
+  onError: (error, date) => renderShiftDayState(date, error)
+});
+let shiftMapTimer = null;
 
 let markReady = () => {};
 const ready = new Promise(resolve => { markReady = resolve; });
@@ -279,19 +300,25 @@ function mountPhoneMenu() {
   else bar.appendChild(button);
   bar.appendChild(menu);
   const close = () => {
+    const restoreFocus = menu.contains(document.activeElement);
     menu.hidden = true;
     button.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) button.focus();
   };
   button.onclick = event => {
     event.stopPropagation();
     menu.hidden = !menu.hidden;
     button.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+    if (!menu.hidden) menu.querySelector('a,button')?.focus();
   };
   document.addEventListener('click', event => {
     if (!menu.hidden && !menu.contains(event.target) && event.target !== button) close();
   });
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') close();
+    if (event.key === 'Escape' && !menu.hidden) close();
+  });
+  menu.addEventListener('click', event => {
+    if (event.target.closest('a')) close();
   });
   fillRoleMenu();
   watchAdminButton();
@@ -308,6 +335,24 @@ function fillRoleMenu() {
       : `<a href="${esc(item.href)}">${esc(item.label)}</a>`
   )).join('');
   menu.hidden = !open;
+  const focusMap = document.getElementById('focusBtn');
+  if (focusMap) {
+    const focus = document.createElement('button');
+    focus.type = 'button';
+    focus.dataset.tnAction = 'focus';
+    focus.textContent = 'Toggle map focus';
+    focus.onclick = () => { menu.hidden = true; document.getElementById('tnMore')?.setAttribute('aria-expanded', 'false'); focusMap.click(); };
+    menu.append(focus);
+  }
+  const mapLogout = document.getElementById('logoutBtn');
+  if (mapLogout) {
+    const logout = document.createElement('button');
+    logout.type = 'button';
+    logout.textContent = 'Sign out';
+    logout.dataset.tnAction = 'signout';
+    logout.onclick = () => { menu.hidden = true; document.getElementById('tnMore')?.setAttribute('aria-expanded', 'false'); mapLogout.click(); };
+    menu.append(logout);
+  }
   menu.querySelector('[data-tn-action="message"]')?.addEventListener('click', () => {
     menu.hidden = true;
     document.getElementById('tnMore')?.setAttribute('aria-expanded', 'false');
@@ -645,7 +690,10 @@ function setClockBusy(label) {
 
 async function refreshStatus() {
   if (!state.token) return;
-  state.status = await api('/api/field?view=status');
+  const ticket = shiftsTicket;
+  const status = await api('/api/field?view=status');
+  if (!state.token || (document.getElementById('shiftsApp') && ticket !== shiftsTicket)) return;
+  state.status = status;
   renderWidget();
   watchIncoming(state.status);
   ensureRealtime().catch(() => {});
@@ -992,12 +1040,15 @@ function renderShiftsMessage(html) {
 }
 
 function renderShiftsLogin(message = '') {
+  shiftDayLoader.invalidate();
   destroyShiftMap();
   state.token = null;
   state.status = null;
   state.shifts = null;
   state.threads = [];
   state.messages = [];
+  state.selectedRepId = null;
+  state.shiftFocus = false;
   const root = document.getElementById('shiftsApp');
   mountSignInScreen(root);
   renderShiftsMessage(`
@@ -1033,6 +1084,11 @@ function renderShiftsLogin(message = '') {
 async function bootShifts() {
   const signOut = document.getElementById('shiftsSignOut');
   if (signOut) signOut.onclick = () => {
+    shiftsTicket += 1;
+    shiftDayLoader.invalidate();
+    clearInterval(state.poll);
+    clearInterval(state.ticker);
+    stopAlerts();
     document.documentElement.classList.add('tn-signed-out', 'tn-hold-login');
     const boot = document.getElementById('tnBootHold');
     if (boot) boot.classList.remove('isGone', 'isDone');
@@ -1063,10 +1119,23 @@ async function bootShifts() {
 }
 
 let shiftsTicket = 0;
+let shiftsUserId = null;
 
 async function enterShifts(session) {
   const ticket = ++shiftsTicket;
   const stale = () => ticket !== shiftsTicket;
+  shiftDayLoader.invalidate();
+  destroyShiftMap();
+  clearInterval(state.poll);
+  clearInterval(state.ticker);
+  state.shifts = null;
+  state.status = null;
+  const userId = session?.user?.id || null;
+  if (!userId || userId !== shiftsUserId) {
+    state.selectedRepId = null;
+    state.shiftFocus = false;
+  }
+  shiftsUserId = userId;
   if (!session) {
     state.token = null;
     state.status = null;
@@ -1077,9 +1146,12 @@ async function enterShifts(session) {
   }
   revealApp();
   state.token = session.access_token;
+  renderShiftsMessage('<p role="status">Loading your Shifts access…</p>');
   mountWidget();
   try {
-    state.status = await api('/api/field?view=status');
+    const status = await api('/api/field?view=status');
+    if (stale()) return;
+    state.status = status;
     watchIncoming(state.status);
     ensureRealtime().catch(() => {});
   } catch (error) {
@@ -1102,6 +1174,8 @@ async function enterShifts(session) {
 }
 
 function destroyShiftMap() {
+  clearTimeout(shiftMapTimer);
+  shiftMapTimer = null;
   if (!state.map) return;
   state.map.remove();
   state.map = null;
@@ -1109,20 +1183,41 @@ function destroyShiftMap() {
 }
 
 async function loadShiftDay(date) {
-  state.shiftDate = date;
-  destroyShiftMap();
-  renderShiftsMessage('<p class="small">Loading shifts…</p>');
-  try {
-    state.shifts = await api(`/api/field?view=shifts&date=${encodeURIComponent(date)}`);
-  } catch (error) {
-    renderShiftsMessage(`<div class="card pad"><h1>Could not load shifts.</h1><p>${esc(error.message)}</p></div>`);
-    return;
-  }
-  if (state.selectedRepId && !state.shifts.people.some(person => person.rep.id === state.selectedRepId)) {
-    state.selectedRepId = null;
+  // A cleared date picker has no day to fetch; leave the current screen intact.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return;
+  await shiftDayLoader.load(date);
+}
+
+function shiftDayControls(date) {
+  return `<div class="tnDayBar">
+    <div class="field"><label for="shiftDate">Day</label><input id="shiftDate" type="date" value="${esc(date)}"></div>
+    <button type="button" class="btn" id="shiftToday">Today</button>
+  </div>`;
+}
+
+function bindShiftDayControls() {
+  document.getElementById('shiftDate').onchange = event => {
     state.shiftFocus = false;
-  }
-  renderShiftBoard();
+    loadShiftDay(event.target.value);
+  };
+  document.getElementById('shiftToday').onclick = () => {
+    state.shiftFocus = false;
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    loadShiftDay(today);
+  };
+}
+
+function renderShiftDayState(date, error = null) {
+  const day = easternDayLabel(date);
+  renderShiftsMessage(`<div class="hero"><div><div class="eyebrow">FIELD TIME</div><h1>Shifts</h1></div></div>
+    ${shiftDayControls(date)}
+    <section class="card pad" aria-busy="${error ? 'false' : 'true'}">
+      <p role="${error ? 'alert' : 'status'}">${error ? `Could not load shifts for ${esc(day)}.` : `Loading shifts for ${esc(day)}…`}</p>
+      ${error ? `<p class="small">${esc(error.message || 'Please try again.')}</p><button class="btn dark" type="button" id="shiftRetry">Retry this day</button>` : ''}
+    </section>`);
+  bindShiftDayControls();
+  const retry = document.getElementById('shiftRetry');
+  if (retry) retry.onclick = () => loadShiftDay(date);
 }
 
 function personLine(person) {
@@ -1155,10 +1250,7 @@ function renderShiftBoard() {
         <p class="tnShiftNote">${esc(easternDayLabel(data.date))}. Tap a person to see where they went and the miles for the day. Miles are straight lines between saved points, not driving miles.</p>
       </div>
     </div>
-    <div class="tnDayBar">
-      <div class="field"><label for="shiftDate">Day</label><input id="shiftDate" type="date" value="${esc(data.date)}"></div>
-      <button type="button" class="btn" id="shiftToday">Today</button>
-    </div>
+    ${shiftDayControls(data.date)}
     <div class="tnShiftLayout">
       <div class="${phoneFocus ? 'tnPhoneHide' : ''}">
         <section class="tnNow" data-tn-panel="shift-now" data-tn-rank="primary">
@@ -1181,15 +1273,7 @@ function renderShiftBoard() {
         <p class="tnPointMeta" id="shiftMapCaption"></p>
       </div>
     </div>`);
-  document.getElementById('shiftDate').onchange = event => {
-    state.shiftFocus = false;
-    loadShiftDay(event.target.value);
-  };
-  document.getElementById('shiftToday').onclick = () => {
-    state.shiftFocus = false;
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-    loadShiftDay(today);
-  };
+  bindShiftDayControls();
   document.getElementById('tnShiftBack').onclick = () => {
     state.shiftFocus = false;
     renderShiftBoard();
@@ -1254,8 +1338,18 @@ function drawTrails() {
       ? `${selected.rep.name}: ${formatMiles(selected.miles)} across ${selected.points.length} point${selected.points.length === 1 ? '' : 's'}.`
       : 'Select a person to highlight their trail.';
   }
-  setTimeout(() => state.map.invalidateSize(), 60);
+  scheduleShiftMapResize(60);
   if (bounds.length) state.map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+}
+
+function scheduleShiftMapResize(delay) {
+  clearTimeout(shiftMapTimer);
+  const map = state.map;
+  if (!map) return;
+  shiftMapTimer = setTimeout(() => {
+    shiftMapTimer = null;
+    if (state.map === map) map.invalidateSize();
+  }, delay);
 }
 
 async function boot() {
@@ -1284,7 +1378,7 @@ document.addEventListener('keydown', event => {
 });
 document.addEventListener('tn-panel-toggle', event => {
   if (event.detail?.id === 'shift-trail' && event.detail.collapsed === false) {
-    setTimeout(() => state.map?.invalidateSize(), 240);
+    scheduleShiftMapResize(240);
   }
 });
 

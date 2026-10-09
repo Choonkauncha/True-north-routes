@@ -2,12 +2,12 @@ import {
   escapeHtml,
   formatClock,
   formatWhen,
-  isHighlighted,
   mediaMeta,
   statusLabel,
   typeBadge,
   watchCounts
 } from '../lib/training-progress.js';
+import { atlasIcon } from '../brand/atlas-icons.js';
 
 export function statusPill(row) {
   const status = statusLabel(row);
@@ -15,29 +15,40 @@ export function statusPill(row) {
 }
 
 export function thumbHtml(item) {
-  if (item.posterUrl) return `<span class="tnTrainThumb"><img src="${escapeHtml(item.posterUrl)}" alt=""></span>`;
-  const mark = item.kind === 'deck' ? 'Slides' : item.kind === 'pdf' ? 'PDF' : item.kind === 'image' ? 'Image' : 'Play';
-  return `<span class="tnTrainThumb"><i>${mark}</i></span>`;
+  if (item.posterUrl) return `<span class="tnTrainThumb" aria-hidden="true"><img src="${escapeHtml(item.posterUrl)}" alt="" loading="lazy" decoding="async"></span>`;
+  const icon = item.kind === 'video' || item.kind === 'external'
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 8 6 4-6 4z"/></svg>'
+    : atlasIcon({ deck: 'overview', pdf: 'forms', image: 'photos' }[item.kind] || 'files');
+  return `<span class="tnTrainThumb" aria-hidden="true">${icon}</span>`;
 }
 
 export function cardHtml(item, { progress, reminded, interactive = true } = {}) {
   const required = item.required || reminded;
   const meta = mediaMeta(item);
-  const body = `<span class="tnTrainBody"><span class="tnTrainTitle">${escapeHtml(item.title)}</span>${item.description ? `<span class="tnTrainDesc">${escapeHtml(item.description)}</span>` : ''}<span class="tnTrainMeta"><span class="tnTrainBadge">${escapeHtml(typeBadge(item))}</span>${meta ? `<span class="quiet">${escapeHtml(meta)}</span>` : ''}${statusPill(progress)}${required ? '<span class="tnTrainPill is-required">Required</span>' : ''}</span></span>`;
+  const badge = typeBadge(item);
+  const status = statusLabel(progress);
+  // Keep the meter consistent with confirmed completion and the existing status rules.
+  const percent = status.key === 'completed' ? 100 : Math.min(89, Math.max(0, Math.round(Number(progress?.percent) || 0)));
+  const detail = meta && meta.toLowerCase() !== badge.toLowerCase() ? `<span class="quiet">${escapeHtml(meta)}</span>` : '';
+  const action = { new: 'Start lesson', progress: 'Continue lesson', completed: 'Review lesson' }[status.key];
+  const meter = `<span class="tnLessonProgress"><span class="tnLessonProgressTrack" aria-hidden="true"><i style="width:${percent}%"></i></span><span>${percent}%</span></span>`;
+  const cardStatus = status.key === 'progress' ? '<span class="tnTrainPill is-progress">In progress</span>' : statusPill(progress);
+  const body = `<span class="tnTrainBody"><span class="tnTrainTitle">${escapeHtml(item.title)}</span>${item.description ? `<span class="tnTrainDesc">${escapeHtml(item.description)}</span>` : ''}<span class="tnTrainMeta"><span class="tnTrainBadge">${escapeHtml(badge)}</span>${detail}${cardStatus}${required ? '<span class="tnTrainPill is-required">Required</span>' : ''}</span>${meter}${interactive ? `<span class="tnTrainContinue">${action} &rarr;</span>` : ''}</span>`;
   const thumb = thumbHtml(item);
   if (!interactive) return `<article class="tnTrainCard">${thumb}${body}</article>`;
   return `<button type="button" class="tnTrainCard" data-item="${escapeHtml(item.id)}">${thumb}${body}</button>`;
 }
 
-export function listHtml({ who, items, filter = 'all' }) {
+export function listHtml({ who, items, filter = 'all', compact = false }) {
   const filters = ['all', 'required', 'video', 'deck', 'pdf'].map((key) => {
     const label = { all: 'All', required: 'Required', video: 'Videos', deck: 'Slides', pdf: 'PDFs' }[key];
     return `<button type="button" data-filter="${key}" aria-pressed="${filter === key ? 'true' : 'false'}">${label}</button>`;
   }).join('');
   const cards = items.length
     ? items.map((item) => cardHtml(item, { progress: item.progress, reminded: item.reminded })).join('')
-    : '<div class="tnTrainEmpty">No training in this view yet.</div>';
-  return `<div class="tnTrain" data-tn-panel="training-list" data-tn-rank="primary"><div class="tnTrainHead"><div><p class="tnTrainLead">${escapeHtml(who)}</p><h1>Training &amp; Practice</h1></div></div><div class="tnTrainFilters" role="group" aria-label="Filter training">${filters}</div><div class="tnTrainList">${cards}</div></div>`;
+    : `<div class="tnTrainEmpty"><strong>${filter === 'required' ? 'No required lessons right now.' : filter === 'all' ? 'Your lessons will appear here.' : 'No lessons match this filter.'}</strong><p>${filter === 'all' ? 'Your team can assign lessons here. In the meantime, practice a real conversation with your coach.' : 'View all lessons to choose your next practice.'}</p>${filter === 'all' ? '' : '<button type="button" class="tnTrainBtn" data-filter="all">View all lessons</button>'}</div>`;
+  const heading = compact ? '<h2>Your lessons</h2>' : '<h1>Training &amp; Practice</h1>';
+  return `<div class="tnTrain" data-tn-panel="training-list" data-tn-rank="primary"><div class="tnTrainHead"><div>${heading}${who ? `<p class="tnTrainLead">${escapeHtml(who)}</p>` : ''}</div></div><div class="tnTrainFilters" role="group" aria-label="Filter training">${filters}</div><div class="tnTrainList">${cards}</div></div>`;
 }
 
 export function playerHtml(item, progress) {

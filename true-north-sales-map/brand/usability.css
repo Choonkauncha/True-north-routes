@@ -1,0 +1,118 @@
+/* Interaction polish. Permission/state-driven hidden controls remain authoritative. */
+body.tn-workspace button, body.tn-workspace .tnTap, body.tn-workspace summary {
+  min-height: 44px !important;
+  line-height: 1.35;
+}
+body.tn-workspace button:disabled { opacity: .55; }
+body.tn-workspace .modalActions, body.tn-workspace .tnAccountBtns,
+body.tn-workspace .inlineActions, body.tn-workspace .toolbar { flex-wrap: wrap; }
+body.tn-workspace .modalActions > *, body.tn-workspace .tnAccountBtns > * {
+  min-width: 0;
+  white-space: normal;
+}
+body.tn-workspace .modalCard, body.tn-workspace .drawerCard,
+body.tn-workspace .doorSheetCard { max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+.atlasCommand { max-height: calc(100dvh - 24px); overflow-y: auto; }
+body.tn-map-workspace .routeTray { max-height: calc(100dvh - 190px); overflow-y: auto; overscroll-behavior: contain; }
+body.tn-map-workspace .routeTrayToggle { flex: none; }
+body.tn-map-workspace .routeTrayActions button { min-height: 44px; white-space: normal; }
+/* Keep frequent route actions in view; native disclosure contains optional area/navigation tools. */
+body.tn-map-workspace .routeTrayBody { gap: 8px; }
+body.tn-map-workspace .routeTrayPrimaryActions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+body.tn-map-workspace .routeTrayExtras { width: 100%; min-width: 0; }
+body.tn-map-workspace .routeTrayExtras summary {
+  display: list-item; box-sizing: border-box; padding: 12px 10px; cursor: pointer;
+  border-radius: 9px; color: #b8cac6; background: #1b2d30; font-size: 12px; font-weight: 650;
+}
+body.tn-map-workspace .routeTrayExtras summary:focus-visible { outline: 3px solid #6fe1b6; outline-offset: -3px; }
+body.tn-map-workspace .routeTrayExtras[open] summary { color: #edf5f1; }
+body.tn-map-workspace .routeTraySecondaryActions { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 6px; }
+body.tn-map-workspace .routeTraySecondaryActions #stormHousesBtn { grid-column: 1 / -1; }
+body.tn-map-workspace #fitBtn { display: inline-flex; align-items: center; justify-content: center; }
+body.tn-map-workspace #legendKey { display: inline-flex; align-items: center; justify-content: center; }
+body.tn-map-workspace .mapToolBtns { gap: 6px; }
+body.tn-map-workspace #filterBtn { width: auto; min-width: 88px; padding: 0 10px; gap: 6px; }
+body.tn-map-workspace .mapButtonLabel { font-size: 12px; font-weight: 700; }
+/* Expanded popovers must sit above the floating route tray. */
+body.tn-map-workspace .mapTopOverlay:has(.layerMenu.open),
+body.tn-map-workspace .mapTopOverlay:has(.filterPanel:not([hidden])),
+body.tn-map-workspace .mapInfo:has(.mapInfoPanel:not([hidden])),
+body.tn-map-workspace .weatherStack:has(.weatherPopover:not([hidden])) { z-index: 1200; }
+body.tn-map-workspace .mapSearch input { font-size: 16px; }
+/* After first load, slow basemap tiles must not block already usable field controls. */
+body.tn-map-workspace #mapLoader.isRefresh {
+  position: absolute; inset: auto 12px 12px auto; max-width: calc(100% - 24px);
+  padding: 10px 14px; border-radius: 10px; background: #17272a; border: 1px solid #415456;
+  z-index: 600; pointer-events: none; box-shadow: none;
+}
+body.tn-map-workspace #mapLoader.isRefresh .bootMark,
+body.tn-map-workspace #mapLoader.isRefresh .bootTrack,
+body.tn-map-workspace #mapLoader.isRefresh #mapLoaderFact { display: none; }
+body.tn-map-workspace #mapLoader.isRefresh #bootText { margin: 0; font-size: 13px; color: #edf5f1; }
+body.tn-map-workspace .filterPanel, body.tn-map-workspace .layerMenu,
+body.tn-map-workspace .mapInfoPanel, body.tn-map-workspace .weatherPopover {
+  max-height: calc(100dvh - 220px); overflow-y: auto; overscroll-behavior: contain;
+}
+body.tn-map-workspace .layerMenu label { min-height: 44px; display: flex; align-items: center; gap: 10px; }
+body.tn-map-workspace .layerMenu input { width: 20px; height: 20px; flex: none; }
+body.tn-map-workspace #tnMoreMenu:not([hidden]) {
+  position: fixed; top: calc(var(--workspace-header) + 8px); right: 12px; left: auto;
+  max-width: calc(100vw - 24px); max-height: calc(100dvh - var(--workspace-header) - 20px);
+  overflow-y: auto; overscroll-behavior: contain;
+  background: #17272a; color: #edf5f1;
+}
+body.tn-map-workspace #tnMoreMenu a, body.tn-map-workspace #tnMoreMenu button {
+  background: transparent; color: #edf5f1; border-color: #415456;
+}
+body.tn-map-workspace #tnMoreMenu a:hover, body.tn-map-workspace #tnMoreMenu button:hover { background: #2b4548; }
+body.tn-map-workspace #tnMoreMenu :focus-visible { outline: 3px solid #6fe1b6; outline-offset: -4px; }
+body.tn-map-workspace .topbar:has(#tnMoreMenu:not([hidden])) { z-index: 5000; }
+body.tn-admin-workspace .rail [data-tab] { scroll-margin-inline: 12px; }
+@media (min-width: 1101px) {
+  .workspaceNav { overflow-x: auto; overflow-y: hidden; }
+  .workspaceNavItems { flex: 0 0 auto; }
+}
+@media (max-width: 1100px) {
+  body.tn-map-workspace .topRight #focusBtn { display: none !important; }
+  body.tn-map-workspace #tnMore { min-height: 44px; }
+  body.tn-workspace .workspaceMenuBtn { min-width: 44px; }
+}
+@media (max-width: 960px) {
+  body.tn-map-workspace .mapToolBtns { flex: 1; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); }
+  body.tn-map-workspace .mapToolBtns .mapControl { min-width: 0; width: 100%; padding: 0 5px; font-size: 12px; }
+  body.tn-map-workspace #filterBtn { min-width: 0; }
+  body.tn-map-workspace #filterBtn svg { display: none; }
+  body.tn-map-workspace #filterBtn { margin-right: 0; }
+  body.tn-map-workspace .routeTray { max-height: calc(100dvh - var(--list-sheet-peek) - 210px); }
+  body.tn-map-workspace .routeTray:not(.isCollapsed) { padding: 8px 10px; gap: 4px; }
+  body.tn-map-workspace .routeTrayBody { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: start; }
+  body.tn-map-workspace .routeTrayCopy { min-width: 0; }
+  body.tn-map-workspace .routeTrayCopy strong { font-size: 14px; }
+  body.tn-map-workspace .routeTrayCopy span { font-size: 11px; line-height: 1.4; }
+  body.tn-map-workspace .routeTray .routeModeToggle { width: auto; }
+  body.tn-map-workspace .routeTray .routeModeToggle button { min-width: 52px; padding: 8px; }
+  body.tn-map-workspace .routeTrayPrimaryActions { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-column: 1 / -1; }
+  body.tn-map-workspace .routeTrayExtras { grid-column: 1 / -1; }
+  body.tn-map-workspace .routeTrayActions button { padding: 8px; font-size: 12px; }
+
+  body.tn-map-workspace .filterPanel, body.tn-map-workspace .layerMenu,
+  body.tn-map-workspace .mapInfoPanel, body.tn-map-workspace .weatherPopover { max-height: calc(100dvh - 240px); }
+}
+@media (max-width: 600px) {
+  body.tn-workspace .topbar, body.tn-workspace .tnHeader { gap: 6px; }
+  body.tn-map-workspace .topbar .brandWords { display: none; }
+  body.tn-map-workspace .topbar .brand { flex: 1 1 auto; }
+  body.tn-map-workspace .topRight { gap: 4px; }
+  body.tn-map-workspace .primaryBtn { min-height: 44px; }
+  body.tn-workspace .atlasJump, body.tn-workspace .pageHelpButton { width: 44px; min-width: 44px; height: 44px; }
+  body.tn-workspace .workspaceMenuBtn { padding: 10px; }
+  body.tn-workspace .toolbar .filter { flex: 1 1 100%; }
+  body.tn-workspace .modalActions { display: grid; grid-template-columns: minmax(0,1fr); }
+}
+@media (max-height: 500px) and (max-width: 960px) {
+  body.tn-map-workspace .routeTray { max-height: max(100px, calc(100dvh - var(--list-sheet-peek) - 90px)); }
+  body.tn-map-workspace .mapInfo { top: 12px; }
+  body.tn-map-workspace .filterPanel, body.tn-map-workspace .layerMenu { max-height: calc(100dvh - 160px); }
+}
+@media print { body.tn-workspace button { min-height: 0 !important; } }
+body.tn-map-workspace .routeTrayExtras > summary { min-height:44px; box-sizing:border-box; }

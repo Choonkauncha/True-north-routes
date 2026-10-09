@@ -24,6 +24,7 @@ import {
   deleteLibraryDocument,
   deleteReceipt,
   discardStoredFile,
+  hydratePhotoUrls,
   listAssignments,
   listCategories,
   listEstimates,
@@ -174,7 +175,7 @@ export async function mountMyForms(container, ctx, options = {}) {
         listReceipts(ctx),
         listEstimates(ctx),
         listAssignments(ctx).catch(() => []),
-        listPhotos(ctx).catch(() => []),
+        listPhotos(ctx, { signUrls: false }).catch(() => []),
         listSubmissions(ctx).catch(() => []),
         listIntakes(ctx).catch(() => [])
       ]);
@@ -433,11 +434,19 @@ export async function mountMyForms(container, ctx, options = {}) {
       ui.error = '';
       render();
     });
-    container.querySelectorAll('[data-open-folder]').forEach((button) => button.onclick = () => {
+    container.querySelectorAll('[data-open-folder]').forEach((button) => button.onclick = async () => {
       ui.openId = button.dataset.openFolder;
       ui.error = '';
       ui.notice = '';
       render();
+      const folder = ui.categories.find((row) => row.id === ui.openId);
+      const pending = ui.photos.filter((photo) => folder?.lead_id && photo.lead_id === folder.lead_id && !photo.url);
+      if (pending.length) {
+        const hydrated = await hydratePhotoUrls(ctx, pending);
+        const byId = new Map(hydrated.map((photo) => [photo.id, photo]));
+        ui.photos = ui.photos.map((photo) => byId.get(photo.id) || photo);
+        if (ui.openId === button.dataset.openFolder) render();
+      }
     });
     bindRecords('receipt');
     bindRecords('estimate');

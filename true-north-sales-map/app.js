@@ -152,10 +152,11 @@ function bindStaticEvents(){
     if(state.listScrollFrame)return;
     state.listScrollFrame=requestAnimationFrame(()=>{state.listScrollFrame=0;paintWorkList()});
   });
-  $('layerBtn').onclick=()=>$('layerMenu').classList.toggle('open');
+  $('layerBtn').onclick=()=>setLayersOpen(!$('layerMenu').classList.contains('open'));
   $('legendKey').onclick=()=>{
     const legend=$('mapLegend');
     const open=legend.classList.toggle('isOpen');
+    if(open){setFilterOpen(false);setInfoOpen(false);setLayersOpen(false);closeWeather();}
     $('legendKey').setAttribute('aria-expanded',open?'true':'false');
     if(!open||!useDoorSheet()){legend.style.top='';return;}
     const canvas=document.querySelector('.mapCanvas').getBoundingClientRect();
@@ -163,19 +164,25 @@ function bindStaticEvents(){
     legend.style.top=`${Math.round(overlay.bottom-canvas.top+8)}px`;
   };
   document.addEventListener('click',e=>{
-    if(!$('layerMenu').contains(e.target)&&e.target!==$('layerBtn'))$('layerMenu').classList.remove('open');
+    if(!$('layerMenu').contains(e.target)&&!$('layerBtn').contains(e.target))setLayersOpen(false);
     if(!$('mapLegend').contains(e.target)&&e.target!==$('legendKey')){$('mapLegend').classList.remove('isOpen');$('legendKey').setAttribute('aria-expanded','false');}
     if($('filterPanel')&&!$('filterPanel').hidden&&!$('filterPanel').contains(e.target)&&e.target!==$('filterBtn')&&!$('filterBtn').contains(e.target))setFilterOpen(false);
     if($('mapInfoPanel')&&!$('mapInfoPanel').hidden&&!$('mapInfo').contains(e.target))setInfoOpen(false);
   });
   document.addEventListener('tn-close-popovers',e=>{
+    if(e.detail!=='layers')setLayersOpen(false);
     if(e.detail!=='filters')setFilterOpen(false);
     if(e.detail!=='info')setInfoOpen(false);
   });
   document.addEventListener('keydown',e=>{
     if(e.key!=='Escape')return;
+    const restore=$('layerMenu').contains(document.activeElement)?$('layerBtn'):$('filterPanel').contains(document.activeElement)?$('filterBtn'):$('mapInfoPanel').contains(document.activeElement)?$('mapInfoToggle'):null;
+    setLayersOpen(false);
+    $('mapLegend').classList.remove('isOpen');
+    $('legendKey').setAttribute('aria-expanded','false');
     setFilterOpen(false);
     setInfoOpen(false);
+    restore?.focus();
   });
   const savedLayers=readSavedLayers(localStorage);
   const layers=resolveLayers(savedLayers);
@@ -201,7 +208,7 @@ function bindStaticEvents(){
       setFilterOpen(false);
       setInfoOpen(false);
       closeWeather({persist:false});
-      $('layerMenu')?.classList.remove('open');
+      setLayersOpen(false);
       if(useDoorSheet())setListSheet('sheet-collapsed');
     },
     onRoute:applyAreaRoute
@@ -514,7 +521,11 @@ async function loadCloudLeadRows(){
   if(plan==='delta'){
     const since=cached.stamp;
     const head=await sb.from('leads').select('id',{count:'exact',head:true}).gt('updated_at', since);
-    const delta=head.count?await fetchAllParallel(()=>sb.from('leads').select('*').gt('updated_at', since).order('updated_at'), head.count):[];
+    if(head.error) throw head.error;
+    // A missing/empty count cannot certify a cache older than the remote stamp.
+    // Reload instead of marking stale rows as current and skipping them next time.
+    if(!Number.isSafeInteger(head.count) || head.count<=0) return loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt);
+    const delta=await fetchAllParallel(()=>sb.from('leads').select('*').gt('updated_at', since).order('updated_at'), head.count);
     const merged=mergeLeadDelta(cachedLeads, delta).map(normalizeLead);
     const stamp=remoteUpdatedAt||normalizeStamp(newestUpdatedAt(merged));
     rememberLeadCache(stamp, merged);
@@ -796,6 +807,7 @@ function rotateMapFacts(){
 }
 function revealMapLoader(){
   const el=$('mapLoader'); if(!el)return;
+  el.classList.toggle('isRefresh',state.bootDone);
   el.classList.remove('isDone','isGone');
   delete el.dataset.hiding;
   el.setAttribute('aria-busy','true');
@@ -1305,7 +1317,7 @@ function setFilterOpen(open){
   if(!on)return;
   setInfoOpen(false);
   closeWeather();
-  $('layerMenu')?.classList.remove('open');
+  setLayersOpen(false);
   $('mapLegend')?.classList.remove('isOpen');
   $('legendKey')?.setAttribute('aria-expanded','false');
 }
@@ -1316,7 +1328,14 @@ function setInfoOpen(open){
   const on=!!open;
   panel.hidden=!on;
   btn.setAttribute('aria-expanded',on?'true':'false');
-  if(on){setFilterOpen(false);closeWeather();}
+  if(on){setFilterOpen(false);setLayersOpen(false);closeWeather();}
+}
+function setLayersOpen(open){
+  const menu=$('layerMenu');
+  if(!menu)return;
+  menu.classList.toggle('open',!!open);
+  $('layerBtn')?.setAttribute('aria-expanded',String(!!open));
+  if(open){setFilterOpen(false);setInfoOpen(false);closeWeather();$('mapLegend')?.classList.remove('isOpen');$('legendKey')?.setAttribute('aria-expanded','false');}
 }
 function setListSheet(snap){
   const sheet=$('listSheet'); if(!sheet)return;
@@ -1631,6 +1650,8 @@ function addressOf(l){return [l.address,l.city,l.state,l.zip].filter(Boolean).jo
 
 function openRoutePanel(){
   $('selectedCountRoute').textContent=fmt(state.selected.size);
+  $('optimizeRouteBtn').disabled=state.selected.size===0;
+  $('openGoogleRouteBtn').disabled=!state.routeStops.length;
   $('routePanel').classList.remove('hidden');
 }
 function closeRoutePanel(){$('routePanel').classList.add('hidden')}
@@ -1646,14 +1667,16 @@ async function optimizeAndDrawRoute(){
   await fetchRoadRoute(start,state.routeStops);
 }
 async function fetchRoadRoute(start,stops){
+  const request=state.routeRequestSeq=(state.routeRequestSeq||0)+1;
   try{const points=[start,...stops].map(p=>({lat:p.lat,lng:p.lng}));const r=await fetch('/api/route',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:osrmProfile(state.routeMode),coordinates:points})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Route service failed');
+    if(request!==state.routeRequestSeq)return;
     if(Array.isArray(data.order)&&data.order.length===stops.length){const ordered=data.order.map(i=>stops[i-1]).filter(Boolean);if(ordered.length===stops.length){state.routeStops=ordered;renderRouteStops();}}
     state.routeGeometry=data.geometry||null;
     drawRoutePreview(!state.navigating);
     const summary=`${fmtDistance(data.distance/1609.344)} · ${fmtDuration(data.duration)} · ${state.routeMode==='walking'?'walking':'driving'}`;
     $('routeDistance').textContent=`${summary} · road-network optimized`;
     $('routeTrayStats').textContent=summary;
-  }catch(e){state.routeGeometry=null;drawRoutePreview();$('routeDistance').textContent=`Road router unavailable · ≈ ${fmtDistance(routeHaversineDistance(start,stops))}`;$('routeTrayStats').textContent=`≈ ${fmtDistance(routeHaversineDistance(start,stops))} straight line`;console.warn(e)}
+  }catch(e){if(request!==state.routeRequestSeq)return;state.routeGeometry=null;drawRoutePreview();$('routeDistance').textContent=`Road router unavailable · ≈ ${fmtDistance(routeHaversineDistance(start,stops))}`;$('routeTrayStats').textContent=`≈ ${fmtDistance(routeHaversineDistance(start,stops))} straight line`;console.warn(e)}
   liftMapChrome();
 }
 function routeHaversineDistance(start,stops){let total=0,cur=start;for(const p of stops){total+=haversine(cur.lat,cur.lng,p.lat,p.lng);cur=p}return total}
@@ -1676,8 +1699,9 @@ function drawRoutePreview(fit=true){
   if(fit){try{state.map.fitBounds(state.routeLine.getBounds().pad(.12));}catch{}}
 }
 function renderRouteStops(){
-  $('routeStops').innerHTML=state.routeStops.map((l,i)=>`<div class="routeStop"><span>${i+1}</span><div><b>${esc(l.address)}</b><small>${esc(l.city)} · ${scoreLead(l)} pts</small></div><button data-route-lead="${esc(l.id)}">×</button></div>`).join('')||'<div class="empty">No route yet.</div>';
-  $('routeStops').querySelectorAll('[data-route-lead]').forEach(btn=>btn.onclick=()=>{state.selected.delete(btn.dataset.routeLead);optimizeAndDrawRoute();updateSelectedBadge()});
+  $('openGoogleRouteBtn').disabled=!state.routeStops.length;
+  $('routeStops').innerHTML=state.routeStops.map((l,i)=>`<div class="routeStop"><span>${i+1}</span><div><b>${esc(l.address)}</b><small>${esc(l.city)} · ${scoreLead(l)} pts</small></div><button type="button" aria-label="Remove ${esc(l.address || 'stop')} from route" data-route-lead="${esc(l.id)}">×</button></div>`).join('')||'<div class="empty">No route yet.</div>';
+  $('routeStops').querySelectorAll('[data-route-lead]').forEach(btn=>btn.onclick=()=>{state.selected.delete(btn.dataset.routeLead);if(state.selected.size)optimizeAndDrawRoute();else clearRoute();updateSelectedBadge()});
 }
 function openGoogleRouteBlocks(){
   if(!state.routeStops.length){alert('Optimize a route first.');return}
@@ -2129,6 +2153,9 @@ function updateSelectedBadge(){
   const n=state.selected.size;
   state.routeCountSeen=n;
   $('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n;
+  $('optimizeRouteBtn').disabled=n===0;
+  $('startRouteBtn').disabled=n===0;
+  $('clearRouteBtn').disabled=n===0;
   updateRouteTraySummary();
   if(shouldExpandRouteTray(prev,n))setRouteTrayCollapsed(false);
   else liftMapChrome();
@@ -2210,11 +2237,12 @@ function selectVisibleForRoute(){
   updateSelectedBadge();refreshSelectedMarkers();renderWorkList();
 }
 function clearRoute(){
+  state.routeRequestSeq=(state.routeRequestSeq||0)+1;
   endNavigation('');
   areaDraw?.clearArea();
   state.selected.clear();state.stormHouseIds=null;state.routeStops=[];state.routeGeometry=null;
   $('routeWarning').textContent='';$('routeDistance').textContent='';$('routeTrayStats').textContent='';
-  $('routeStops').innerHTML='<div class="empty">No route yet.</div>';
+  renderRouteStops();
   $('routeTrayNote').textContent='Select homes, then build an optimized route.';
   renderAll();
 }
@@ -2816,6 +2844,8 @@ function startRealtime(){
 function closeModal(){document.querySelectorAll('.modalOverlay').forEach(x=>x.classList.add('hidden'))}
 
 document.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey||document.querySelector('dialog[open], .pageTour')) return;
+  if(e.key!=='Escape'&&document.querySelector('.modalOverlay:not(.hidden), .drawer:not(.hidden), .doorSheet.open'))return;
   if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return;
   if(e.key==='/'){e.preventDefault();$('search').focus();}
   else if(e.key.toLowerCase()==='n') nextBest();

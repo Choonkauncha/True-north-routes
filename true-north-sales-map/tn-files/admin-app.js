@@ -1,4 +1,4 @@
-import { bootFiles, attachSession, signIn, listTemplates, saveTemplate, listPhotos, listSubmissions, listReps, listAssignments, listIntakes, replaceAssignments, uploadLibraryFile, setDocumentReviewed, plainError } from './store.js';
+import { bootFiles, attachSession, signIn, hydratePhotoUrls, listTemplates, saveTemplate, listPhotos, listSubmissions, listReps, listAssignments, listIntakes, replaceAssignments, uploadLibraryFile, setDocumentReviewed, plainError } from './store.js';
 import { esc, bindSignOut, mountSignIn, revealApp } from './ui.js';
 import { FIELD_TYPES, PREFILLS, blankField, isManagement, DRAFT_NOTICE, audienceLabel } from './logic.js';
 import { roleLabel } from '../lib/role-access.js';
@@ -55,7 +55,7 @@ async function loadAndRender() {
   root.innerHTML = '<div class="tnSkeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
   try {
     [templates, photos, submissions, reps, assignments, intakes] = await Promise.all([
-      listTemplates(ctx), listPhotos(ctx), listSubmissions(ctx), listReps(ctx), listAssignments(ctx), listIntakes(ctx)
+      listTemplates(ctx), listPhotos(ctx, { signUrls: false }), listSubmissions(ctx), listReps(ctx), listAssignments(ctx), listIntakes(ctx)
     ]);
   } catch (error) {
     revealApp();
@@ -157,11 +157,20 @@ function bindDocuments() {
   root.querySelectorAll('[data-type]').forEach((button) => button.onclick = () => { docFilters.type = button.dataset.type; render(); });
   document.getElementById('docPerson').onchange = () => { docFilters.personId = document.getElementById('docPerson').value; render(); };
   root.querySelectorAll('[data-status]').forEach((button) => button.onclick = () => { docFilters.status = button.dataset.status; render(); });
-  root.querySelectorAll('[data-property]').forEach((button) => button.onclick = () => {
+  root.querySelectorAll('[data-property]').forEach((button) => button.onclick = async () => {
     propertyKeyOpen = button.dataset.property;
     view = 'property';
     history.replaceState(null, '', `${location.pathname}${location.search}#property=${encodeURIComponent(propertyKeyOpen)}`);
     render();
+    const group = propertyGroups(allDocuments()).find((item) => item.key === propertyKeyOpen);
+    const ids = new Set((group?.docs || []).filter((doc) => doc.source === 'photo').map((doc) => doc.sourceId));
+    const pending = photos.filter((photo) => ids.has(photo.id) && !photo.url);
+    if (pending.length) {
+      const hydrated = await hydratePhotoUrls(ctx, pending);
+      const byId = new Map(hydrated.map((photo) => [photo.id, photo]));
+      photos = photos.map((photo) => byId.get(photo.id) || photo);
+      if (view === 'property' && propertyKeyOpen === button.dataset.property) render();
+    }
   });
 }
 

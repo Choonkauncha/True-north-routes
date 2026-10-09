@@ -1,4 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { atlasIcon } from "./brand/atlas-icons.js";
 import "/tn-files/password-reset.js";
 import { bindAdminTabs, adminHashTarget } from "/lib/admin-tabs.js";
 import { managementProfile, canOpenManagement } from "/lib/account-rules.js";
@@ -351,15 +352,15 @@ function renderAttention() {
 function renderMetrics() {
   const m = metrics();
   $("metrics").innerHTML = [
-    [m.worked, "field touches today", ""],
-    [m.apptToday, "appointments today", ""],
-    [m.setters, "active appointment setters", ""],
-    [m.sales, "active sales reps", ""],
-    [m.openHomes, "open homeowner requests", ""],
+    [m.worked, "Field touches", "activity", "Today, ET"],
+    [m.apptToday, "Inspections today", "appointments", "Today, ET"],
+    [m.setters, "Appointment setters", "team", "Active team"],
+    [m.sales, "Sales reps", "accounts", "Active team"],
+    [m.openHomes, "Homeowner requests", "homeowners", "Open queue"],
   ]
     .map(
       (x) =>
-        `<div class="card metric"><b>${fmt(x[0])}</b><span>${x[1]}</span></div>`,
+        `<div class="card metric"><div class="atlasMetricHead">${atlasIcon(x[2])}<small>${x[3]}</small></div><b>${fmt(x[0])}</b><span>${x[1]}</span></div>`,
     )
     .join("");
 }
