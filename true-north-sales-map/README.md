@@ -113,8 +113,8 @@ Use two Supabase users: one `appointment_setter` or `salesperson`, and one `admi
 
 The homeowner lead list is private. `data/leads.json` and `source/*` stay in git so `npm test` and `scripts/validate-data.mjs` can read them from disk, but the live site does not serve them:
 
-- `.vercelignore` keeps `data/leads.json`, `data/*.csv`, `source/` and every `*.csv` out of the Vercel upload.
-- `middleware.js` (Vercel Routing Middleware) answers `404` for anything under `/source/` and for every `/data/` file except `data/city-centers.json` and `data/manifest.json`, which are map chrome and stay public. Vercel checks static files before `rewrites`, so a rewrite cannot block a file; the middleware runs first.
+- `.vercelignore` (with `**/` patterns so it matches from the repo root too) keeps `data/leads.json`, `data/*.csv`, `source/` and every `*.csv` out of the Vercel upload.
+- `lib/lead-paths.js` holds the private-path rule used by tests. There is no root `middleware.js`: this project has no framework, and one broke the Vercel deploy. `.vercelignore` alone keeps the files out of the upload, so the live site returns 404 for them.
 
 The signed-in map reads every lead from Supabase. When `/data/leads.json` returns 404, `startStaticLeads()` resolves to an empty list and `loadColdLeads()` pages all rows from `public.leads` (1,000 per request). Local device mode shows "The homeowner list is private. Sign in to load houses." with an empty map instead of an error, and the old **Initialize cloud data** button reports that there is nothing to import.
 

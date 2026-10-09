@@ -2,7 +2,13 @@
 # check (scripts/validate-data.mjs reads data/leads.json from disk), but they are
 # never uploaded to Vercel, so the live site cannot serve them.
 # The signed-in app loads every lead from Supabase instead.
+# Patterns use **/ so they match whether Vercel reads paths from the repo root
+# or from this app folder.
 data/leads.json
+**/data/leads.json
 data/*.csv
+**/data/*.csv
 source
+**/source
 *.csv
+**/*.csv
