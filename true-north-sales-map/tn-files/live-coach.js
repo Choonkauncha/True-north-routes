@@ -46,7 +46,7 @@ function emit(callback, value) { try { callback?.(value); } catch { /* UI callba
  * Browser-side Gemini Live transport. It receives only an ephemeral token from
  * /api/live-token; the long-lived Gemini key stays on the server.
  */
-export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires } = {}) {
+export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires, onAudioLevel } = {}) {
   let socket = null;
   let stream = null;
   let inputContext = null;
@@ -65,6 +65,7 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
   let startController = null;
 
   const state = value => emit(onState, value);
+  const level=(samples,kind)=>{let power=0,count=0;for(let i=0;i<samples.length;i+=8){power+=samples[i]*samples[i];count++;}emit(onAudioLevel,{[kind]:Math.min(1,Math.sqrt(power/Math.max(1,count))*3)});};
   const fail = error => { stopped = true; paused = false; cleanup(); state('error'); emit(onError, error instanceof Error ? error : new Error(String(error || 'Live Coach could not start.'))); };
 
   function cleanupAudio() {
@@ -86,7 +87,7 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
     if (current && current.readyState < 2) current.close(1000, 'Live Coach ended');
   }
 
-  function cleanup() { cleanupAudio(); cleanupOutput(); cleanupSocket(); }
+  function cleanup() { cleanupAudio(); cleanupOutput(); cleanupSocket(); emit(onAudioLevel,{input:0,output:0}); }
 
   function playAudio(value) {
     if (!outputContext || !value) return;
@@ -97,8 +98,9 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
     const source = outputContext.createBufferSource();
     source.buffer = buffer; source.connect(outputContext.destination);
     outputSources.add(source);
-    source.onended = () => { outputSources.delete(source); try { source.disconnect(); } catch {} };
+    source.onended = () => { outputSources.delete(source); if(!outputSources.size&&!stopped&&!paused)state('listening'); emit(onAudioLevel,{output:0}); try { source.disconnect(); } catch {} };
     const start = Math.max(outputContext.currentTime + 0.02, nextOutputTime);
+    level(channel,'output'); state('speaking');
     source.start(start); nextOutputTime = start + buffer.duration;
   }
 
@@ -139,7 +141,8 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
       processor = inputContext.createScriptProcessor(2048, 1, 1);
       processor.onaudioprocess = event => {
         if (stopped || paused || socket?.readyState !== WebSocket.OPEN) return;
-        const pcm = downsampleTo16k(event.inputBuffer.getChannelData(0), inputContext.sampleRate);
+        const samples=event.inputBuffer.getChannelData(0);level(samples,'input');
+        const pcm = downsampleTo16k(samples, inputContext.sampleRate);
         send({ realtimeInput: { audio: { data: pcm16ToBase64(pcm), mimeType: 'audio/pcm;rate=16000' } } });
       };
       inputSource.connect(processor);
