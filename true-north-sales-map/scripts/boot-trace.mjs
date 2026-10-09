@@ -382,7 +382,7 @@ function handle(req, res) {
       configured: true,
       url: `http://${host}`,
       publishableKey: 'test-publishable-key',
-      adminEmails: ['truenorthrestorationss@gmail.com', 'travisbishopmackie@gmail.com'],
+      adminEmails: ['truenorthrestorationss@gmail.com', 'travisbishopmackie@gmail.com', 'spencer@truenorthrestorationsohio.com'],
       homeownerFormUrl: `http://${host}/homeowner.html`,
       setterFormUrl: `http://${host}/setter.html`
     });

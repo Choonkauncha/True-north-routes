@@ -334,14 +334,15 @@ async function loadLocalDataset(){
   if(state.staticPromise){
     const leads=await state.staticPromise;
     if(!current()) return;
-    if(!total && leads) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
-    if(!state.bootDone && leads) streamLeads(leads, total||leads.length, meta);
+    if(!leads?.length){ showLeadListPrivate(meta); return; }
+    if(!total) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
+    if(!state.bootDone) streamLeads(leads, total||leads.length, meta);
     rememberLeadCache(stamp, leads);
     return;
   }
-  const response=await fetch('/data/leads.json');
+  const response=await fetch('/data/leads.json').catch(()=>null);
   if(!current()) return;
-  if(!response.ok) throw new Error(`HTTP ${response.status}`);
+  if(!response?.ok){ showLeadListPrivate(meta); return; }
   if(!response.body?.getReader){
     const text=await response.text();
     if(!current()) return;
@@ -356,6 +357,15 @@ async function loadLocalDataset(){
   if(!total) $('datasetCount').textContent=`${fmt(leads.length)} source records`;
   rememberLeadCache(stamp, leads);
 }
+// The homeowner list is no longer served as a public static file. A missing
+// /data/leads.json resolves to an empty list so cloud mode reads every lead
+// from Supabase and local mode shows a sign-in notice instead of crashing.
+function showLeadListPrivate(meta){
+  $('datasetCount').textContent='';
+  $('cloudNotice').textContent='Local mode. The homeowner list is private. Sign in to load houses.';
+  $('cloudNotice').classList.remove('hidden');
+  if(!state.bootDone) streamLeads([], 0, meta);
+}
 function startStaticLeads(){
   if(state.staticPromise) return state.staticPromise;
   const epoch=authEpoch;
@@ -365,14 +375,14 @@ function startStaticLeads(){
     state.staticManifest=manifest;
     const total=manifest?.totalRecords||0;
     if(current() && total && $('datasetCount')) $('datasetCount').textContent=`${fmt(total)} source records`;
-    const response=await fetch('/data/leads.json');
-    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const response=await fetch('/data/leads.json').catch(()=>null);
+    if(!response?.ok){ state.staticUnavailable=true; return []; }
     if(!response.body?.getReader){
       const text=await response.text();
       return ingestLeadText(text, total, null, current);
     }
     return readLeadResponse(response, total, null, current);
-  })();
+  })().catch(error=>{ console.error(error); state.staticUnavailable=true; return []; });
   return state.staticPromise;
 }
 async function readLeadResponse(response, total, meta, current=()=>true){
@@ -580,7 +590,20 @@ async function loadColdLeads(sb, boot, remoteCount, remoteUpdatedAt, current=()=
     overlay=overlayRows;
     added=addedRows;
   }
-  const base=await basePromise;
+  const base=await basePromise.catch(()=>[]);
+  if(!base?.length){
+    // No public static base: read every lead straight from Supabase.
+    let count=remoteCount;
+    if(count==null){
+      const head=await sb.from('leads').select('id',{count:'exact',head:true});
+      if(head.error) throw head.error;
+      count=head.count;
+    }
+    const rows=(await fetchAllParallel(()=>sb.from('leads').select('*').order('id'), count)).map(normalizeLead);
+    const stamp=remoteUpdatedAt||normalizeStamp(newestUpdatedAt(rows));
+    if(current()) rememberLeadCache(stamp, rows);
+    return rows;
+  }
   const fixes=await fetchCoordFixes(sb, base).catch(()=>[]);
   let merged=mergeLeadOverlay(base, [...(overlay||[]), ...(fixes||[])], added||[]).map(normalizeLead);
   if(remoteCount!=null && merged.length!==Number(remoteCount)){
@@ -2004,7 +2027,9 @@ async function saveTerritoryAssignment(city,repId){
 async function importLeadsToCloud(){
   if(state.mode!=='cloud'){alert('Configure Supabase and sign in as an admin/manager first.');return}
   if(!['admin','manager'].includes(state.currentRep.role)){alert('Admin/manager role required.');return}
-  const local=await fetchJSON('/data/leads.json');const total=local.length;let done=0;
+  let local;
+  try{ local=await fetchJSON('/data/leads.json'); }catch{ alert('The cloud lead list is already set up. The public lead file is no longer served, so there is nothing to import.'); return; }
+  const total=local.length;let done=0;
   setAdminProgress(0,`Importing ${fmt(total)} source leads…`);
   for(let i=0;i<total;i+=400){const batch=local.slice(i,i+400).map(l=>({id:l.id,source:l.source,name:l.name,address:l.address,secondary_address:l.secondaryAddress||'',city:l.city,state:l.state,zip:l.zip,full_address:l.fullAddress,record_id:l.recordId||null,record_type:l.recordType||null,year_built:l.yearBuilt??null,priority:l.priority||null,owner_occupied:l.ownerOccupied||null,pdf_page:l.pdfPage??null,lat:l.lat??null,lng:l.lng??null,geocode_match:l.geocodeMatch??null}));const {error}=await state.supabase.from('leads').upsert(batch,{onConflict:'id',ignoreDuplicates:true});if(error){alert(`Import stopped: ${error.message}`);return}done+=batch.length;setAdminProgress(Math.round(done/total*100),`Imported ${fmt(done)} / ${fmt(total)}`)}
   await loadCloudData();renderAll();$('adminLeadCount').textContent=fmt(state.leads.length);$('adminMappedCount').textContent=fmt(state.leads.filter(isCoords).length);

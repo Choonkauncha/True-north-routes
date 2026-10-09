@@ -70,7 +70,7 @@ create trigger reps_guard_role
   before insert or update or delete on public.reps
   for each row execute function public.guard_rep_role();
 
--- First admin. After this function exists, adding either allow-listed email
+-- First admin. After this function exists, adding any allow-listed email
 -- under Authentication → Add user creates an active admin reps row.
 create or replace function public.ensure_bootstrap_admin()
 returns trigger
@@ -82,7 +82,7 @@ declare
   em text := lower(coalesce(new.email, ''));
   label text;
 begin
-  if em not in ('travisbishopmackie@gmail.com', 'truenorthrestorationss@gmail.com') then
+  if em not in ('travisbishopmackie@gmail.com', 'truenorthrestorationss@gmail.com', 'spencer@truenorthrestorationsohio.com') then
     return new;
   end if;
   label := coalesce(nullif(new.raw_user_meta_data->>'name', ''), split_part(em, '@', 1));
@@ -107,6 +107,6 @@ select u.id,
   'admin',
   true
 from auth.users u
-where lower(u.email) in ('travisbishopmackie@gmail.com', 'truenorthrestorationss@gmail.com')
+where lower(u.email) in ('travisbishopmackie@gmail.com', 'truenorthrestorationss@gmail.com', 'spencer@truenorthrestorationsohio.com')
 on conflict (user_id) do update
   set role = 'admin', active = true, email = excluded.email;
