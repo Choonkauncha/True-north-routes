@@ -6,8 +6,10 @@ export const PASSWORD_RULE = 'Use 8 to 72 characters.';
 export const PASSWORD_MISMATCH = 'Those passwords do not match.';
 export const PASSWORD_UPDATED = 'Password updated. Sign in with your new password.';
 
-export function resetRedirectTo(origin) {
-  return `${String(origin || '').replace(/\/$/, '')}/reset-password`;
+export const PASSWORD_RESET_URL = 'https://truenorthmaps.vercel.app/reset-password';
+
+export function resetRedirectTo() {
+  return PASSWORD_RESET_URL;
 }
 
 /** Same rules as My account and the admin password reset. */

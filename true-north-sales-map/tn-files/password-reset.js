@@ -64,7 +64,7 @@ export function installPasswordReset() {
       const sb = await clientForReset();
       if (!sb) { showMessage(msg, 'Password reset needs the live sign-in.', false); return; }
       const { error } = await sb.auth.resetPasswordForEmail(validateEmail(email), {
-        redirectTo: resetRedirectTo(location.origin)
+        redirectTo: resetRedirectTo()
       });
       const result = resetRequestMessage(error);
       showMessage(msg, result.message, result.ok);

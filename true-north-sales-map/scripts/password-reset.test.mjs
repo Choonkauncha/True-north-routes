@@ -28,7 +28,9 @@ assert.equal(validatePassword('long-enough'), passwordChangeError('long-enough',
 
 assert.equal(resetEmailError('not-an-email'), 'Enter the email you use to sign in.');
 assert.equal(resetEmailError('rep@example.com'), '');
-assert.equal(resetRedirectTo('https://map.example.com/'), 'https://map.example.com/reset-password');
+assert.equal(resetRedirectTo('https://map.example.com/'), 'https://truenorthmaps.vercel.app/reset-password');
+assert.equal(resetRedirectTo(), 'https://truenorthmaps.vercel.app/reset-password');
+assert.equal(resetRedirectTo('https://old-preview.vercel.app'), 'https://truenorthmaps.vercel.app/reset-password');
 
 assert.deepEqual(resetRequestMessage(null), { ok: true, message: RESET_SENT });
 assert.deepEqual(resetRequestMessage({ message: 'User not found' }), { ok: true, message: RESET_SENT });
