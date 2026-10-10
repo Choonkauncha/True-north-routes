@@ -5,6 +5,7 @@ import {
   validateName,
   validatePassword
 } from '../lib/account-rules.js';
+import { requirePasswordReady } from '../lib/server-access.js';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -65,6 +66,7 @@ async function serviceFetch(env, fetchImpl, path, { method = 'GET', body, admin 
   const url = `${base}${admin ? '/auth/v1' : '/rest/v1'}${path}`;
   const response = await fetchImpl(url, {
     method,
+    signal: AbortSignal.timeout(12000),
     headers: { ...authHeaders(secret), Prefer: 'return=representation' },
     body: body === undefined ? undefined : JSON.stringify(body)
   });
@@ -88,7 +90,13 @@ async function findAuthUser(env, fetchImpl, email) {
 }
 
 async function audit(env, fetchImpl, row) {
-  await serviceFetch(env, fetchImpl, '/account_audit', { method: 'POST', body: row });
+  try {
+    await serviceFetch(env, fetchImpl, '/account_audit', { method: 'POST', body: row });
+    return {};
+  } catch {
+    // The account change already succeeded; do not invite a duplicate mutation.
+    return { warning: 'The account change succeeded, but its audit entry could not be saved. Contact management.' };
+  }
 }
 
 async function repById(env, fetchImpl, id) {
@@ -101,6 +109,7 @@ export async function handleAccounts(request, { env = process.env, fetchImpl = f
   try {
     if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
     const actor = await caller(request, env, fetchImpl);
+    await requirePasswordReady(request, { env, fetchImpl });
     let body;
     try { body = await request.json(); } catch { throw fail('Invalid request.', 400); }
     const action = String(body.action || '');
@@ -153,10 +162,15 @@ async function createLogin(actor, body, env, fetchImpl) {
   });
   const createdBody = await readJson(created);
   if (created.ok) authUser = createdBody;
-  else authUser = await findAuthUser(env, fetchImpl, email);
+  else {
+    const existing = await findAuthUser(env, fetchImpl, email);
+    if (existing?.id) throw fail('That email already has an authentication login. Use account recovery or have an administrator reconcile its profile.', 409);
+  }
   if (!authUser?.id) throw fail(createdBody?.msg || createdBody?.message || 'Could not create that login.', 400);
 
-  const rep = await saveRep(env, fetchImpl, {
+  let rep;
+  try {
+  rep = await saveRep(env, fetchImpl, {
     user_id: authUser.id,
     name,
     email,
@@ -164,14 +178,23 @@ async function createLogin(actor, body, env, fetchImpl) {
     active: true,
     must_change_password: true
   });
-  await audit(env, fetchImpl, {
+  } catch {
+    // Only roll back the Auth user created by this request, never an existing user.
+    try {
+      await serviceFetch(env, fetchImpl, `/admin/users/${authUser.id}`, { admin: true, method: 'DELETE' });
+    } catch {
+      throw fail('The login was created, but its profile could not be saved or rolled back. Have an administrator reconcile this email before retrying.', 502);
+    }
+    throw fail('The account profile could not be saved. The new login was rolled back; try again.', 502);
+  }
+  const auditResult = await audit(env, fetchImpl, {
     actor_rep_id: actor.rep.id,
     target_rep_id: rep?.id || null,
     action: 'user_created',
     target_email: email,
     metadata: { role }
   });
-  return { ok: true, rep };
+  return { ok: true, rep, ...auditResult };
 }
 
 async function resetPassword(actor, body, env, fetchImpl) {
@@ -182,26 +205,52 @@ async function resetPassword(actor, body, env, fetchImpl) {
   if (!canManageAccount(actor.rep.role, target.role, 'reset', { samePerson: samePerson(actor, target) })) {
     throw fail('You cannot reset that password.', 403);
   }
+  // Set the gate before changing Auth so a later failure cannot leave a
+  // successful temporary-password reset without a required password change.
+  try {
+    await serviceFetch(env, fetchImpl, `/reps?id=eq.${target.id}`, {
+      method: 'PATCH',
+      body: { must_change_password: true, must_change_set_at: new Date(0).toISOString() }
+    });
+  } catch {
+    throw fail('The required password change could not be configured. No password reset was attempted; try again.', 502);
+  }
   await serviceFetch(env, fetchImpl, `/admin/users/${target.user_id}`, {
     admin: true,
     method: 'PUT',
     body: { password }
   });
-  await serviceFetch(env, fetchImpl, `/reps?id=eq.${target.id}`, {
-    method: 'PATCH',
-    body: { must_change_password: true, must_change_set_at: new Date(0).toISOString() }
-  });
-  await audit(env, fetchImpl, {
+  try {
+    await serviceFetch(env, fetchImpl, `/reps?id=eq.${target.id}`, {
+      method: 'PATCH',
+      body: { must_change_password: true, must_change_set_at: new Date(0).toISOString() }
+    });
+  } catch {
+    // Try once more: this PATCH is idempotent and must be later than Auth's
+    // password timestamp. Do not roll back to an unknown old password.
+    try {
+      await serviceFetch(env, fetchImpl, `/reps?id=eq.${target.id}`, {
+        method: 'PATCH', body: { must_change_password: true, must_change_set_at: new Date(0).toISOString() }
+      });
+    } catch {
+      try {
+        await serviceFetch(env, fetchImpl, `/admin/users/${target.user_id}`, { admin: true, method: 'PUT', body: { ban_duration: '876000h' } });
+      } catch { /* Report reconciliation explicitly even if the Auth service is unavailable. */ }
+      throw fail('The password changed, but its required-change flag could not be finalized. Have an administrator reconcile and reactivate this account before use.', 502);
+    }
+  }
+  const auditResult = await audit(env, fetchImpl, {
     actor_rep_id: actor.rep.id,
     target_rep_id: target.id,
     action: 'password_reset',
     target_email: target.email || '',
     metadata: { role: target.role }
   });
-  return { ok: true };
+  return { ok: true, ...auditResult };
 }
 
 async function setActive(actor, body, env, fetchImpl) {
+  if (typeof body.active !== 'boolean') throw fail('Choose whether this login should be active.', 400);
   const active = body.active === true;
   const target = await repById(env, fetchImpl, body.repId);
   if (!target) throw fail('That person was not found.', 404);
@@ -210,20 +259,23 @@ async function setActive(actor, body, env, fetchImpl) {
   if (!canManageAccount(actor.rep.role, target.role, action, { samePerson: samePerson(actor, target) })) {
     throw fail('You cannot change that login.', 403);
   }
+  // Disable profile access first; enable it only after Auth is unbanned.
+  // Either partial failure leaves the account unable to use protected data.
+  if (!active) await serviceFetch(env, fetchImpl, `/reps?id=eq.${target.id}`, { method: 'PATCH', body: { active: false } });
   await serviceFetch(env, fetchImpl, `/admin/users/${target.user_id}`, {
     admin: true,
     method: 'PUT',
     body: { ban_duration: active ? 'none' : '876000h' }
   });
-  await serviceFetch(env, fetchImpl, `/reps?id=eq.${target.id}`, { method: 'PATCH', body: { active } });
-  await audit(env, fetchImpl, {
+  if (active) await serviceFetch(env, fetchImpl, `/reps?id=eq.${target.id}`, { method: 'PATCH', body: { active: true } });
+  const auditResult = await audit(env, fetchImpl, {
     actor_rep_id: actor.rep.id,
     target_rep_id: target.id,
     action: active ? 'user_reactivated' : 'user_deactivated',
     target_email: target.email || '',
     metadata: { role: target.role }
   });
-  return { ok: true, active };
+  return { ok: true, active, ...auditResult };
 }
 
 async function openAs(actor, body, request, env, fetchImpl) {
@@ -248,14 +300,14 @@ async function openAs(actor, body, request, env, fetchImpl) {
   });
   const url = link?.action_link || '';
   if (!url) throw fail('Could not create a one-time sign-in link.', 502);
-  await audit(env, fetchImpl, {
+  const auditResult = await audit(env, fetchImpl, {
     actor_rep_id: actor.rep.id,
     target_rep_id: target.id,
     action: 'open_as',
     target_email: target.email || '',
     metadata: { role: target.role }
   });
-  return { ok: true, url, email: target.email, name: target.name };
+  return { ok: true, url, email: target.email, name: target.name, ...auditResult };
 }
 
 function samePerson(actor, target) {

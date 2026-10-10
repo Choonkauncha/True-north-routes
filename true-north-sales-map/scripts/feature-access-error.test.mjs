@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {FEATURES,featureAllowed} from '../lib/features.js';
+const source=readFileSync(new URL('../brand/feature-access.js',import.meta.url),'utf8');
+const deny=source.slice(source.indexOf('function denyAccess('),source.indexOf('\nconst selectors='));
+const refresh=source.slice(source.indexOf('    async function refresh(){'),source.indexOf('\n    await refresh();'));
+let failure=true,activeRep=true;const events=[];
+const sb={auth:{getSession:async()=>({data:{session:{user:{id:'user'}}}})},from:table=>table==='reps'?{select:()=>({eq:()=>({eq:()=>({maybeSingle:async()=>({data:activeRep?{role:'salesperson'}:null})})})})}:{select:async()=>({data:[],error:failure?{code:'PGRST205'}:null})}};
+const context=vm.createContext({sb,FEATURES,featureAllowed,CustomEvent:class{constructor(name,args){this.name=name;this.detail=args.detail}},document:{dispatchEvent:e=>events.push(e),getElementById:()=>null},apply(){},location:{pathname:'/no-page'}});
+vm.runInContext('let current=null;let refreshVersion=0;\n'+deny+'\n'+refresh+'\nthis.allowed=key=>featureAllowed(current.rows,current.role,key);',context);
+await context.refresh();assert.equal(context.allowed('coach'),false);assert.equal(context.allowed('map'),false);
+failure=false;await context.refresh();assert.equal(context.allowed('coach'),true);
+activeRep=false;await context.refresh();assert.equal(context.allowed('coach'),false);assert.equal(context.allowed('training'),false);
+assert.equal(events.at(-1).detail.coach,false);
+console.log('Feature UI denies missing permissions and clears stale access when active profile disappears');

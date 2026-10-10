@@ -8,7 +8,8 @@ import {
   adminHomeownerRows,
   handleInspection,
   handlePublicSignup,
-  normalizePhone
+  normalizePhone,
+  planHomeownerProfile
 } from '../lib/homeowner-profile.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -44,6 +45,23 @@ function createCloud() {
       return new Response(JSON.stringify(user || {}), { status: user ? 200 : 401 });
     }
     const table = u.pathname.split('/rest/v1/')[1];
+    if (table === 'rpc/password_gate_status') return new Response(JSON.stringify({ must_change: false, impersonating: false }));
+    if (table === 'rpc/feature_enabled') return new Response('true');
+    if (table === 'rpc/atomic_save_homeowner_profile') {
+      const input = JSON.parse(options.body).p_input;
+      const plan = planHomeownerProfile({ leads: db.leads, intakes: db.homeowner_intakes, appointments: db.appointments }, input);
+      let intakeId = '', appointmentId = '';
+      for (const write of plan.writes) {
+        let saved;
+        if (write.method === 'patch') {
+          saved = db[write.table].find(row => row.id === write.id);
+          Object.assign(saved, write.body);
+        } else { saved = { ...write.body, id: write.body.id || crypto.randomUUID() }; db[write.table].push(saved); }
+        if (write.table === 'homeowner_intakes') intakeId = saved.id;
+        if (write.table === 'appointments') appointmentId = saved.id;
+      }
+      return new Response(JSON.stringify({ ok: true, updated: Boolean(plan.match.intake), reference: plan.leadId, lead_id: plan.leadId, intake_id: intakeId, appointment_id: appointmentId || null }));
+    }
     if (!table || !db[table]) return new Response(JSON.stringify({ message: 'missing table' }), { status: 404 });
     if (table === 'reps' && !auth.includes(secret)) {
       return new Response(JSON.stringify({ message: 'forbidden' }), { status: 401 });
@@ -253,8 +271,8 @@ const publicAgain = await handlePublicSignup(post({
   preferred_date: '2026-10-13',
   preferred_time_window: 'Afternoon'
 }), { env, fetchImpl });
-assert.equal(publicAgain.status, 200);
-assert.equal(db.homeowner_intakes.filter((row) => addressKey(row.address, row.city, row.zip) === addressKey('4 Oak Ave', 'Mount Vernon', '43050')).length, 1);
+assert.equal(publicAgain.status, 201);
+assert.equal(db.homeowner_intakes.filter((row) => addressKey(row.address, row.city, row.zip) === addressKey('4 Oak Ave', 'Mount Vernon', '43050')).length, 2);
 assert.equal(db.appointments.filter((row) => row.lead_id === pub.lead_id).length, 1);
 
 const honeypot = await handlePublicSignup(post({ ...inspectionBody(), website: 'spam' }), { env, fetchImpl });

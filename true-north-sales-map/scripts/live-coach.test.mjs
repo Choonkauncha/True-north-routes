@@ -14,6 +14,7 @@ assert.equal(downsampled.byteLength, downsampled.length * 2);
 const original = { fetch: globalThis.fetch, WebSocket: globalThis.WebSocket, AudioContext: globalThis.AudioContext, navigator: globalThis.navigator };
 const sent = [];
 let activeSocket;
+let audioStarts = 0;
 class TestSocket {
   static OPEN = 1;
   constructor(url) { this.url = url; this.readyState = 0; activeSocket = this; setImmediate(() => { this.readyState = 1; this.onopen?.(); }); }
@@ -26,7 +27,7 @@ class TestAudioContext {
   createScriptProcessor() { return { connect() {}, disconnect() {}, onaudioprocess: null }; }
   createGain() { return { gain: { value: 0 }, connect() {} }; }
   createBuffer() { return { duration: 0, getChannelData: () => new Float32Array() }; }
-  createBufferSource() { return { connect() {}, disconnect() {}, start() {}, stop() {} }; }
+  createBufferSource() { return { connect() {}, disconnect() {}, start() { audioStarts += 1; }, stop() {} }; }
   close() { return Promise.resolve(); }
 }
 let stopCount = 0;
@@ -68,7 +69,23 @@ activeSocket.onmessage({data:JSON.stringify({setupComplete:{}})});
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(sent.filter(row=>row.clientContent).length,1,'welcome is not sent twice');
 assert.equal(transcripts.length,0,'silent welcome instruction is not a user caption');
-started.stop();
+started.pause();
+activeSocket.onmessage({data:JSON.stringify({serverContent:{modelTurn:{parts:[{inlineData:{data:'AAA='}}]}}})});
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(audioStarts,0,'late server audio must not play after pause');
+started.resume();
+activeSocket.onmessage({data:JSON.stringify({serverContent:{modelTurn:{parts:[{inlineData:{data:'AAA='}}]}}})});
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(audioStarts,1,'resume accepts new audio');
+const beforeClose=stopCount;
+activeSocket.readyState=3;activeSocket.onclose({code:1000});
+assert.equal(started.isActive(),false,'normal remote close ends the session');
+assert.equal(stopCount,beforeClose+1,'normal remote close releases microphone');
+const timeoutErrors=[];
+const stalled=createLiveCoach({sb:{auth:{getSession:async()=>({data:{session:{access_token:'user-token'}}})}}},{setupTimeoutMs:5,onError:error=>timeoutErrors.push(error.message)});
+await stalled.start();await new Promise(resolve=>setTimeout(resolve,20));
+assert.equal(stalled.isActive(),false,'missing setupComplete ends after deadline');
+assert.match(timeoutErrors[0],/timed out/);
 globalThis.fetch = original.fetch;
 globalThis.WebSocket = original.WebSocket;
 globalThis.AudioContext = original.AudioContext;

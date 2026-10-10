@@ -87,3 +87,7 @@ const missingRoute = await handleRoute(request(JSON.stringify(valid)), {
 assert.equal(missingRoute.status, 502);
 
 console.log('Route API validation, timeout, privacy and upstream-error tests passed.');
+
+assert.ok(routeServiceUrl(normalized).startsWith('https://routing.openstreetmap.de/routed-foot/route/v1/foot/'));
+assert.ok(routeServiceUrl({...normalized,profile:'driving'}).startsWith('https://router.project-osrm.org/route/v1/driving/'));
+assert.ok(routeServiceUrl(normalized,{OSRM_WALKING_BASE_URL:'https://walk.example/'}).startsWith('https://walk.example/route/'));

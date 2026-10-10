@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+const source=readFileSync(new URL('../tn-files/password-gate.js',import.meta.url),'utf8');
+const bootSource=source.slice(source.indexOf('async function runBoot()'));
+const listeners={};let session=null,gates=0,releases=0;
+const context=vm.createContext({document:{getElementById:()=>null,addEventListener:(name,fn)=>{listeners[name]=fn}},HOLD_ID:'tnPasswordHold',localStorage:{},skipPath:()=>false,readStoredUser:()=>null,readSession:()=>session?{key:'test',session}:null,gateFetch:async url=>({ok:true,json:async()=>url==='/api/config'?{configured:true,url:'https://db.example',publishableKey:'public'}:{must_change:true,impersonating:false}}),claimOpen:async()=>false,needsPasswordGate:({mustChange,impersonating})=>mustChange&&!impersonating,releaseAccountHold:()=>{releases++},showGate:()=>{gates++},showLoadProblem:()=>{throw Error('unexpected load problem')},Date});
+vm.runInContext(bootSource+'\nthis.waitBoot=()=>bootPromise;',context);
+await context.waitBoot();assert.equal(gates,0);assert.equal(releases,1);
+session={access_token:'signed-in-user',expires_at:Date.now()/1000+3600};listeners['tn-password-required']();listeners['tn-password-required']();await context.waitBoot();if(context.waitBoot())await context.waitBoot();assert.ok(gates>=1,'Flagged login opens gate after initial signed-out import');
+const page=readFileSync(new URL('../index.html',import.meta.url),'utf8');assert.ok(page.includes(':not(#tnPasswordHold)'));assert.match(page,/#tnPasswordHold\{[^}]*display:grid!important[^}]*z-index:100002!important/);
+const transitions=readFileSync(new URL('../brand/transitions.css',import.meta.url),'utf8');assert.ok(transitions.includes('body>*:not(#loginModal):not(#tnPasswordHold){display:none!important}'));
+console.log('Flagged sign-in reopens password overlay; signed-out CSS preserves its visibility');

@@ -21,7 +21,7 @@ async function clientForReset() {
     if (response.ok) cfg = await response.json();
   } catch { /* static preview */ }
   if (!cfg?.configured || !cfg.url || !cfg.publishableKey) return null;
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  const { createClient } = await import('/vendor/supabase/supabase.js');
   return createClient(cfg.url, cfg.publishableKey, {
     auth: {
       flowType: 'implicit',

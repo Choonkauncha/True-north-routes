@@ -32,6 +32,7 @@ const WMO_LABELS = {
 };
 
 export function validPoint(lat, lng) {
+  if (lat == null || lng == null || String(lat).trim() === '' || String(lng).trim() === '') return false;
   const latitude = Number(lat);
   const longitude = Number(lng);
   return Number.isFinite(latitude) && Number.isFinite(longitude)

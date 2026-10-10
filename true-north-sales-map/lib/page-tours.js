@@ -23,9 +23,9 @@ export const PAGE_TOURS = {
       "The field list ranks opportunities. On a phone, open the house-list handle to see homes. Open a home for its address, notes, and door status.",
     ),
     step(
-      "#routeTrayToggle",
+      "#fieldRouteTab, #routeTrayToggle",
       "Plan your route",
-      "Expand the route panel. Select homes from the list, or use Draw area to circle a neighborhood. Choose Drive or Walk, then Build route.",
+      "Open Route. Use Add stops to select visible homes, draw an area, or choose homes in a storm area. Choose Drive or Walk, then Build route.",
     ),
     step(
       "#routeBtn, #mobileRoute",
@@ -38,9 +38,9 @@ export const PAGE_TOURS = {
       "Clock In before field work and Clock Out when you finish. The first clock-in explains when location points are recorded.",
     ),
     step(
-      "#tnMsgBtn, #tnMore",
+      "#tnMore, #tnMsgBtn",
       "Reach the office",
-      "Messages opens your office conversation. On a phone, More also contains your account, inspection form, and other tools allowed for your role.",
+      "Work contains messages, your account, training, inspection forms, and other tools available for your role.",
     ),
   ],
   setter: [

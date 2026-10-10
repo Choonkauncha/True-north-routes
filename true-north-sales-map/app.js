@@ -1,3 +1,4 @@
+import { geocodeLabel, geocodeUpdates } from './lib/geocode-results.js';
 import { PASSWORD_UPDATED } from './lib/password-reset.js';
 import { ROUTE_STOP_LIMIT, pickRouteStops, routeToggleLabel, visibleRoutePool } from './lib/route-picks.js';
 import { ROUTE_TRAY_KEY, routeTrayCollapsedByDefault, routeTraySummary, shouldExpandRouteTray } from './lib/route-tray.js';
@@ -6,7 +7,7 @@ import { ARRIVAL_METERS, NAV_CHOICE_KEY, appleDirectionsUrl, arrivedAtStop, etaS
 import { acquireScreenWakeLock, activeStep, arrowRotationDegrees, bearingDegrees, chooseTravelHeading, compassHeadingFromOrientation, createGpsFilter, createInterpolator, createReadoutThrottle, createRerouteGate, lineLatLngs, maneuverText, navLookaheadPixels, navZoomFor, normalizeSteps, offsetCameraPoint, pointAlong, releaseScreenWakeLock, requestCompassPermission, smoothBearing, snapToRoute, splitRoute } from './lib/nav-motion.js';
 import { installMapBearing, setMapHeading } from './lib/map-bearing.js';
 import { createArrayCursor, leadCacheUsable, localStamp, mergeLeadDelta, newestUpdatedAt, nextObjectEnd, normalizeStamp, parseJsonArraySlice, planLeadSync, takeCompleteObjects } from './lib/lead-cache.js';
-import { readLeadCache, writeLeadCache } from './lib/lead-store.js';
+import { clearLeadCache, leadCacheScope, readLeadCache, writeLeadCache } from './lib/lead-store.js';
 import { LEAD_OVERLAY_COLUMNS, LEAD_OVERLAY_OR, STATIC_LEAD_SOURCES, mergeLeadOverlay, pageRanges } from './lib/lead-sync.js';
 import { STREET_ZOOM, clusterLeads, pinDiff, sampleHeat } from './lib/pin-layer.js';
 import { HAIL_MILES, WARNING_COLORS, housesInStorm, readStormCache, reportMarkerText, writeStormCache } from './lib/storm-maps.js';
@@ -14,7 +15,7 @@ import { readSavedLayers, resolveLayers, writeSavedLayers } from './lib/map-laye
 import { bindAreaDraw } from './area-draw.js';
 import { roleLabel } from './lib/field-rules.js';
 import { MANAGEMENT_LINKS, canOpenManagement, managementProfile } from './lib/account-rules.js';
-import { forgetRole, readStoredUser, rememberRole } from './lib/management-gate.js';
+import { forgetRole, rememberRole } from './lib/management-gate.js';
 import { assertHandoffPhoto, handoffPermissions, isHandoffSetter, validateHandoffPatch, visibleHandoffs } from './lib/handoff-access.js';
 import { canSeeReceipt, canUploadReceipt } from './lib/receipt-access.js';
 import { createDeferredAuthHandler } from './lib/auth-events.js';
@@ -45,7 +46,7 @@ const state={
   navigating:false, navIndex:0, navFollow:true, navWatch:null, navPrompted:'', navLegStop:'', navLegFrom:null, routeGeometry:null, navLayers:[],
   pendingPostSignIn:false, paintTicket:0, toolsDeferred:false, pinsMarked:false, cloudReady:false, staticPromise:null,
   tileLayer:null, mapLoaderGen:0, mapSettled:false, pinsPainted:false, awaitingFirstFit:false, factTimer:null, mapLoaderGiveUp:null,
-  sessionReady:false, leadLoadSettled:false
+  sessionReady:false, leadLoadSettled:false, cacheScope:''
 };
 
 const $=id=>document.getElementById(id);
@@ -84,30 +85,19 @@ function markFirstPins(){
 
 function rememberLeadCache(stamp, leads){
   if(!leadCacheUsable({leads})) return;
-  writeLeadCache({stamp, leads, savedAt:Date.now()});
+  writeLeadCache({stamp, leads, savedAt:Date.now()}, state.cacheScope);
 }
 async function boot(){
   bindStaticEvents();
-  const authed=!!readStoredUser(localStorage);
-  if(authed){
-    initMapOnce();
-    setTimeout(deferFieldTools, 4000);
-  }else showLogin();
+  showLogin();
   const centersP=fetchJSON('/data/city-centers.json').catch(()=>({}));
   const cfgP=fetchJSON('/api/config').catch(()=>null);
-  if(authed){
-    const cached=await readLeadCache().catch(()=>null);
-    if(leadCacheUsable(cached)){
-      streamLeads(cached.leads, cached.leads.length, null);
-      await new Promise(resolve=>requestAnimationFrame(resolve));
-    }else startStaticLeads().catch(error=>console.error(error));
-  }
   const [centers, cfg]=await Promise.all([centersP, cfgP]);
   state.centers=centers||{};
   if(cfg?.configured){
     state.config=cfg;
     try{
-      const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+      const {createClient}=await import('/vendor/supabase/supabase.js');
       state.supabase=createClient(cfg.url,cfg.publishableKey);
       const {data}=await state.supabase.auth.getSession();
       state.supabase.auth.onAuthStateChange(createDeferredAuthHandler({
@@ -120,7 +110,7 @@ async function boot(){
       }));
       if(data.session) await enterCloud(data.session);
       else showLogin();
-    }catch(e){console.error(e);enterLocal(`Cloud client error: ${e.message}`)}
+    }catch(e){console.error(e);showLogin();$('loginError').textContent=e.message||'Could not verify this account. Please sign in again.';}
   }else{
     enterLocal('Cloud is not configured on this Vercel deployment. Local device mode is active.');
   }
@@ -129,12 +119,16 @@ async function boot(){
 async function fetchJSON(url){const r=await fetch(url);if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}
 
 function bindStaticEvents(){
+  document.addEventListener('tn-map-panel-view',event=>{
+    if(event.detail?.view==='addresses' && useDoorSheet())setListSheet('sheet-half');
+    else if(event.detail?.view==='route' && useDoorSheet())setListSheet('sheet-full');
+  });
   $('loginForm').addEventListener('submit',login);
   $('logoutBtn').onclick=()=>{ const userId=state.user?.id; showLogin(); forgetRole(localStorage, userId); state.supabase?.auth.signOut(); };
   $('localModeBtn').onclick=()=>{hideLogin();enterLocal('Local device mode enabled. Connect Supabase for shared live team data.')};
   $('nextBtn').onclick=nextBest; $('nextCardBtn').onclick=nextBest;
   $('mobileNext').onclick=nextBest; $('mobileRoute').onclick=openRouteFromChrome; $('mobileLocate').onclick=locate;
-  $('routeBtn').onclick=openRouteFromChrome; $('routeTrayBtn').onclick=openRoutePanel;
+  $('routeBtn').onclick=openRouteFromChrome; $('routeTrayBtn').onclick=optimizeAndDrawRoute;
   $('routeTrayToggle').onclick=()=>setRouteTrayCollapsed($('routeTrayToggle').getAttribute('aria-expanded')==='true');
   $('selectVisibleBtn').onclick=selectVisibleForRoute; $('clearRouteBtn').onclick=clearRoute;
   $('doorSheetRoute').onclick=()=>{if(!state.doorLeadId)return;toggleSelected(state.doorLeadId);$('doorSheetRoute').textContent=routeToggleLabel(state.selected.has(state.doorLeadId));};
@@ -238,7 +232,7 @@ function bindStaticEvents(){
   document.addEventListener('fullscreenchange', onNavFullscreenChange);
   document.addEventListener('webkitfullscreenchange', onNavFullscreenChange);
   syncNavChoiceButton();
-  $('routeCount').addEventListener('input',e=>$('routeCountValue').textContent=e.target.value); $('routeDistance').textContent='';
+  $('routeCount').addEventListener('input',e=>{$('routeCountValue').textContent=e.target.value;invalidateBuiltRoute();}); $('routeDistance').textContent='';
   $('optimizeRouteBtn').onclick=optimizeAndDrawRoute;
   $('openGoogleRouteBtn').onclick=openGoogleRouteBlocks;
   $('closeRoute').onclick=closeRoutePanel;
@@ -301,7 +295,7 @@ function enterLocal(message){
     try{ state.supabase.removeChannel(state.realtimeChannel); }catch{ /* channel may already be closed */ }
   }
   state.realtimeChannel=null;
-  state.mode='local'; state.session=null; state.user=null; state.currentRep=null; state.cloudReady=false;
+  state.mode='local'; state.session=null; state.user=null; state.currentRep=null; state.cloudReady=false; state.cacheScope='';
   hideLogin(); state.sessionReady=true; if(!state.map) initMapOnce();
   $('userMenu').classList.add('hidden'); $('adminBtn').classList.add('hidden'); $('adminBtn').hidden = true;
   $('connection').textContent='LOCAL DEVICE'; $('connection').className='chip local';
@@ -324,7 +318,7 @@ async function loadLocalDataset(){
   const total=manifest?.totalRecords||0;
   $('datasetCount').textContent=total?`${fmt(total)} source records`:'';
   initMapOnce();
-  const cached=await readLeadCache();
+  const cached=await readLeadCache(state.cacheScope);
   if(!current()) return;
   if(leadCacheUsable(cached) && cached.stamp===stamp){
     if(!total) $('datasetCount').textContent=`${fmt(cached.leads.length)} source records`;
@@ -455,7 +449,19 @@ async function enterCloud(session){
 }
 async function runEnterCloud(session){
   const epoch=authEpoch;
-  state.mode='cloud'; state.session=session; state.user=session.user; hideLogin();
+  const verified=await state.supabase.auth.getUser(session.access_token);
+  if(epoch!==authEpoch) return;
+  if(verified.error || !verified.data?.user?.id) throw new Error('Sign in again to verify this account.');
+  const user=verified.data.user;
+  const profile=await state.supabase.from('reps').select('id,user_id,name,role,active').eq('user_id',user.id).eq('active',true).maybeSingle();
+  if(epoch!==authEpoch) return;
+  if(profile.error || !profile.data) throw new Error('An active team profile is required.');
+  const gate=await state.supabase.rpc('password_gate_status');
+  if(epoch!==authEpoch) return;
+  if(gate.error || typeof gate.data?.must_change!=='boolean' || typeof gate.data?.impersonating!=='boolean') throw new Error('Account security verification is unavailable.');
+  if(gate.data.must_change && !gate.data.impersonating){document.dispatchEvent(new CustomEvent('tn-password-required'));throw new Error('Choose your own password before opening the field map.');}
+  state.cacheScope=leadCacheScope(state.config?.url,user.id);
+  state.mode='cloud'; state.session={...session,user}; state.user=user; state.currentRep=profile.data; hideLogin();
   if(epoch!==authEpoch) return;
   state.sessionReady=true;
   if(!state.map) initMapOnce();
@@ -489,7 +495,8 @@ async function runEnterCloud(session){
     cloudToken='';
     state.cloudReady=false;
     state.pendingPostSignIn=false;
-    enterLocal(`Cloud connection failed: ${e.message}`);
+    showLogin();
+    $('loginError').textContent=`Cloud connection failed: ${e.message}`;
   }
 }
 
@@ -544,7 +551,7 @@ function publishSideData(){
 }
 async function loadCloudLeadRows(current=()=>true){
   const sb=state.supabase;
-  const raw=await readLeadCache();
+  const raw=await readLeadCache(state.cacheScope);
   const cached=leadCacheUsable(raw)?raw:null;
   const cachedLeads=cached?.leads||[];
   let boot=null;
@@ -798,6 +805,8 @@ function scrubPrivateMap(){
   $('appShell')?.classList.remove('blurred');
 }
 function showLogin(){
+  if(state.cacheScope) clearLeadCache();
+  state.cacheScope='';
   authEpoch++;
   cloudFlight=null;
   state.sessionReady=false;
@@ -1676,7 +1685,7 @@ function openLead(id, options={}){
   const notes=l.notes||localSaved(l).notes||'';
   const reps=state.reps.slice().sort((a,b)=>a.name.localeCompare(b.name));
   $('drawerContent').innerHTML=`<div class="drawerTop" data-lead-id="${esc(l.id)}"><div><div class="eyebrow">FIELD RECORD</div><h2>${esc(l.name||'Property lead')}</h2><div class="drawerAddr">${esc(l.address)}<br>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</div></div><span class="bigScore">${scoreLead(l)}</span></div>
-    <section class="drawerSection" data-tn-panel="lead-details" data-tn-rank="primary"><h3>House details</h3><div class="detailGrid"><div><small>Source</small><b>${esc(l.source)}</b></div><div><small>Priority</small><b>${esc(l.priority||'Standard')}</b></div><div><small>Built</small><b>${esc(l.year_built??l.yearBuilt??'Unknown')}</b></div><div><small>Mapped</small><b>${isCoords(l)?'Exact geocode':'Needs geocode'}</b></div></div>
+    <section class="drawerSection" data-tn-panel="lead-details" data-tn-rank="primary"><h3>House details</h3><div class="detailGrid"><div><small>Source</small><b>${esc(l.source)}</b></div><div><small>Priority</small><b>${esc(l.priority||'Standard')}</b></div><div><small>Built</small><b>${esc(l.year_built??l.yearBuilt??'Unknown')}</b></div><div><small>Mapped</small><b>${esc(geocodeLabel(l))}</b></div></div>
     <div class="drawerActions"><button id="drawerMaps" class="darkBtn">Open Google Maps</button><button id="drawerDir" class="outlineBtn">Directions</button></div>
     <div class="fieldActions"><button data-qstatus="Knocked">Knocked</button><button data-qstatus="No Answer">No answer</button><button data-qstatus="Interested">Interested</button><button data-qstatus="Not Interested">Not interested</button></div>
     <label>Sales status</label><select id="dStatus">${STATUS_OPTIONS.map(x=>`<option value="${esc(x)}" ${leadStatus(l)===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
@@ -1716,21 +1725,46 @@ function openRoutePanel(){
   if(useDoorSheet())setListSheet('sheet-full');
   setRouteTrayCollapsed(false);
   $('selectedCountRoute').textContent=fmt(state.selected.size);
-  $('optimizeRouteBtn').disabled=state.selected.size===0;
+  $('optimizeRouteBtn').disabled=state.selected.size===0||!!state.routeBuilding;
+  $('optimizeRouteBtn').hidden=!state.routeStops.length;
   $('openGoogleRouteBtn').disabled=!state.routeStops.length;
   $('routePanel').classList.remove('hidden');
 }
 function closeRoutePanel(){const wasOpen=!$('routePanel').classList.contains('hidden');$('routePanel').classList.add('hidden');if(wasOpen)$('routeTrayBtn').focus()}
+function routeBuildKey(){return `${state.routeMode}:${$('routeCount').value}:${[...state.selected].sort().join(',')}`;}
+function publishRouteState(){
+  const tray=$('routeTray');if(!tray)return;
+  tray.dataset ||= {};
+  tray.dataset.routeReady=String(!!state.routeStops?.length&&!state.routeBuilding&&state.routeBuildKey===routeBuildKey());
+  tray.dataset.routeBuilding=String(!!state.routeBuilding);
+  tray.dataset.routeStopCount=String(state.routeStops?.length||0);
+}
+function invalidateBuiltRoute(){
+  state.routeRequestSeq=(state.routeRequestSeq||0)+1;
+  state.routeBuildKey='';state.routeStops=[];state.routeGeometry=null;
+  if(state.navigating)endNavigation('');
+  if(state.routeLine&&state.map){state.map.removeLayer(state.routeLine);state.routeLine=null;}
+  $('routeDistance').textContent='';$('routeTrayStats').textContent='';
+  $('optimizeRouteBtn').textContent='Build route';
+  renderRouteStops();
+  publishRouteState();
+}
 async function optimizeAndDrawRoute(){
+  if(state.routeBuilding || window.tnFeatureAllowed?.('routes')===false)return;
+  openRoutePanel();
   const raw=[...state.selected].map(id=>state.leads.find(l=>l.id===id)).filter(Boolean);
   const mapped=raw.filter(isCoords); const max=Number($('routeCount').value||25); const leads=mapped.slice(0,max);
   if(!leads.length){alert('Select mapped houses first. Unmapped addresses need geocoding before they can be optimized.');return}
   if(raw.length>max)$('routeWarning').textContent=`Using the first ${max} mapped selections.`;else if(mapped.length<raw.length)$('routeWarning').textContent=`${raw.length-mapped.length} selected houses have no coordinates yet.`;else $('routeWarning').textContent='';
   const start=state.currentLocation||{lat:leads[0].lat,lng:leads[0].lng};
+  state.routeBuilding=true;state.routeBuildKey=routeBuildKey();
+  $('routeTrayBtn').disabled=true;$('optimizeRouteBtn').disabled=true;
   state.routeStops=nearestNeighbor2Opt(leads,start);
+  publishRouteState();
   renderRouteStops();
   $('routeDistance').textContent='Optimizing…';
-  await fetchRoadRoute(start,state.routeStops);
+  try{await fetchRoadRoute(start,state.routeStops);}
+  finally{state.routeBuilding=false;updateSelectedBadge();$('optimizeRouteBtn').textContent=state.routeStops.length?'Rebuild route':'Build route';}
 }
 async function fetchRoadRoute(start,stops){
   const request=state.routeRequestSeq=(state.routeRequestSeq||0)+1;
@@ -1766,8 +1800,9 @@ function drawRoutePreview(fit=true){
 }
 function renderRouteStops(){
   $('openGoogleRouteBtn').disabled=!state.routeStops.length;
+  $('optimizeRouteBtn').hidden=!state.routeStops.length;
   $('routeStops').innerHTML=state.routeStops.map((l,i)=>`<div class="routeStop"><span>${i+1}</span><div><b>${esc(l.address)}</b><small>${esc(l.city)} · ${scoreLead(l)} pts</small></div><button type="button" aria-label="Remove ${esc(l.address || 'stop')} from route" data-route-lead="${esc(l.id)}">×</button></div>`).join('')||'<div class="empty">No route yet.</div>';
-  $('routeStops').querySelectorAll('[data-route-lead]').forEach(btn=>btn.onclick=()=>{state.selected.delete(btn.dataset.routeLead);if(state.selected.size)optimizeAndDrawRoute();else clearRoute();updateSelectedBadge()});
+  $('routeStops').querySelectorAll('[data-route-lead]').forEach(btn=>btn.onclick=()=>{state.selected.delete(btn.dataset.routeLead);invalidateBuiltRoute();updateSelectedBadge();refreshSelectedMarkers();renderWorkList()});
 }
 function openGoogleRouteBlocks(){
   if(!state.routeStops.length){alert('Optimize a route first.');return}
@@ -2050,7 +2085,7 @@ async function geocodeAll(){
     const batch=missing.slice(i,i+batchSize);
     const r=await fetch('/api/geocode',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${state.session.access_token}`},body:JSON.stringify({addresses:batch.map(l=>({id:l.id,address:l.address,city:l.city,state:l.state,zip:(l.zip||'').split('-')[0]}))})});
     const payload=await r.json();if(!r.ok)throw new Error(payload.error||`Geocode HTTP ${r.status}`);
-    const updates=payload.results.filter(x=>Number.isFinite(Number(x.lat))&&Number.isFinite(Number(x.lng))).map(x=>({id:x.id,lat:Number(x.lat),lng:Number(x.lng),geocode_match:x.matchType||x.status||null}));
+    const updates=geocodeUpdates(payload.results);
     matched+=updates.length;done+=batch.length;
     if(updates.length){const {error}=await state.supabase.from('leads').upsert(updates,{onConflict:'id'});if(error)throw error;const by=new Map(updates.map(x=>[x.id,x]));state.leads.forEach(l=>{const u=by.get(l.id);if(u){l.lat=u.lat;l.lng=u.lng;l.geocode_match=u.geocode_match}})}
     setAdminProgress(Math.round(done/missing.length*100),`Geocoded ${fmt(done)} / ${fmt(missing.length)} · matched ${fmt(matched)}`);
@@ -2217,12 +2252,15 @@ function locate(){
 locate._seq=0;
 
 function updateSelectedBadge(){
+  if(state.routeBuildKey && state.routeBuildKey!==routeBuildKey())invalidateBuiltRoute();
+  publishRouteState();
   const prev=state.routeCountSeen;
   const n=state.selected.size;
   state.routeCountSeen=n;
   $('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n;
-  $('optimizeRouteBtn').disabled=n===0;
-  $('startRouteBtn').disabled=n===0;
+  $('optimizeRouteBtn').disabled=n===0||!!state.routeBuilding;
+  $('routeTrayBtn').disabled=n===0||!!state.routeBuilding;
+  $('startRouteBtn').disabled=n===0||!!state.routeBuilding;
   $('clearRouteBtn').disabled=n===0;
   updateRouteTraySummary();
   if(shouldExpandRouteTray(prev,n))setRouteTrayCollapsed(false);
@@ -2256,7 +2294,7 @@ function applyAreaRoute(result){
   const stops=result?.stops||[];
   state.selected.clear();
   stops.forEach(lead=>state.selected.add(lead.id));
-  state.routeStops=stops.slice();
+  invalidateBuiltRoute();
   const note=result?.capped
     ?`Route stop limit is ${ROUTE_STOP_LIMIT}. Queued ${fmt(stops.length)} houses; ${fmt(result.leftOut)} more in the area stayed off this route.`
     :(stops.length?`${fmt(stops.length)} houses inside the drawn area are on this route.`:'No actionable houses inside that area.');
@@ -2268,8 +2306,7 @@ function applyAreaRoute(result){
   renderWorkList();
   setRouteTrayCollapsed(false);
   if(!stops.length){state.routeGeometry=null;drawRoutePreview(false);return;}
-  const start=state.currentLocation||{lat:Number(stops[0].lat),lng:Number(stops[0].lng)};
-  fetchRoadRoute(start,stops);
+  openRoutePanel();
 }
 function openRouteFromChrome(){
   if(window.tnFeatureAllowed?.('routes')===false)return;
@@ -2277,6 +2314,7 @@ function openRouteFromChrome(){
   if(useDoorSheet())setListSheet('sheet-full');
   setRouteTrayCollapsed(false);
   $('routeTray').scrollIntoView({block:'nearest'});
+  openRoutePanel();
 }
 function toggleSelected(id){
   if(window.tnFeatureAllowed?.('routes')===false)return;
@@ -2330,7 +2368,7 @@ function setRouteMode(mode){
   $('trayWalk').classList.toggle('isOn', next==='walking');
   $('trayWalk').setAttribute('aria-pressed', next==='walking'?'true':'false');
   updateRouteTraySummary();
-  if(changed&&state.routeStops?.length)optimizeAndDrawRoute();
+  if(changed)invalidateBuiltRoute();
 }
 function syncNavChoiceButton(){
   const saved=readNavChoice(localStorage.getItem(NAV_CHOICE_KEY));
@@ -2359,6 +2397,8 @@ function confirmNavChoice(choice){
 }
 async function startRoute(){
   if(window.tnFeatureAllowed?.('routes')===false)return;
+  if(state.routeBuilding)return;
+  if(state.routeBuildKey!==routeBuildKey())invalidateBuiltRoute();
   if(!state.routeStops?.length){await optimizeAndDrawRoute();if(!state.routeStops?.length)return}
   const saved=readNavChoice(localStorage.getItem(NAV_CHOICE_KEY));
   if(saved){runNavChoice(saved);return}

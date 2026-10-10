@@ -37,9 +37,10 @@ export function normalizeRouteRequest(body) {
   };
 }
 
-export function routeServiceUrl({ coordinates, profile, service, wantSteps }) {
+export function routeServiceUrl({ coordinates, profile, service, wantSteps }, env = {}) {
+  const base = String(profile === 'foot' ? (env.OSRM_WALKING_BASE_URL || 'https://routing.openstreetmap.de/routed-foot') : (env.OSRM_DRIVING_BASE_URL || 'https://router.project-osrm.org')).replace(/\/$/, '');
   const packed = coordinates.map((point) => `${point.lng},${point.lat}`).join(';');
   return service === 'route'
-    ? `https://router.project-osrm.org/route/v1/${profile}/${packed}?overview=full&geometries=geojson&steps=${wantSteps ? 'true' : 'false'}`
-    : `https://router.project-osrm.org/trip/v1/${profile}/${packed}?roundtrip=false&source=first&destination=any&overview=full&geometries=geojson&steps=false`;
+    ? `${base}/route/v1/${profile}/${packed}?overview=full&geometries=geojson&steps=${wantSteps ? 'true' : 'false'}`
+    : `${base}/trip/v1/${profile}/${packed}?roundtrip=false&source=first&destination=any&overview=full&geometries=geojson&steps=false`;
 }

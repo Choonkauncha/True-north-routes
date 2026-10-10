@@ -66,17 +66,23 @@ export async function ensureLocalTemplates() {
   return idbAll('templates');
 }
 
-export async function bootFiles() {
+export async function bootFiles({ local = false, fetchImpl = fetch } = {}) {
   let cfg = { configured: false };
-  try {
-    const response = await fetch('/api/config');
-    if (response.ok) cfg = await response.json();
-  } catch { /* local static server */ }
-  if (!cfg?.configured) {
+  if (!local) {
+    try {
+      const response = await fetchImpl('/api/config');
+      if (!response.ok) throw new Error('Configuration unavailable');
+      cfg = await response.json();
+      if (!cfg?.configured || !cfg.url || !cfg.publishableKey) throw new Error('Cloud unavailable');
+    } catch {
+      throw new Error('Cloud connection unavailable. Reload to try again; records have not been saved on this device.');
+    }
+  }
+  if (local) {
     await ensureLocalTemplates();
     return { mode: 'local', cfg, sb: null, rep: null, session: null };
   }
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  const { createClient } = await import('/vendor/supabase/supabase.js');
   const sb = createClient(cfg.url, cfg.publishableKey);
   const ctx = { mode: 'cloud', cfg, sb, rep: null, session: null };
   const { data } = await sb.auth.getSession();
@@ -174,13 +180,9 @@ export async function replaceAssignments(ctx, templateId, repIds) {
     if (template) await idbPut('templates', { ...template, assignee_ids: ids });
     return ids.map((rep_id) => ({ template_id: templateId, rep_id }));
   }
-  const removed = await ctx.sb.from('form_assignments').delete().eq('template_id', templateId);
-  if (removed.error) throw removed.error;
-  if (!ids.length) return [];
-  const rows = ids.map((rep_id) => ({ template_id: templateId, rep_id }));
-  const inserted = await ctx.sb.from('form_assignments').insert(rows);
-  if (inserted.error) throw inserted.error;
-  return rows;
+  const { data, error } = await ctx.sb.rpc('replace_form_assignments', { p_template_id: templateId, p_rep_ids: ids });
+  if (error) throw error;
+  return data || [];
 }
 
 export async function uploadLibraryFile(ctx, file) {
@@ -391,14 +393,21 @@ export async function savePhoto(ctx, { lead, blob, caption }) {
   const path = `${lead.id}/${crypto.randomUUID()}.jpg`;
   const upload = await ctx.sb.storage.from('lead-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
   if (upload.error) throw upload.error;
-  const { data, error } = await ctx.sb.from('lead_photos').insert({
-    lead_id: lead.id,
-    uploaded_by: ctx.rep.id,
-    storage_path: path,
-    address_snapshot: address,
-    caption: caption || ''
-  }).select('*').single();
-  if (error) throw error;
+  let data;
+  try {
+    const saved = await ctx.sb.from('lead_photos').insert({
+      lead_id: lead.id,
+      uploaded_by: ctx.rep.id,
+      storage_path: path,
+      address_snapshot: address,
+      caption: caption || ''
+    }).select('*').single();
+    if (saved.error) throw saved.error;
+    data = saved.data;
+  } catch (error) {
+    try { await ctx.sb.storage.from('lead-photos').remove([path]); } catch { /* preserve the original save error */ }
+    throw error;
+  }
   await ctx.sb.from('lead_activity').insert({ lead_id: lead.id, actor_id: ctx.rep.id, action: 'photo_added', metadata: { caption: caption || '' } });
   const signed = await ctx.sb.storage.from('lead-photos').createSignedUrl(path, 60 * 60);
   return { ...data, url: signed.data?.signedUrl || '', uploader_name: ctx.rep.name };

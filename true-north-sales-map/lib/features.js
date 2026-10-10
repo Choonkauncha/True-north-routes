@@ -17,8 +17,6 @@ export async function requireFeature(request,key,{env=process.env,fetchImpl=fetc
   if(!token)throw Object.assign(Error('Sign in required.'),{status:401,public:true});
   const base=(env.SUPABASE_URL||'').replace(/\/$/,'');
   const response=await fetchImpl(`${base}/rest/v1/rpc/feature_enabled`,{method:'POST',headers:{apikey:env.SUPABASE_PUBLISHABLE_KEY||env.SUPABASE_ANON_KEY,Authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({requested:key})});
-  // Legacy installations have no permission controls until the migration is installed.
-  if(response.status===404)return;
   if(!response.ok)throw Object.assign(Error('Feature access could not be verified.'),{status:503,public:true});
   if(await response.json()!==true)throw Object.assign(Error('Management has disabled this feature for your role.'),{status:403,public:true});
 }

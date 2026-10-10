@@ -1,3 +1,4 @@
+import { requirePasswordReady } from '../lib/server-access.js';
 import { requireFeature } from '../lib/features.js';
 import {
   ADMIN_ROLES,
@@ -418,6 +419,7 @@ export default {
     try {
       if (request.method !== 'GET' && request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
       const ctx = await caller(request);
+      await requirePasswordReady(request);
       const url = new URL(request.url);
       if (request.method === 'GET') return json(await handleGet(ctx, url));
       let body = {};

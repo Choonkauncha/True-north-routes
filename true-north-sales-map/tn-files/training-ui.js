@@ -119,7 +119,7 @@ export function libraryHtml(items) {
   if (!items.length) return '<div class="tnTrainEmpty">No training uploaded yet.</div>';
   return `<div class="tnTrainList">${items.map((item) => {
     const counts = watchCounts(item.progressRows || []);
-    return `<article class="tnTrainPerson" data-tn-panel="train-item-${escapeHtml(item.id)}" data-tn-rank="secondary"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(typeBadge(item))} · ${escapeHtml(item.audience)} · ${item.required ? 'Required' : 'Optional'}${item.category ? ` · ${escapeHtml(item.category)}` : ''}</small><small>${counts.watched} watched · ${counts.completed} completed</small><div class="tnTrainControls"><button type="button" data-status="${escapeHtml(item.id)}">Watch status</button><button type="button" data-edit="${escapeHtml(item.id)}">Edit</button><button type="button" data-delete="${escapeHtml(item.id)}">Delete</button></div></article>`;
+    return `<article class="tnTrainPerson" data-tn-panel="train-item-${escapeHtml(item.id)}" data-tn-rank="secondary"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(typeBadge(item))} · ${escapeHtml(item.audience)} · ${item.required ? 'Required' : 'Optional'}${item.active === false ? ' · Archived' : ''}${item.category ? ` · ${escapeHtml(item.category)}` : ''}</small><small>${counts.watched} watched · ${counts.completed} completed</small><div class="tnTrainControls"><button type="button" data-status="${escapeHtml(item.id)}">Watch status</button><button type="button" data-edit="${escapeHtml(item.id)}">Edit</button><button type="button" data-delete="${escapeHtml(item.id)}" ${item.active === false ? 'disabled' : ''}>Archive</button></div></article>`;
   }).join('')}</div>`;
 }
 

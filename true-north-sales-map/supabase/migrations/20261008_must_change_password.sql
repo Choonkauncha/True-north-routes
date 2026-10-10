@@ -382,10 +382,4 @@ begin
 end;
 $$;
 
--- Spencer used the starting password once. Travis is left unchanged.
-update public.reps
-set must_change_password = true,
-    must_change_set_at = clock_timestamp()
-where lower(email) = 'truenorthrestorationss@gmail.com'
-  and must_change_password = false
-  and password_changed_at is null;
+-- Password flags are managed through the accounts API; setup reruns never reflag recovered users.

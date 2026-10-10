@@ -1,3 +1,5 @@
+import { requireFeature } from './features.js';
+import { requirePasswordReady } from './server-access.js';
 /** One homeowner profile per person at an address. Shared by the inspection form and the public request. */
 
 const STAFF_ROLES = new Set(['appointment_setter', 'canvasser', 'salesperson', 'manager', 'admin']);
@@ -34,12 +36,27 @@ export function timeWindowFromClock(value) {
   return 'Evening';
 }
 
+/** Interpret all inspection appointments in the service area's Eastern timezone. */
+export function easternScheduledAt(date, clock) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) || !/^\d{2}:\d{2}$/.test(String(clock || ''))) return '';
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = clock.split(':').map(Number);
+  const wall = Date.UTC(year, month - 1, day, hour, minute);
+  const check = new Date(wall);
+  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day || hour > 23 || minute > 59) return '';
+  const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const localWall = (stamp) => {
+    const parts = Object.fromEntries(formatter.formatToParts(new Date(stamp)).map((part) => [part.type, part.value]));
+    return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
+  };
+  let stamp = wall;
+  for (let i = 0; i < 3; i += 1) stamp += wall - localWall(stamp);
+  // Reject a nonexistent clock time during the spring daylight-saving transition.
+  return localWall(stamp) === wall ? new Date(stamp).toISOString() : '';
+}
+
 export function scheduledFromPreference(date, window) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return '';
-  const clock = WINDOW_HOUR[window] || '09:00';
-  const when = new Date(`${date}T${clock}`);
-  if (Number.isNaN(when.getTime())) return '';
-  return when.toISOString();
+  return easternScheduledAt(date, WINDOW_HOUR[window] || '09:00');
 }
 
 export function composeHandoffNotes(input) {
@@ -96,11 +113,12 @@ export function inspectionInputFromBody(body = {}, { actor = null, source = 'app
   const scheduledTime = clean(body.scheduled_time, 8);
   let scheduledAt = '';
   if (scheduledDate && scheduledTime) {
-    const when = new Date(`${scheduledDate}T${scheduledTime}`);
-    if (Number.isNaN(when.getTime())) return { error: 'Please choose an inspection date and time.' };
-    scheduledAt = when.toISOString();
+    scheduledAt = easternScheduledAt(scheduledDate, scheduledTime);
+    if (!scheduledAt) return { error: 'Please choose a valid inspection date and time.' };
   } else if (!staff) {
-    scheduledAt = scheduledFromPreference(clean(body.preferred_date, 30), clean(body.preferred_time_window, 80));
+    const preferredDate = clean(body.preferred_date, 30);
+    scheduledAt = scheduledFromPreference(preferredDate, clean(body.preferred_time_window, 80));
+    if (preferredDate && !scheduledAt) return { error: 'Please choose a valid preferred inspection date.' };
   }
   const requestedStage = clean(body.stage, 40);
   const stage = !scheduledAt
@@ -110,7 +128,7 @@ export function inspectionInputFromBody(body = {}, { actor = null, source = 'app
       : 'Requested';
   return {
     value: {
-      lead_id: clean(body.lead_id, 120),
+      lead_id: staff ? clean(body.lead_id, 120) : '',
       first_name: first,
       last_name: last,
       phone,
@@ -133,7 +151,7 @@ export function inspectionInputFromBody(body = {}, { actor = null, source = 'app
       stage,
       salesperson_id: staff ? clean(body.salesperson_id, 80) : '',
       actor_id: actor?.id || null,
-      now: body.now || new Date().toISOString()
+      now: new Date().toISOString()
     }
   };
 }
@@ -225,7 +243,9 @@ function intakeBody(input, existing, leadId) {
 }
 
 export function planHomeownerProfile(store, input) {
-  const match = findHomeownerMatch(store, input);
+  const match = input.source === 'public_homeowner_form'
+    ? { lead: null, intake: null, reason: 'public_new' }
+    : findHomeownerMatch(store, input);
   const leadId = match.lead?.id || match.intake?.lead_id || input.lead_id || newLeadId(input.source);
   const leadExists = Boolean(match.lead || match.intake);
   const notes = composeHandoffNotes(input);
@@ -299,29 +319,11 @@ export async function loadHomeownerCandidates(rest, input) {
 }
 
 export async function saveHomeownerProfile(rest, input) {
-  const store = await loadHomeownerCandidates(rest, input);
-  const plan = planHomeownerProfile(store, input);
-  let intakeId = plan.match.intake?.id || '';
-  let appointmentId = plan.appointmentWrite?.id || '';
-  for (const write of plan.writes) {
-    const rows = write.method === 'patch'
-      ? await rest.patch(write.table, write.id, write.body)
-      : await rest.post(write.table, write.body);
-    const saved = Array.isArray(rows) ? rows[0] : rows;
-    if (write.table === 'homeowner_intakes' && saved?.id) intakeId = saved.id;
-    if (write.table === 'appointments' && saved?.id) appointmentId = saved.id;
-  }
-  return {
-    ok: true,
-    updated: Boolean(plan.match.intake),
-    reference: plan.leadId,
-    lead_id: plan.leadId,
-    intake_id: intakeId,
-    appointment_id: appointmentId || null,
-    message: plan.match.intake
-      ? 'Homeowner profile updated.'
-      : 'Homeowner profile created.'
-  };
+  // Matching and every related write happen inside a single database transaction.
+  // No sequential-write fallback: a missing migration must fail without partial data.
+  const saved = await rest.rpc('atomic_save_homeowner_profile', { p_input: input });
+  if (!saved?.ok || !saved.lead_id || !saved.intake_id) throw fail('Homeowner profile did not save. Please apply the field integrity migration.', 502);
+  return saved;
 }
 
 export function adminHomeownerRows(intakes) {
@@ -390,6 +392,9 @@ export function supabaseRest(env, fetchImpl = fetch) {
     })
     .join('&');
   return {
+    rpc(name, body) {
+      return call(`rpc/${name}`, { method: 'POST', body });
+    },
     get(table, pairs) {
       const query = filter(pairs);
       return call(`${table}?select=*&${query}&limit=50`);
@@ -448,6 +453,8 @@ export async function handleInspection(request, { env = process.env, fetchImpl =
   try {
     if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
     const actor = await staffActor(request, env, fetchImpl);
+    await requirePasswordReady(request, { env, fetchImpl });
+    await requireFeature(request, 'intake', { env, fetchImpl });
     const body = await readBody(request);
     const parsed = inspectionInputFromBody(body, { actor, source: 'appointment_setter' });
     if (parsed.error) return json({ error: parsed.error }, 400);

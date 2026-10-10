@@ -10,8 +10,12 @@ export async function mountAccountTraining(host, ctx) {
     ctx.sb.from('training_reminders').select('item_id,rep_id').eq('rep_id', ctx.rep.id),
     ctx.sb.from('training_assignments').select('item_id,rep_id').eq('rep_id', ctx.rep.id)
   ]);
-  if (items.error) {
-    host.innerHTML = '';
+  if ([items, progress, reminders, assignments].some(result => result.error)) {
+    host.replaceChildren();
+    const notice = document.createElement('p');
+    notice.className = 'tnHelp'; notice.setAttribute('role', 'status');
+    notice.textContent = 'Your training status is unavailable. Open Training to refresh your lessons and saved progress.';
+    host.append(notice);
     return;
   }
   const assigned = new Set((assignments.data || []).map((row) => row.item_id));

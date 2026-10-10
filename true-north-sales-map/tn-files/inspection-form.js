@@ -1,4 +1,4 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { createClient } from "/vendor/supabase/supabase.js";
 
 import { easternToday, easternDayBounds } from "../lib/field-rules.js";
 import { roleLabel } from "../lib/role-access.js";

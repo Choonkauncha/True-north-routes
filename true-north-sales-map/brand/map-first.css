@@ -1,0 +1,190 @@
+/* Map-first field workspace: navy chrome, light tools, one address / route panel. */
+body.tn-map-workspace{--atlas-surface:#fff;--atlas-raised:#edf3fa;--atlas-input:#fff;--atlas-line:#d9e2ec;--atlas-line-strong:#a8b9cd;--atlas-text:#14283f;--atlas-label:#263f59;--atlas-muted:#5d7187;--atlas-accent:#1766d6;--atlas-accent-text:#175ab5;--atlas-accent-soft:#e9f1fc;--atlas-surface-overlay:#fffffff5;--workspace-header:64px;color-scheme:light;padding-left:0!important;overflow:hidden;background:#e6edf3}
+body.tn-map-workspace #appShell{height:100dvh;display:flex;flex-direction:column;min-height:0}
+body.tn-map-workspace .workspaceNav,body.tn-map-workspace .brandRibbon,body.tn-map-workspace .atlasCommandTrigger,body.tn-map-workspace .topRight>.quickLinkBtn,body.tn-map-workspace #nextBtn,body.tn-map-workspace #focusBtn,body.tn-map-workspace #adminBtn,body.tn-map-workspace #userMenu,body.tn-map-workspace #datasetCount{display:none!important}
+body.tn-map-workspace .topbar{height:64px;min-height:64px;padding:0 20px;background:#10263f;border:0;box-shadow:0 2px 12px #07182c20;gap:12px;overflow:visible;color:#fff;z-index:2000}
+body.tn-map-workspace .topbar .brand{flex:1;min-width:0}
+body.tn-map-workspace .logoFull{display:none!important}
+body.tn-map-workspace .logoMark{display:block;width:38px;height:38px;object-fit:contain}
+body.tn-map-workspace .brandWords{display:block!important}
+body.tn-map-workspace .brandName{font-size:13px;color:#fff;letter-spacing:1.2px}
+body.tn-map-workspace .brandName span{color:#c0d4eb}
+body.tn-map-workspace .brandSub{display:none!important}
+body.tn-map-workspace .topRight{gap:8px;flex:none;align-items:center}
+body.tn-map-workspace #connection{background:#ffffff12;color:#c5d8ee;border-color:#ffffff20;font-size:10px;max-width:120px;overflow:hidden}
+body.tn-map-workspace #locateBtn{color:#dce9f8;background:#ffffff0c;border:1px solid #ffffff25;min-height:42px;font-size:12px}
+body.tn-map-workspace #routeBtn{background:#2879e8;color:white;min-height:42px;font-size:13px;padding:0 16px;border-radius:10px;white-space:nowrap}
+body.tn-map-workspace #routeBtn kbd{display:none}
+body.tn-map-workspace #routeBtn span{background:#ffffff24;color:#fff;padding:2px 6px;border-radius:5px;margin-left:5px}
+body.tn-map-workspace #tnMore{display:inline-flex!important;color:#fff;background:#ffffff10;border:1px solid #ffffff30;min-height:42px;padding:0 14px;align-items:center;justify-content:center;font-size:13px}
+body.tn-map-workspace .pageHelpButton{width:38px;height:38px;min-height:38px;min-width:38px;font-size:19px;background:#ffffff10;color:#d5e7ff;border-color:#ffffff30}
+body.tn-map-workspace .topRight>.tnFieldOps{display:none!important}
+body.tn-map-workspace #tnMoreMenu:not([hidden]){background:#fff;color:#14283f;border:1px solid #d9e2ec;top:calc(100% + 12px);width:270px}
+body.tn-map-workspace #tnMoreMenu a,body.tn-map-workspace #tnMoreMenu button{background:#fff;color:#14283f;font-size:14px;font-weight:650}
+body.tn-map-workspace .mapShell{display:grid!important;grid-template-columns:minmax(0,1fr) 350px!important;flex:1;min-height:0;overflow:hidden}
+body.tn-map-workspace .mapCanvas{min-height:0;position:relative}
+body.tn-map-workspace .mapCanvas #map{height:100%;width:100%}
+body.tn-map-workspace .mapTopOverlay{top:20px;left:20px;right:20px;display:grid!important;grid-template-columns:minmax(0,440px) auto!important;gap:10px;align-items:start;pointer-events:none}
+body.tn-map-workspace .mapTopOverlay>*{pointer-events:auto}
+body.tn-map-workspace .mapSearch{height:50px;border:1px solid #d6e0eb;border-radius:12px;background:#fff;box-shadow:0 4px 18px #16334e18;width:100%;box-sizing:border-box}
+body.tn-map-workspace .mapSearch input{font-size:14px;color:#14283f;min-width:0}
+body.tn-map-workspace .searchHint{display:none}
+body.tn-map-workspace .fieldMapTools{position:relative;display:block!important;justify-self:end;min-width:130px;max-width:320px;border:1px solid #d6e0eb;border-radius:12px;background:#fff;box-shadow:0 4px 18px #16334e18;overflow:visible}
+body.tn-map-workspace .fieldMapTools>summary{list-style:none;min-height:48px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:13px;font-weight:700;color:#263f59;cursor:pointer}
+body.tn-map-workspace .fieldMapTools>summary::-webkit-details-marker{display:none}
+body.tn-map-workspace .fieldMapTools[open]{width:300px;max-width:calc(100vw - 40px)}
+body.tn-map-workspace .fieldMapTools .mapToolBtns{display:grid!important;grid-template-columns:1fr 1fr!important;padding:10px;border-top:1px solid #e2e9f0;gap:8px}
+body.tn-map-workspace .fieldMapTools .mapControl{display:flex!important;align-items:center;justify-content:center;min-height:44px;height:auto;width:100%;min-width:0;background:#f1f5fa;color:#263f59;border:1px solid #d9e2ec;box-shadow:none;font-size:12px;padding:8px;border-radius:8px}
+body.tn-map-workspace .fieldMapTools #weatherStack{width:auto;max-width:none;justify-self:stretch;justify-content:center;background:#f1f5fa;border-radius:8px;border:1px solid #d9e2ec}
+body.tn-map-workspace .fieldMapTools #weatherStack.hidden{display:none!important}
+body.tn-map-workspace .fieldMapTools #weatherToggle{width:100%;background:transparent;border:0}
+body.tn-map-workspace .fieldMapTools #weatherToggle:after{content:'Weather';font-size:12px;color:#263f59;margin-left:8px}
+body.tn-map-workspace .fieldMapTools #weatherToggle svg{width:24px;height:24px}
+body.tn-map-workspace .fieldMapTools #filterPanel{position:static!important;width:auto!important;max-width:none!important;margin:8px 10px;background:#fff;border:1px solid #d9e2ec;box-shadow:none;padding:8px}
+body.tn-map-workspace .fieldMapTools #layerMenu{position:static!important;width:auto!important;margin:8px 10px;border:1px solid #d9e2ec;background:#fff;color:#263f59;box-shadow:none;max-height:45dvh;overflow:auto}
+body.tn-map-workspace .fieldMapTools #weatherPopover{position:relative!important;top:auto!important;right:auto!important;margin-top:8px;width:270px;max-width:calc(100vw - 50px);background:#fff;color:#263f59}
+body.tn-map-workspace .mapHud{display:none!important}
+body.tn-map-workspace .mapInfo{left:20px;bottom:20px;top:auto!important}
+body.tn-map-workspace #listSheet.sidePanel{background:#fff;border-left:1px solid #d9e2ec;z-index:960;min-width:0;overflow:hidden}
+body.tn-map-workspace .fieldPanelTabs{display:flex;gap:6px;padding:14px 16px;border-bottom:1px solid #dfe7f0;background:#fff;flex:none}
+body.tn-map-workspace .fieldPanelTabs button{flex:1;min-height:42px;border:0;border-radius:8px;background:#f0f4f8;color:#5d7187;font-size:14px;font-weight:700;cursor:pointer}
+body.tn-map-workspace .fieldPanelTabs button[aria-pressed=true]{color:#155fca;background:#e9f1fc}
+body.tn-map-workspace #listSheet[data-field-view=addresses] #routeTray{display:none!important}
+body.tn-map-workspace #listSheet[data-field-view=route] #workPanel{display:none!important}
+body.tn-map-workspace #listSheet .listSheetBody{overflow:auto;padding:0;min-height:0}
+body.tn-map-workspace #listSheet #workPanel{min-height:0}
+body.tn-map-workspace .nextCard{background:#fff;color:#14283f;box-shadow:none;border:0;border-bottom:1px solid #e3eaf2;padding:20px 16px;display:block}
+body.tn-map-workspace .nextCard strong{font-size:19px;color:#14283f}
+body.tn-map-workspace .nextCard p{font-size:13px;line-height:1.55;color:#64778a;margin:8px 0 0}
+body.tn-map-workspace .nextCard .eyebrow{color:#7a8da1;font-size:10px;letter-spacing:1.6px;margin-bottom:8px}
+body.tn-map-workspace .nextCardActions{display:none}
+body.tn-map-workspace #workList{padding:8px 12px!important;overflow:visible!important}
+body.tn-map-workspace #workList .leadRow{background:#fff;color:#14283f;border:1px solid #e0e7ef;margin-bottom:8px;box-shadow:none;border-radius:10px}
+body.tn-map-workspace #workList .leadRow:hover{background:#f4f8fd;border-color:#96b9e6}
+body.tn-map-workspace #routeTray{background:#fff!important;color:#14283f;padding:16px!important;max-height:none!important;overflow:visible!important;border:0!important}
+body.tn-map-workspace #routeTrayToggle{display:none}
+body.tn-map-workspace #routeTrayBody{display:flex!important;flex-direction:column;gap:16px}
+body.tn-map-workspace .routeTrayCopy strong{font-size:21px;color:#14283f}
+body.tn-map-workspace .routeTrayCopy span{color:#63788d;font-size:13px}
+body.tn-map-workspace .routeModeToggle{width:100%;display:flex;background:#eef3f9;padding:4px;border-radius:10px;box-sizing:border-box}
+body.tn-map-workspace .routeModeToggle button{flex:1;min-height:42px;border:0;border-radius:7px;background:transparent;color:#5b7086;font-size:14px}
+body.tn-map-workspace .routeModeToggle button.isOn{background:#fff;color:#1766d6;box-shadow:0 2px 6px #10263f12}
+body.tn-map-workspace .routeTrayActions{width:100%;gap:8px}
+body.tn-map-workspace .routeTrayActions button{min-height:44px;font-size:13px;border:1px solid #d8e2ee;background:#f4f7fb;color:#263f59;border-radius:8px}
+body.tn-map-workspace #routeTrayBtn,body.tn-map-workspace #startRouteBtn{grid-column:1/-1;background:#1766d6;color:#fff;border-color:#1766d6;min-height:48px}
+body.tn-map-workspace #startRouteBtn:disabled{background:#edf2f7;color:#8798aa;border-color:#dfe7ef}
+body.tn-map-workspace .inlineRouteBuilder{width:100%;margin:0;padding:16px 0 0;border-color:#dfe7ef;box-sizing:border-box}
+body.tn-map-workspace .inlineRouteBuilder .routeCard{color:#14283f;background:#fff}
+body.tn-map-workspace .inlineRouteBuilder h2{color:#14283f;font-size:17px}
+body.tn-map-workspace .inlineRouteBuilder .muted{font-size:13px;color:#63788d;line-height:1.5}
+body.tn-map-workspace .inlineRouteBuilder .routeControls{grid-template-columns:1fr}
+body.tn-map-workspace .inlineRouteBuilder .routeControls label:has(#routeMode){display:none}
+body.tn-map-workspace .inlineRouteBuilder .routeControls label{font-size:12px;color:#536d85}
+body.tn-map-workspace .routeStops{max-height:none!important;overflow:visible!important;color:#14283f}
+body.tn-map-workspace .routeSummary{font-size:12px;color:#5b7188}
+body.tn-map-workspace .routeTrayExtras{border-top:1px solid #dfe7ef;padding-top:8px}
+body.tn-map-workspace .routeTrayExtras summary{color:#5b7188;font-size:13px}
+body.tn-map-workspace .mobileBar{display:none}
+html.isNavigating body.tn-map-workspace .mapShell{grid-template-columns:1fr!important}
+html.isNavigating body.tn-map-workspace #listSheet{display:none!important}
+html.isNavigating body.tn-map-workspace #navBar{display:flex!important;position:fixed!important;left:12px!important;right:12px!important;bottom:12px!important;width:auto!important;background:#fff!important;color:#14283f;z-index:3000}
+@media(max-width:1100px){body.tn-map-workspace #connection,body.tn-map-workspace #locateBtn{display:none!important}}
+@media(max-width:960px){
+ body.tn-map-workspace .topbar{height:56px;min-height:56px;padding:0 12px;gap:6px}
+ body.tn-map-workspace .brandName{font-size:11px;letter-spacing:.7px}
+ body.tn-map-workspace .brandName span{display:none}
+ body.tn-map-workspace .logoMark{width:30px;height:30px}
+ body.tn-map-workspace #routeBtn{display:none!important}
+ body.tn-map-workspace .mapShell{grid-template-columns:1fr!important}
+ body.tn-map-workspace .mapTopOverlay{top:12px;left:12px;right:12px;grid-template-columns:minmax(0,1fr) auto!important;gap:8px}
+ body.tn-map-workspace .mapSearch{height:46px}
+ body.tn-map-workspace .mapSearch input{font-size:14px}
+ body.tn-map-workspace .fieldMapTools{min-width:48px}
+ body.tn-map-workspace .fieldMapTools>summary{font-size:0;padding:0 12px;min-height:44px;gap:0}
+ body.tn-map-workspace .fieldMapTools>summary span{font-size:20px}
+ body.tn-map-workspace .fieldMapTools[open]{position:absolute;right:0;top:0;width:280px}
+ body.tn-map-workspace .fieldMapTools[open]>summary{font-size:13px;justify-content:space-between;gap:16px}
+ body.tn-map-workspace #listSheet.sidePanel{position:fixed;left:0;right:0;bottom:calc(68px + env(safe-area-inset-bottom));border:1px solid #d9e2ec;border-bottom:0;border-radius:18px 18px 0 0;background:#fff;box-shadow:0 -6px 25px #17365320;max-width:100%;width:auto}
+ body.tn-map-workspace #listSheet .listSheetGrab{background:#fff;color:#263f59;min-height:52px;padding:8px 16px}
+ body.tn-map-workspace #listSheet.sheet-collapsed .fieldPanelTabs{display:none}
+ body.tn-map-workspace #listSheet.sheet-half{height:46dvh}
+ body.tn-map-workspace #listSheet.sheet-full{top:120px;bottom:calc(68px + env(safe-area-inset-bottom));height:auto}
+ body.tn-map-workspace .fieldPanelTabs{padding:8px 12px}
+ body.tn-map-workspace #listSheet .listSheetBody{height:auto;padding-bottom:12px}
+ body.tn-map-workspace .mobileBar{display:grid!important;grid-template-columns:48px minmax(0,1fr) 48px;position:fixed;left:0;right:0;bottom:0;height:calc(68px + env(safe-area-inset-bottom));padding:8px 12px calc(8px + env(safe-area-inset-bottom));box-sizing:border-box;background:#fff;border-top:1px solid #d9e2ec;gap:8px;z-index:1000}
+ body.tn-map-workspace .mobileBar button{min-height:48px;font-size:13px;background:#edf3fa;color:#263f59;border-radius:10px;border:0;padding:0 8px}
+ body.tn-map-workspace #mobileNext{font-size:0}
+ body.tn-map-workspace #mobileNext:after{content:'→';font-size:24px}
+ body.tn-map-workspace #mobileLocate{font-size:0}
+ body.tn-map-workspace #mobileLocate:after{content:'◎';font-size:24px}
+ body.tn-map-workspace #mobileRoute{background:#1766d6;color:#fff;font-size:15px;font-weight:750}
+ body.tn-map-workspace #mobileBar .tnFieldOps{display:none!important}
+ body.tn-map-workspace .mapInfo{left:12px;bottom:132px}
+ body.tn-map-workspace .pinBanner{top:76px;font-size:12px}
+ body.tn-map-workspace .leaflet-control-zoom{display:none}
+ html.isNavigating body.tn-map-workspace .mobileBar{display:none!important}
+ body.tn-map-workspace .toast{bottom:140px}
+}
+@media(max-width:360px){body.tn-map-workspace .brandName{display:none}body.tn-map-workspace .topbar{padding:0 8px}body.tn-map-workspace .topRight{gap:6px}}
+body.tn-map-workspace #tnMoreMenu:not([hidden]){position:fixed!important;top:72px!important;right:12px!important;left:auto!important;bottom:auto!important;max-height:calc(100dvh - 96px)!important;overflow:auto!important;z-index:12000}
+body.tn-map-workspace .fieldAddStops{width:100%;border:1px solid #d9e2ec;border-radius:10px;box-sizing:border-box;background:#f6f9fd}
+body.tn-map-workspace .fieldAddStops>summary{display:flex;align-items:center;justify-content:space-between;list-style:none;padding:12px;min-height:44px;box-sizing:border-box;font-size:14px;color:#263f59;font-weight:700;cursor:pointer}
+body.tn-map-workspace .fieldAddStops .routeTrayActions{padding:0 10px 10px;box-sizing:border-box;grid-template-columns:1fr!important}
+body.tn-map-workspace .routeTrayPrimaryActions #clearRouteBtn{grid-column:1/-1;background:transparent;border:0;font-size:12px;color:#64778a;min-height:36px}
+body.tn-map-workspace .leadRow .rowBody{min-width:0}
+body.tn-map-workspace .leadRow .rowHeader strong{color:#233c56;font-size:13px}
+body.tn-map-workspace .leadRow .addr{color:#14283f;font-size:15px;line-height:1.5;font-weight:650}
+body.tn-map-workspace .leadRow .addr span{color:#6b7e91;font-size:12px;font-weight:450}
+body.tn-map-workspace .leadRow .rowMeta{color:#61798f;font-size:10px}
+body.tn-map-workspace .routeStop{background:#fff;border-color:#e1e8f0;padding:12px 8px}
+body.tn-map-workspace .routeStop b{font-size:14px;color:#14283f}
+body.tn-map-workspace .routeStop small{font-size:12px;color:#6b7e91}
+body.tn-map-workspace .routeStop>span{background:#e9f1fc;color:#1766d6;width:28px;height:28px;font-size:12px}
+@media(max-width:960px){body.tn-map-workspace #tnMoreMenu:not([hidden]){top:64px!important}}
+html.isNavigating body.tn-map-workspace .navBarCopy strong{color:#14283f}
+html.isNavigating body.tn-map-workspace .navBarCopy span:not(.navMode){color:#5d7187}
+html.isNavigating body.tn-map-workspace .navBarActions button{background:#edf3fa;color:#263f59;border-color:#d9e2ec}
+html.isNavigating body.tn-map-workspace #navNextStop{background:#1766d6;color:#fff}
+body.tn-map-workspace .atlasJump{display:none!important}
+body.tn-map-workspace .leadRow .rowBody{display:flex;flex-direction:column;gap:4px}
+body.tn-map-workspace .leadRow .addr{order:-1;font-size:15px}
+body.tn-map-workspace .leadRow .rowHeader strong{font-size:12px;font-weight:500;color:#65798d}
+body.tn-map-workspace .toast,body.tn-map-workspace .toast p{color:#14283f!important;background:#e9f1fc}
+body.tn-map-workspace .toast{border:1px solid #b4cdeb;box-shadow:0 6px 22px #183c6822}
+body.tn-map-workspace .mapTopOverlay:has(#fieldMapTools[open]){z-index:1800!important}
+body.tn-map-workspace #fieldMapTools[open]{max-height:calc(100dvh - 148px);overflow:auto;overscroll-behavior:contain}
+body.tn-map-workspace #mobileRoute{color:#fff!important}
+@media(max-width:960px){body.tn-map-workspace .mapTopOverlay:has(#fieldMapTools[open]){z-index:1800!important}body.tn-map-workspace #fieldMapTools[open]{max-height:calc(100dvh - 148px)}}
+body.tn-map-workspace #routeTrayExtras:not(:has(#navChoiceBtn:not(.hidden))){display:none}
+body.tn-map-workspace #tnMoreMenu>.tnFieldOps{display:flex!important;padding:10px;box-sizing:border-box;width:100%;background:#fff;border-bottom:1px solid #e1e8f0}
+body.tn-map-workspace #tnMoreMenu .tnFieldOps .tnClockBtn{display:flex;width:100%;min-height:48px;background:#17664a;color:#fff;border-radius:8px;align-items:center;justify-content:center}
+body.tn-map-workspace #tnMoreMenu .tnFieldOps .tnClockBtn.isOut{background:#a33d35;color:#fff}
+body.tn-map-workspace #tnMoreMenu .tnFieldOps .tnMsgBtn,body.tn-map-workspace #tnMoreMenu .tnFieldOps .tnShiftsLink{display:none!important}
+body.tn-map-workspace #listSheet[data-route-ready] .routeTrayCopy{order:0}
+body.tn-map-workspace #listSheet[data-route-ready] .routeTrayPrimaryActions{order:1;position:sticky;top:0;background:#fff;padding:8px 0;z-index:3;grid-template-columns:1fr 1fr!important}
+body.tn-map-workspace #listSheet[data-route-ready] #startRouteBtn{order:0;grid-column:1/-1;min-height:48px}
+body.tn-map-workspace #listSheet[data-route-ready] #routeTrayBtn{order:1;grid-column:1;background:#edf3fa;color:#1766d6;border-color:#d9e2ec;min-height:38px;font-size:12px}
+body.tn-map-workspace #listSheet[data-route-ready] #clearRouteBtn{order:2;grid-column:2;min-height:38px}
+body.tn-map-workspace #listSheet[data-route-ready] #routePanel{order:2}
+body.tn-map-workspace #listSheet[data-route-ready] .routeModeToggle{order:3}
+body.tn-map-workspace #listSheet[data-route-ready] .fieldAddStops{order:4}
+body.tn-map-workspace #listSheet[data-route-ready] #routeTrayExtras{order:5}
+body.tn-map-workspace #listSheet[data-route-ready] #routeTrayNote{display:none}
+body.tn-map-workspace #listSheet[data-route-ready] .routeCard{display:flex;flex-direction:column}
+body.tn-map-workspace #listSheet[data-route-ready] .routeCard>.eyebrow,body.tn-map-workspace #listSheet[data-route-ready] .routeCard>h2,body.tn-map-workspace #listSheet[data-route-ready] .routeCard>.muted{display:none}
+body.tn-map-workspace #listSheet[data-route-ready] .routeSummary{order:0;margin-top:0}
+body.tn-map-workspace #listSheet[data-route-ready] #routeStops{order:1}
+body.tn-map-workspace #listSheet[data-route-ready] .routeControls{order:2}
+body.tn-map-workspace #listSheet[data-route-ready] .modalActions{order:3}
+body.tn-map-workspace #listSheet[data-route-ready] #optimizeRouteBtn{display:none}
+body.tn-map-workspace #listSheet[data-route-ready] .routeTrayCopy .routeReadyHint{font-size:12px}
+body.tn-map-workspace #routeTrayStats{font-weight:700;color:#1766d6}
+body.tn-map-workspace .routeTrayCopy strong span{font-size:inherit;color:inherit}
+body.tn-map-workspace .routeModeToggle{flex-shrink:0;align-self:stretch;width:100%!important;max-width:none!important}
+@media(max-width:960px){
+ body.tn-map-workspace .mapCanvas .leaflet-bottom.leaflet-right{top:70px;bottom:auto;right:12px;z-index:700}
+ body.tn-map-workspace .mapCanvas .leaflet-control-attribution{margin:0;border-radius:5px;padding:3px 6px;background:#ffffffdf;font-size:10px;line-height:1.4;color:#536b83;max-width:calc(100vw - 24px)}
+ html.isNavigating body.tn-map-workspace .mapCanvas .leaflet-bottom.leaflet-right{top:12px;right:12px;bottom:auto}
+}
+
+body.tn-map-workspace #listSheet[data-route-ready] #startRouteBtn{color:#fff!important}

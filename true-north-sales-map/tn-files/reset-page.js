@@ -1,4 +1,4 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { createClient } from '/vendor/supabase/supabase.js';
 import {
   RESET_LINK_BAD,
   passwordChangeError,
@@ -9,6 +9,7 @@ import './password-reset.js';
 import { mountSignInScreen } from '../brand/loader.js';
 
 const app = document.getElementById('app');
+const savedClients = new WeakSet();
 
 function showCard(html) {
   mountSignInScreen(app);
@@ -56,19 +57,29 @@ async function save(event, sb) {
   const second = document.getElementById('pw2').value;
   const problem = passwordChangeError(first, second);
   msg.classList.remove('isOk', 'isBad');
-  if (problem) {
+  if (problem && !savedClients.has(sb)) {
     msg.textContent = problem;
     msg.classList.add('isBad');
     return;
   }
   msg.textContent = 'Saving…';
   msg.classList.add('isOk');
+  const button = document.querySelector('#resetForm button[type="submit"]');
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  let passwordSaved = savedClients.has(sb);
+  try {
+  if (!passwordSaved) {
   const { error } = await sb.auth.updateUser({ password: first });
   if (error) {
     msg.textContent = passwordUpdateError(error, first);
     msg.classList.remove('isOk');
     msg.classList.add('isBad');
     return;
+  }
+  passwordSaved = true;
+  savedClients.add(sb);
+  document.querySelectorAll('#resetForm input').forEach(input => { input.disabled = true; input.value = ''; });
   }
   const cleared = await sb.rpc('clear_must_change_password');
   if (cleared.error) {
@@ -79,6 +90,15 @@ async function save(event, sb) {
   }
   await sb.auth.signOut();
   location.href = '/?reset=1';
+  } catch {
+    msg.textContent = passwordSaved
+      ? 'Your password was saved, but account verification could not finish. Sign in with your new password and retry.'
+      : 'We could not confirm the password save. Check your connection, then retry or request a new reset link.';
+    msg.classList.remove('isOk');
+    msg.classList.add('isBad');
+  } finally {
+    if (button) { button.disabled = false; if (passwordSaved) button.textContent = 'Retry account verification'; }
+  }
 }
 
 async function start() {
@@ -94,7 +114,8 @@ async function start() {
   }
   try {
     const sb = createClient(cfg.url, cfg.publishableKey, {
-      auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true }
+      auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true },
+      global: { fetch: (url, options = {}) => fetch(url, { ...options, signal: AbortSignal.timeout(12000) }) }
     });
     const session = await sessionFromRecovery(sb);
     if (!session) renderExpired();

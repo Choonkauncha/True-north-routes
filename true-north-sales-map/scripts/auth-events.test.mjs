@@ -53,10 +53,16 @@ const cloudSource = source.slice(source.indexOf('async function enterCloud('), s
 const element = { textContent: '', className: '', hidden: false, classList: { add() {}, remove() {}, toggle() {} } };
 const pending = new Map();
 const fallback = [];
-const state = { user: null, cloudReady: false, map: {}, config: {}, pendingPostSignIn: false };
+const state = { user: null, cloudReady: false, map: {}, config: {url:'project'}, pendingPostSignIn: false,
+  supabase: {
+    auth:{getUser:async token=>({data:{user:session(token.replace('token-','')).user}})},
+    from(){ const query={select(){return query},eq(){return query},maybeSingle:async()=>({data:{id:'rep',active:true}})}; return query; },
+    rpc:async()=>({data:{must_change:false,impersonating:false}})
+  }
+};
 const context = vm.createContext({
-  state, console: { error() {} },
-  $: () => element, hideLogin() {}, initMapOnce() {}, deferFieldTools() {}, settleMapLoader() {},
+  state, leadCacheScope:(url,id)=>`${url}:${id}`, console: { error() {} },
+  $: () => element, showLogin() { fallback.push('login'); }, hideLogin() {}, initMapOnce() {}, deferFieldTools() {}, settleMapLoader() {},
   canOpenManagement: () => false, rememberRole() {}, localStorage: {}, showPostSignIn() {},
   startRealtime() {}, updatePinBanner() {}, publishSideData() {},
   loadSideData: async () => {},
@@ -65,8 +71,10 @@ const context = vm.createContext({
 });
 vm.runInContext(`let authEpoch=0, cloudToken='', cloudFlight=null; ${cloudSource}; globalThis.flight=()=>cloudFlight; globalThis.logout=()=>{authEpoch++;cloudToken='';cloudFlight=null;state.user=null;};`, context);
 const first = context.enterCloud(session('A'));
+await wait();
 context.logout();
 const second = context.enterCloud(session('B'));
+await wait();
 pending.get('A').reject(new Error('late account A failure'));
 await first;
 assert.equal(pending.get('A').current(), false);

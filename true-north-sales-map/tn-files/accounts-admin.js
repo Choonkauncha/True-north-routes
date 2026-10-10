@@ -1,4 +1,4 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { createClient } from "/vendor/supabase/supabase.js";
 import { esc } from "./ui.js";
 import {
   canManageAccount,
@@ -322,14 +322,14 @@ async function createAccount(event) {
   event.preventDefault();
   notice = "";
   try {
-    await post({
+    const result = await post({
       action: "create",
       name: document.getElementById("acctName").value,
       email: document.getElementById("acctEmail").value,
       role: document.getElementById("acctRole").value,
       password: document.getElementById("acctPassword").value,
     });
-    notice = "Login created. They choose their own password when they sign in.";
+    notice = "Login created. They choose their own password when they sign in." + (result.warning ? " " + result.warning : "");
     resetId = "";
     detail = null;
     openLink = null;
@@ -351,8 +351,8 @@ async function act(action, repId) {
       render();
       return;
     } else if (action === "active") {
-      await post({ action: "set-active", repId, active: !person.active });
-      notice = person.active ? "Login turned off." : "Login turned on.";
+      const result = await post({ action: "set-active", repId, active: !person.active });
+      notice = (person.active ? "Login turned off." : "Login turned on.") + (result.warning ? " " + result.warning : "");
     } else if (action === "open") {
       const result = await post({ action: "open-as", repId });
       openLink = {
@@ -360,7 +360,7 @@ async function act(action, repId) {
         url: result.url,
         name: result.name || person?.name || "",
       };
-      notice = "Sign-in link ready.";
+      notice = "Sign-in link ready." + (result.warning ? " " + result.warning : "");
     } else if (action === "work") {
       detail = { id: repId, activity: [], photos: [], forms: [] };
       const [activity, photos, forms] = await Promise.all([
@@ -401,9 +401,9 @@ async function saveReset(event, repId, password) {
   event.preventDefault();
   notice = "";
   try {
-    await post({ action: "reset", repId, password });
+    const result = await post({ action: "reset", repId, password });
     resetId = "";
-    notice = "Password reset.";
+    notice = "Password reset." + (result.warning ? " " + result.warning : "");
     render();
   } catch (error) {
     notice = error.message;

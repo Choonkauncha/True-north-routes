@@ -1,9 +1,10 @@
-/** IndexedDB cache for the lead dataset. Failures return null so the network path still works. */
-
+/** Account-scoped lead cache. Never trust a stored login as authorization. */
 const DB_NAME = 'tn-field-map';
 const STORE = 'leads';
-const KEY = 'dataset';
-
+export function leadCacheScope(projectUrl, userId) {
+  if (!projectUrl || !userId) return '';
+  return `verified:${encodeURIComponent(projectUrl)}:${encodeURIComponent(userId)}`;
+}
 function openDb() {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') { reject(new Error('no indexedDB')); return; }
@@ -13,27 +14,38 @@ function openDb() {
     request.onsuccess = () => resolve(request.result);
   });
 }
-
-export async function readLeadCache() {
+export async function readLeadCache(scope) {
+  if (!scope) return null;
+  let db;
   try {
-    const db = await openDb();
-    return await new Promise((resolve) => {
-      const request = db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY);
-      request.onsuccess = () => resolve(request.result || null);
+    db = await openDb();
+    return await new Promise(resolve => {
+      const request = db.transaction(STORE, 'readonly').objectStore(STORE).get(scope);
+      request.onsuccess = () => resolve(request.result?.scope === scope ? request.result : null);
       request.onerror = () => resolve(null);
     });
-  } catch {
-    return null;
-  }
+  } catch { return null; }
+  finally { db?.close(); }
 }
-
-export async function writeLeadCache(payload) {
+async function mutate(action) {
+  let db;
   try {
-    const db = await openDb();
+    db = await openDb();
     await new Promise((resolve, reject) => {
-      const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(payload, KEY);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+      action(tx.objectStore(STORE));
     });
-  } catch { /* a full cache must not block the map */ }
+  } catch { /* Cache failure must never block authenticated network reads. */ }
+  finally { db?.close(); }
+}
+export async function writeLeadCache(payload, scope) {
+  if (!scope) return;
+  await mutate(store => store.put({ ...payload, scope }, scope));
+}
+export async function clearLeadCache() {
+  // Clear legacy unscoped datasets and all accounts on shared-device sign-out.
+  await mutate(store => store.clear());
 }

@@ -18,7 +18,8 @@ let root,
   position = 0,
   previousFocus,
   inertNodes = [],
-  openedPanels = [];
+  openedPanels = [],
+  openedDetails = [];
 let frame = 0;
 
 function displayed(node) {
@@ -38,7 +39,17 @@ function displayed(node) {
   return true;
 }
 function firstTarget(selector) {
-  return [...document.querySelectorAll(selector)].find(displayed);
+  return [...document.querySelectorAll(selector)].find(node => {
+    // Evaluate collapsed tool groups without excluding their tutorial controls.
+    const details = [];
+    for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+      if (parent.tagName === 'DETAILS' && !parent.open) details.push(parent);
+    }
+    details.forEach(parent => { parent.open = true; });
+    const visible = displayed(node);
+    details.forEach(parent => { parent.open = false; });
+    return visible;
+  });
 }
 function authContainer() {
   return firstTarget(".tnSignInScreen, #loginModal, #loginCard");
@@ -136,6 +147,12 @@ function setInert() {
   }
 }
 function revealTarget(target) {
+  for (let parent = target.parentElement; parent; parent = parent.parentElement) {
+    if (parent.tagName === 'DETAILS' && !parent.open) {
+      openedDetails.push(parent);
+      parent.open = true;
+    }
+  }
   const panels = [];
   for (
     let panel = target.closest(".tnFold.isCollapsed");
@@ -304,6 +321,8 @@ function stop() {
       if (inner) inner.inert = true;
     }
   openedPanels = [];
+  for (const detail of openedDetails) if (detail.isConnected) detail.open = false;
+  openedDetails = [];
   button.setAttribute("aria-expanded", "false");
   window.removeEventListener("resize", schedulePosition);
   document.removeEventListener("scroll", schedulePosition, true);

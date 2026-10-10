@@ -1,6 +1,6 @@
 import { mountCoachAdmin } from './tn-files/coach-admin.js';
 import { mountFeatureAdmin } from './tn-files/feature-admin.js';
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { createClient } from "/vendor/supabase/supabase.js";
 import { atlasIcon } from "./brand/atlas-icons.js";
 import "/tn-files/password-reset.js";
 import { bindAdminTabs, adminHashTarget } from "/lib/admin-tabs.js";

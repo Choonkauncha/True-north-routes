@@ -134,8 +134,8 @@ assert.ok(sql.includes('account_directory'));
 assert.ok(sql.includes("r.role = 'admin' and r.user_id is distinct from auth.uid() then null else r.email"));
 assert.ok(sql.includes('hides_admin_audit'));
 assert.ok(sql.includes('claim_impersonation'));
-assert.ok(sql.includes("and must_change_password = false"));
-assert.ok(sql.includes('and password_changed_at is null'));
+assert.ok(sql.includes('setup reruns never reflag recovered users'));
+assert.equal(/update public\.reps[\s\S]*set must_change_password\s*=\s*true/i.test(sql),false);
 const backfill = sql.slice(sql.lastIndexOf('update public.reps'));
 assert.equal(backfill.includes('travisbishopmackie'), false);
 

@@ -47,7 +47,7 @@ function emit(callback, value) { try { callback?.(value); } catch { /* UI callba
  * Browser-side Gemini Live transport. It receives only an ephemeral token from
  * /api/live-token; the long-lived Gemini key stays on the server.
  */
-export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires, onAudioLevel } = {}) {
+export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires, onAudioLevel, setupTimeoutMs = 15000 } = {}) {
   let socket = null;
   let stream = null;
   let inputContext = null;
@@ -65,6 +65,7 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
   let openingMessage = 'Introduce yourself as my True North voice Coach, briefly explain how you can help, and ask one helpful question.';
   let generation = 0;
   let startController = null;
+  let setupTimer = null;
 
   const state = value => emit(onState, value);
   const level=(samples,kind)=>{let power=0,count=0;for(let i=0;i<samples.length;i+=8){power+=samples[i]*samples[i];count++;}emit(onAudioLevel,{[kind]:Math.min(1,Math.sqrt(power/Math.max(1,count))*3)});};
@@ -89,10 +90,10 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
     if (current && current.readyState < 2) current.close(1000, 'Live Coach ended');
   }
 
-  function cleanup() { cleanupAudio(); cleanupOutput(); cleanupSocket(); emit(onAudioLevel,{input:0,output:0}); }
+  function cleanup() { clearTimeout(setupTimer); setupTimer = null; cleanupAudio(); cleanupOutput(); cleanupSocket(); emit(onAudioLevel,{input:0,output:0}); }
 
   function playAudio(value) {
-    if (!outputContext || !value) return;
+    if (stopped || paused || !outputContext || !value) return;
     const pcm = base64ToPcm16(value);
     const buffer = outputContext.createBuffer(1, pcm.length, OUTPUT_RATE);
     const channel = buffer.getChannelData(0);
@@ -109,6 +110,7 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
   async function handleMessage(message, attempt) {
     if (attempt !== generation || stopped) return;
     if (message?.setupComplete && !micStarted && !stopped) {
+      clearTimeout(setupTimer); setupTimer = null;
       micStarted = true;
       try {
         await startMic(attempt);
@@ -121,7 +123,7 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
     const content = message?.serverContent;
     if (content?.interrupted) {
       for (const source of outputSources) { try { source.stop(); } catch {} }
-      outputSources.clear(); nextOutputTime = outputContext?.currentTime || 0; state('listening');
+      outputSources.clear(); nextOutputTime = outputContext?.currentTime || 0; state(paused ? 'paused' : 'listening');
     }
     if (content?.inputTranscription?.text) emit(onTranscript, { role: 'user', text: content.inputTranscription.text, final: false });
     if (content?.outputTranscription?.text) emit(onTranscript, { role: 'assistant', text: content.outputTranscription.text, final: false });
@@ -173,13 +175,25 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
       const url = `${LIVE_SOCKET}?access_token=${encodeURIComponent(data.token)}`;
       outputContext = new AudioContext({ sampleRate: OUTPUT_RATE });
       socket = new WebSocket(url);
+      setupTimer = setTimeout(() => {
+        if (!stopped && attempt === generation) fail(new Error('Live Coach connection timed out. Try starting voice again.'));
+      }, setupTimeoutMs);
       socket.onopen = () => {
         if (stopped || attempt !== generation) { cleanupSocket(); return; }
         send({ setup: liveSetup({model,voice,systemInstruction:data.systemInstruction}) });
       };
-      socket.onmessage = event => { Promise.resolve().then(() => handleMessage(JSON.parse(event.data), attempt)).catch(fail); };
-      socket.onerror = () => fail(new Error('Live Coach lost its connection.'));
-      socket.onclose = event => { if (!stopped && attempt === generation && event.code !== 1000) fail(new Error('Live Coach disconnected. Try starting voice again.')); };
+      socket.onmessage = event => {
+        if (stopped || attempt !== generation) return;
+        Promise.resolve().then(() => handleMessage(JSON.parse(event.data), attempt)).catch(error => {
+          if (!stopped && attempt === generation) fail(error);
+        });
+      };
+      socket.onerror = () => { if (!stopped && attempt === generation) fail(new Error('Live Coach lost its connection.')); };
+      socket.onclose = event => {
+        if (stopped || attempt !== generation) return;
+        if (event.code !== 1000) { fail(new Error('Live Coach disconnected. Try starting voice again.')); return; }
+        stopped = true; paused = false; cleanup(); state('idle');
+      };
       if (tokenExpiresAt - Date.now() < 2 * 60 * 1000) emit(onExpires, new Date(tokenExpiresAt));
     } catch (error) { if (error?.name !== 'AbortError' && attempt === generation) fail(error); }
   }

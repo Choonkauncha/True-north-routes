@@ -117,16 +117,25 @@ async function save(event, ctx, errorEl) {
   const first = document.getElementById('tnGate1').value;
   const second = document.getElementById('tnGate2').value;
   const problem = passwordGateProblem(first, second);
-  if (problem) { errorEl.textContent = problem; return; }
+  if (problem && !ctx.passwordSaved) { errorEl.textContent = problem; return; }
   errorEl.textContent = '';
-  const saved = await fetch(`${ctx.url}/auth/v1/user`, {
+  const button = document.querySelector('#tnGateForm button[type="submit"]');
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  let passwordSaved = Boolean(ctx.passwordSaved);
+  try {
+  if (!passwordSaved) {
+  const saved = await gateFetch(`${ctx.url}/auth/v1/user`, {
     method: 'PUT',
     headers: { apikey: ctx.key, Authorization: `Bearer ${ctx.token}`, 'content-type': 'application/json' },
     body: JSON.stringify({ password: first })
   });
   const body = await saved.json().catch(() => ({}));
   if (!saved.ok) { errorEl.textContent = passwordUpdateError(body, first); return; }
-  const cleared = await fetch(`${ctx.url}/rest/v1/rpc/clear_must_change_password`, {
+  passwordSaved = ctx.passwordSaved = true;
+  document.querySelectorAll('#tnGateForm input').forEach(input => { input.disabled = true; input.value = ''; });
+  }
+  const cleared = await gateFetch(`${ctx.url}/rest/v1/rpc/clear_must_change_password`, {
     method: 'POST',
     headers: { apikey: ctx.key, Authorization: `Bearer ${ctx.token}`, 'content-type': 'application/json' },
     body: '{}'
@@ -138,6 +147,13 @@ async function save(event, ctx, errorEl) {
   }
   showSaved();
   setTimeout(() => location.reload(), 700);
+  } catch {
+    errorEl.textContent = passwordSaved
+      ? 'Your password was saved, but account verification could not finish. Sign out and sign in with your new password, then retry.'
+      : 'We could not confirm the password save. Check your connection and try again, or sign out and use account recovery.';
+  } finally {
+    if (button) { button.disabled = false; if (passwordSaved) button.textContent = 'Retry account verification'; }
+  }
 }
 
 function storageKeys(url) {
@@ -210,7 +226,7 @@ function skipPath() {
   return /\/reset-password\/?$/.test(location.pathname) || location.pathname.endsWith('/reset-password.html');
 }
 
-async function boot() {
+async function runBoot() {
   let ctx = null;
   try {
   const waiting = document.getElementById(HOLD_ID);
@@ -252,7 +268,7 @@ async function boot() {
   });
   const latest = readSession(ctx.url)?.session;
   if (latest?.access_token !== session.access_token) {
-    if (latest) return boot();
+    if (latest) return runBoot();
     releaseAccountHold();
     return;
   }
@@ -269,4 +285,17 @@ async function boot() {
   }
 }
 
-if (typeof document !== 'undefined') boot();
+let bootPromise = null;
+let bootAgain = false;
+function boot() {
+  if (bootPromise) { bootAgain = true; return bootPromise; }
+  bootPromise = runBoot().finally(() => {
+    bootPromise = null;
+    if (bootAgain) { bootAgain = false; boot(); }
+  });
+  return bootPromise;
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('tn-password-required', boot);
+  boot();
+}

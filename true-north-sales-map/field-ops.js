@@ -1,4 +1,4 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { createClient } from '/vendor/supabase/supabase.js';
 import './tn-files/password-reset.js';
 import { formatHours, formatMiles, incomingAlert, pointLabel, roleLabel } from './lib/field-rules.js';
 import { canUsePhotoBank, fieldHomeLinks } from './lib/role-access.js';
@@ -329,11 +329,15 @@ function fillRoleMenu() {
   if (!menu) return;
   const role = state.status?.rep?.role || '';
   const open = !menu.hidden;
+  const fieldOps = document.getElementById('tnFieldOps');
+  // Preserve the original clock button and handlers while rebuilding role links.
+  if (fieldOps?.parentElement === menu) fieldOps.remove();
   menu.innerHTML = fieldHomeLinks(role).map(item => (
     item.action === 'message'
       ? `<button type="button" data-tn-action="message">${esc(item.label)}</button>`
       : `<a href="${esc(item.href)}">${esc(item.label)}</a>`
   )).join('');
+  if (fieldOps) menu.prepend(fieldOps);
   menu.hidden = !open;
   const focusMap = document.getElementById('focusBtn');
   if (focusMap) {
@@ -562,6 +566,11 @@ function watchSheets() {
 }
 
 function placeFieldOps(wrap) {
+  const workMenu = document.getElementById('tnMoreMenu');
+  if (workMenu) {
+    if (wrap.parentElement !== workMenu) workMenu.prepend(wrap);
+    return;
+  }
   const bar = document.getElementById('mobileBar');
   const phoneBar = bar && window.matchMedia('(max-width: 700px)').matches;
   if (phoneBar) {
@@ -634,8 +643,9 @@ function renderWidget() {
   const messages = document.getElementById('tnMsgBtn');
   const shifts = document.getElementById('tnShiftsLink');
   clock.hidden = !status.isField;
-  messages.hidden = !(status.isField || status.isAdmin);
-  shifts.hidden = !status.isAdmin || onShifts;
+  const inWorkMenu = root.parentElement?.id === 'tnMoreMenu';
+  messages.hidden = inWorkMenu || !(status.isField || status.isAdmin);
+  shifts.hidden = inWorkMenu || !status.isAdmin || onShifts;
   clock.disabled = state.clockBusy;
   const badge = document.getElementById('tnUnread');
   const unread = Number(status.unread) || 0;

@@ -1,5 +1,10 @@
 import {FEATURES,featureAllowed} from '../lib/features.js';
 let current=null;
+function denyAccess(role='',{pending=false}={}){
+  current={pending,role:role==='admin'||role==='manager'?'':role,rows:FEATURES.map(([feature])=>({role:role==='canvasser'?'appointment_setter':role==='admin'||role==='manager'?'':role,feature,enabled:false}))};
+  apply();
+  document.dispatchEvent(new CustomEvent('tn-feature-access',{detail:pending?{pending:true}:{coach:false,pending:false}}));
+}
 const selectors={map:'[data-workspace-link="map"]',routes:'#routeBtn,#mobileRoute,#routeTray,#navBar,#doorSheetRoute,.rowCheck',weather:'#weatherStack',intake:'[data-workspace-link="intake"],a[href="/setter.html"]',forms:'[data-workspace-link="forms"],a[href="/forms.html"]',photos:'[data-workspace-link="photos"],#roofPhotosLink,a[href="/rep.html"]',training:'[data-workspace-link="training"],a[href="/training.html"]',coach:'#tnCoachPanel,#tnCoachTab,.tnCoachCard,[data-training-tab="coach"],[data-tab="coach"]',shifts:'[data-workspace-link="shifts"],.tnShiftsLink,#tnClockBtn',messages:'.tnMessagesBtn,#messagesBtn,#messageBtn,#tnMsgBtn,[data-tn-action="message"]',account:'[data-workspace-link="account"],a[href="/account.html"]'};
 function apply(){
   if(!current)return;
@@ -8,7 +13,7 @@ function apply(){
     const off=!featureAllowed(current.rows,current.role,key);
     if(off)el.setAttribute('data-feature-disabled','');else el.removeAttribute('data-feature-disabled');
   });
-  if(!featureAllowed(current.rows,current.role,'coach')&&document.getElementById('tnCoachTab')?.getAttribute('aria-selected')==='true')document.getElementById('tnLessonsTab')?.click();
+  if(!current.pending&&!featureAllowed(current.rows,current.role,'coach')&&document.getElementById('tnCoachTab')?.getAttribute('aria-selected')==='true')document.getElementById('tnLessonsTab')?.click();
   const brand=document.querySelector('.workspaceBrand span');
   const label=['admin','manager'].includes(current.role)?'MANAGEMENT':'FIELD TOOLS';
   if(brand&&brand.textContent!==label)brand.textContent=label;
@@ -18,13 +23,21 @@ function apply(){
 export async function bootFeatureAccess(){
   try{
     const cfg=await fetch('/api/config').then(r=>r.json());if(!cfg.configured)return;
-    const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+    const {createClient}=await import('/vendor/supabase/supabase.js');
     const sb=createClient(cfg.url,cfg.publishableKey);
+    let refreshVersion=0;
     async function refresh(){
-      const {data:{session}}=await sb.auth.getSession();if(!session){current=null;return;}
-      const {data:rep}=await sb.from('reps').select('role').eq('user_id',session.user.id).eq('active',true).maybeSingle();if(!rep)return;
+      const version=++refreshVersion;
+      // Hide privileged controls during each account/permission verification.
+      denyAccess('',{pending:true});
+      try{
+      const {data:{session}}=await sb.auth.getSession();if(version!==refreshVersion)return;if(!session){denyAccess();document.getElementById('featureAccessHold')?.remove();return;}
+      const {data:rep}=await sb.from('reps').select('role').eq('user_id',session.user.id).eq('active',true).maybeSingle();if(!rep){if(version===refreshVersion)denyAccess();return;}
       const {data:rows,error}=await sb.from('feature_permissions').select('*');
-      if(error){if(error.code==='42P01'||error.code==='PGRST205')current={role:rep.role,rows:[]};else return;}else current={role:rep.role,rows:rows||[]};
+      if(version!==refreshVersion)return;
+      const {data:{session:latest}}=await sb.auth.getSession();
+      if(version!==refreshVersion||latest?.user.id!==session.user.id){if(version===refreshVersion)denyAccess();return;}
+      if(error){denyAccess(rep.role);return;}else current={role:rep.role,rows:rows||[]};
       apply();
       document.dispatchEvent(new CustomEvent('tn-feature-access',{detail:{coach:featureAllowed(current.rows,current.role,'coach')}}));
       const path=location.pathname.replace(/\.html$/,'').replace(/\/$/,'')||'/';
@@ -32,11 +45,12 @@ export async function bootFeatureAccess(){
       if(pageKey&&!featureAllowed(current.rows,rep.role,pageKey)){
         let hold=document.getElementById('featureAccessHold');if(!hold){hold=document.createElement('div');hold.id='featureAccessHold';hold.className='featureAccessHold';hold.innerHTML='<h1>Feature unavailable</h1><p>Management has disabled this feature for your role.</p><a href="/">Field map</a> · <a href="/account.html">My account</a> <button type="button">Sign out</button>';hold.querySelector('button').onclick=()=>sb.auth.signOut().then(()=>location.reload());document.body.append(hold);}
       }else document.getElementById('featureAccessHold')?.remove();
+      }catch{if(version===refreshVersion)denyAccess();}
     }
     await refresh();
     new MutationObserver(apply).observe(document.body,{childList:true,subtree:true});
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
     sb.auth.onAuthStateChange(()=>setTimeout(refresh,0));
     sb.channel('feature-access').on('postgres_changes',{event:'*',schema:'public',table:'feature_permissions'},refresh).subscribe();
-  }catch{/* Existing authentication screens remain responsible for sign-in. */}
+  }catch{denyAccess();}
 }

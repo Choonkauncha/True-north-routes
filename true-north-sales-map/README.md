@@ -1,3 +1,7 @@
+## Updated release — 10 October 2026
+
+Read [START-HERE.md](START-HERE.md) before replacing an existing installation. Apply `supabase/upgrade_integrity.sql` first; fresh projects use the regenerated `supabase/setup_all.sql`. The address datasets and original source files are unchanged. Map controls now group related actions into Addresses, Route, Map options, and Work. Build a route after selecting addresses; changes to stops or travel mode require rebuilding.
+
 ## UI workspace redesign
 
 The interface now shares a responsive visual system across the field map, management, and role profiles. The ? button opens an annotated tutorial for the current page and available tools. See [the UI/UX audit](docs/ui-ux-audit.md) for the surface inventory, role behavior, implementation details, and verification limits. Run `npm test` for regressions and `npm run test:ui` for the synthetic browser preview (setup instructions in the audit).
@@ -16,7 +20,7 @@ Map-first canvassing operations for Vercel. The supplied dataset contains **17,2
 
 ## What changed
 
-- Exact house-level pins once coordinates are geocoded.
+- House pins display their coordinate source and match precision; geocoding does not establish roof-level accuracy.
 - Smart next-house scoring using status, high-priority source, owner occupancy, property age, verified roof age, territory ownership, and distance from the rep.
 - Route optimizer (nearest-neighbor + 2-opt) with a selectable driving/walking mode and Google Maps handoff in navigation blocks.
 - Shared Supabase live state for lead status, assignments, notes, appointments, activities, reps, and territory ownership.
@@ -27,7 +31,7 @@ Map-first canvassing operations for Vercel. The supplied dataset contains **17,2
 - Appointment handoff queue for salesperson transfer.
 - 7-day field leaderboard based on recorded field activity.
 - Admin/manager tools to seed the source rows, initialize territories, run batch geocoding, load storm alerts, and export lead state.
-- Local device fallback is retained for testing, but it is not shared between reps.
+- Explicit local testing remains available. A configured cloud connection failure returns to sign-in rather than falling back to private local data.
 
 ## One-time setup (fresh project)
 

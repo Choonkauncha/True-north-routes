@@ -2,7 +2,6 @@ import { bootFiles, attachSession } from './store.js';
 import { createDeferredAuthHandler } from '../lib/auth-events.js';
 import { roleLabel } from '../lib/role-access.js';
 import {
-  TRAINING_BUCKET,
   classifyFile,
   cleanTrainingDraft,
   contentTypeFor,
@@ -281,13 +280,8 @@ async function submit(event) {
       created_by: existing?.created_by || ctx.rep?.id || null,
       ...media
     };
-    const saved = await ctx.sb.from('training_items').upsert(row).select('*').single();
+    const saved = await ctx.sb.rpc('save_training_item', { p_item: row, p_assignee_ids: cleaned.assigneeIds });
     if (saved.error) throw saved.error;
-    await ctx.sb.from('training_assignments').delete().eq('item_id', id);
-    if (cleaned.assigneeIds.length) {
-      const assigned = await ctx.sb.from('training_assignments').insert(cleaned.assigneeIds.map((rep_id) => ({ item_id: id, rep_id })));
-      if (assigned.error) throw assigned.error;
-    }
     draft = null;
     await refresh();
   } catch (error) {
@@ -395,10 +389,10 @@ function mediaDuration(file) {
 
 async function remove(id) {
   const item = items.find((row) => row.id === id);
-  if (!item || !confirm(`Delete “${item.title}”? Watch history for it goes away too.`)) return;
-  const paths = [item.storage_path, item.poster_path, item.original_path].filter(Boolean);
-  if (paths.length) await ctx.sb.storage.from(TRAINING_BUCKET).remove(paths);
-  const { error } = await ctx.sb.from('training_items').delete().eq('id', id);
+  if (!item || !confirm(`Archive “${item.title}”? It will be hidden from team lessons. Its files and watch history will be retained.`)) return;
+  // Retain media references and history; storage cleanup must be a separate,
+  // retryable management operation rather than preceding record deletion.
+  const { error } = await ctx.sb.from('training_items').update({ active: false }).eq('id', id);
   if (error) { alert(error.message); return; }
   await refresh();
 }

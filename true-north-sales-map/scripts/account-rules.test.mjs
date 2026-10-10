@@ -84,6 +84,7 @@ async function run(action, body, token, extraEnv = {}) {
     const method = options.method || 'GET';
     calls.push({ url: String(url), method, headers: options.headers || {}, body: options.body || '' });
     const u = String(url);
+    if (u.endsWith('/rest/v1/rpc/password_gate_status')) return response({ must_change: false, impersonating: false });
     if (u.endsWith('/auth/v1/user')) {
       const bearer = options.headers.Authorization || '';
       if (bearer.endsWith('admin-token')) return response({ id: ADMIN_USER });

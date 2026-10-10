@@ -47,7 +47,7 @@ for (const page of pages) {
 const index = read('index.html');
 assert.ok(index.includes('class="tn-map"'));
 assert.ok(index.includes('tn-signed-out'));
-assert.ok(index.includes('body>*:not(#loginModal){display:none!important}'));
+assert.ok(index.includes('body>*:not(#loginModal):not(#tnPasswordHold){display:none!important}'));
 assert.ok(index.includes('#loginModal{display:flex!important;background:#0c1424!important'));
 
 const admin = read('admin.html');
@@ -62,7 +62,7 @@ assert.ok(app.includes('scrubPrivateMap'));
 assert.ok(app.includes("classList.add('tn-signed-out')"));
 assert.ok(app.includes('state.sessionReady'));
 assert.ok(app.includes('if(!state.sessionReady) return;'));
-assert.ok(app.includes('if(authed){'));
+assert.equal(app.includes('if(authed){'), false, 'stored account hints cannot unlock private map cache');
 assert.ok(app.includes("event==='SIGNED_OUT'"));
 
 const transitions = read('brand/transitions.css');

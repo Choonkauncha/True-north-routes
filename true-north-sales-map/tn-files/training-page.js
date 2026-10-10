@@ -155,14 +155,15 @@ async function loadCatalog() {
     .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title));
   await Promise.all(catalog.map(async (item) => {
     if (!item.poster_path) return;
-    item.posterUrl = await signed(item.poster_path);
+    try { item.posterUrl = await signed(item.poster_path); }
+    catch { item.posterUrl = ''; }
   }));
 }
 
 async function signed(path) {
   const { data, error } = await ctx.sb.storage.from('training').createSignedUrl(path, 60 * 60);
   if (error) return '';
-  return data.signedUrl;
+  return data?.signedUrl || '';
 }
 
 function visibleItems() {

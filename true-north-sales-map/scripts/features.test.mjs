@@ -13,6 +13,7 @@ const env={SUPABASE_URL:'https://db.example',SUPABASE_ANON_KEY:'public'};
 await assert.rejects(()=>requireFeature(new Request('https://app.example'), 'coach',{env}),e=>e.status===401);
 await assert.rejects(()=>requireFeature(request,'coach',{env,fetchImpl:async()=>new Response('false')}),e=>e.status===403);
 await assert.rejects(()=>requireFeature(request,'coach',{env,fetchImpl:async()=>new Response('{}',{status:500})}),e=>e.status===503);
+await assert.rejects(()=>requireFeature(request,'coach',{env,fetchImpl:async()=>new Response('{}',{status:404})}),e=>e.status===503);
 await requireFeature(request,'coach',{env,fetchImpl:async(url,options)=>{
  assert.equal(url,'https://db.example/rest/v1/rpc/feature_enabled');assert.equal(options.headers.Authorization,'Bearer user-token');assert.equal(JSON.parse(options.body).requested,'coach');return new Response('true');
 }});

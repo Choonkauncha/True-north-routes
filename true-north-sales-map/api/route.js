@@ -4,7 +4,7 @@ const headers = { 'content-type': 'application/json', 'cache-control': 'no-store
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers });
 const fail = (message, status) => Object.assign(new Error(message), { status });
 
-export async function handleRoute(request, { fetchImpl = fetch } = {}) {
+export async function handleRoute(request, { fetchImpl = fetch, env = process.env } = {}) {
   if (request.method !== 'POST') return json({ error: 'POST required' }, 405);
   try {
     let body;
@@ -13,7 +13,7 @@ export async function handleRoute(request, { fetchImpl = fetch } = {}) {
     const normalized = normalizeRouteRequest(body);
     if (normalized.error) throw fail(normalized.error, 400);
     const { coordinates, profile, service, wantSteps } = normalized;
-    const response = await fetchImpl(routeServiceUrl(normalized), {
+    const response = await fetchImpl(routeServiceUrl(normalized, env), {
       headers: { accept: 'application/json', 'user-agent': 'True North Restorations Sales Map' },
       signal: AbortSignal.timeout(10000)
     });
