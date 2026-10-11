@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { handleCoach, loadCoachSources, createCoachLimiter } from '../api/coach.js';
+import { handleCoach, handleCoachApi, loadCoachSources, createCoachLimiter } from '../api/coach.js';
 import { buildCoachSnapshot, coachWindow, coachProfileForModel, guidedCoachReply } from '../lib/coach.js';
 
 const REP = 'a22945c0-d43a-4bd4-972f-16d1d7e06530';
@@ -64,6 +64,11 @@ await check('cross-origin and unsupported methods do not read app data',async()=
   assert.equal(result.response.status,403);assert.equal(result.calls.length,0);
   const method=await run(new Request('https://app.example/api/coach',{method:'DELETE'}));
   assert.equal(method.response.status,405);assert.equal(method.response.headers.get('allow'),'GET');
+});
+await check('POST on the shared Coach route dispatches to authenticated voice actions',async()=>{
+  const response=await handleCoachApi(new Request('https://app.example/api/coach',{method:'POST',body:'{}'}),{env:ENV,fetchImpl:async()=>{throw new Error('unauthenticated request must not fetch');}});
+  assert.equal(response.status,401);
+  assert.deepEqual(await response.json(),{error:'Sign in to open your Coach.'});
 });
 await check('queries derive identity, minimize activity data, and fetch only upcoming appointments',async()=>{
   const result=await run(request());

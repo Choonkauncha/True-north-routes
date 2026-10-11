@@ -111,7 +111,7 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
     const session = await ctx.sb.auth.getSession();
     const token = session.data?.session?.access_token;
     if (!token) throw new Error('Sign in again to use voice actions.');
-    const response = await fetch('/api/voice-action', {method:'POST', headers:{authorization:`Bearer ${token}`,'content-type':'application/json'}, body:JSON.stringify({toolCall:{name:call.name,args:call.args}}), signal:AbortSignal.timeout(12000)});
+    const response = await fetch('/api/coach', {method:'POST', headers:{authorization:`Bearer ${token}`,'content-type':'application/json'}, body:JSON.stringify({toolCall:{name:call.name,args:call.args}}), signal:AbortSignal.timeout(12000)});
     const data = await response.json().catch(()=>({error:'Voice action failed'}));
     if (!response.ok) return {error:data.error || 'Action denied'};
     if (data.proposal?.action === 'route.build') {
