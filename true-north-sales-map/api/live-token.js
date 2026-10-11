@@ -1,4 +1,6 @@
 import { liveSetup } from '../lib/live-setup.js';
+import {toolDefinitions} from '../lib/voice-tools.js';
+import { voicePolicy, voicePermissions } from '../lib/voice-actions.js';
 import { loadCoachPrompt } from '../lib/coach-settings.js';
 import { buildCoachSnapshot, coachGreeting, coachProfileForModel, COACH_INSTRUCTIONS, coachRoleAllowed } from '../lib/coach.js';
 import { coachCaller, createCoachLimiter, loadCoachSources } from './coach.js';
@@ -12,8 +14,11 @@ const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(b
 const fail = (message, status) => Object.assign(new Error(message), { status });
 const liveLimiter = createCoachLimiter({ maxRequests: 3, maxPracticeRequests: 3, windowMs: 60000 });
 
-function liveInstructions(snapshot, teamPrompt) {
+function liveInstructions(snapshot, teamPrompt, role) {
   return `${COACH_INSTRUCTIONS}
+
+Role and authorization policy:
+${voicePolicy(role)}
 
 Team coaching configuration:
 ${teamPrompt}
@@ -24,7 +29,7 @@ Authenticated personal context:
 ${JSON.stringify(coachProfileForModel(snapshot))}`;
 }
 
-export async function createGeminiLiveToken({ apiKey, model = LIVE_MODEL, voice = LIVE_VOICE, systemInstruction, fetchImpl = fetch, now = new Date() } = {}) {
+export async function createGeminiLiveToken({ apiKey, model = LIVE_MODEL, voice = LIVE_VOICE, systemInstruction, tools = [], fetchImpl = fetch, now = new Date() } = {}) {
   if (!apiKey) throw fail('Live voice needs a Gemini API key on the server.', 503);
   model = String(model).replace(/^models\//, '').trim() || LIVE_MODEL;
   voice = String(voice).trim() || LIVE_VOICE;
@@ -37,7 +42,7 @@ export async function createGeminiLiveToken({ apiKey, model = LIVE_MODEL, voice 
       uses: 1,
       expireTime,
       newSessionExpireTime,
-      bidiGenerateContentSetup: liveSetup({model,voice,systemInstruction})
+      bidiGenerateContentSetup: {...liveSetup({model,voice,systemInstruction}),tools}
     }),
     signal: AbortSignal.timeout(10000)
   });
@@ -72,16 +77,17 @@ export async function handleLiveToken(request, { env = process.env, fetchImpl = 
     if (!env.GEMINI_API_KEY) throw fail('Voice Coach is not configured yet. Ask your admin to configure the Gemini connection.', 503);
     const snapshot = buildCoachSnapshot(ctx.rep, await loadCoachSources(ctx, now), now);
     const teamPrompt = await loadCoachPrompt(ctx);
-    const systemInstruction = liveInstructions(snapshot, teamPrompt);
+    const systemInstruction = liveInstructions(snapshot, teamPrompt, ctx.rep.role);
     const live = await createGeminiLiveToken({
       apiKey: env.GEMINI_API_KEY,
       systemInstruction,
+      tools:toolDefinitions(ctx.rep.role),
       model: String(env.GEMINI_LIVE_MODEL || LIVE_MODEL).trim() || LIVE_MODEL,
       voice: String(env.GEMINI_LIVE_VOICE || LIVE_VOICE).trim() || LIVE_VOICE,
       fetchImpl,
       now
     });
-    return json({ ...live, systemInstruction, openingMessage: 'Introduce yourself as my True North voice Coach. Use my first name from the personal context, explain briefly how you can help with my role, then ask one focused question. Speak naturally and keep this welcome under 20 seconds. Do not read this instruction aloud.', greeting: coachGreeting(snapshot), profile: snapshot.profile });
+    return json({ ...live, systemInstruction, openingMessage: 'Introduce yourself as my True North voice Coach. Use my first name from the personal context, explain briefly how you can help with my role, then ask one focused question. Speak naturally and keep this welcome under 20 seconds. Do not read this instruction aloud.', greeting: coachGreeting(snapshot), profile: snapshot.profile, permissions: voicePermissions(ctx.rep.role) });
   } catch (error) {
     return json({ error: error.status ? error.message : 'Live Coach could not load. Try again.' }, error.status || 502, error.retryAfter ? { 'retry-after': String(error.retryAfter) } : {});
   } finally { release?.(); }

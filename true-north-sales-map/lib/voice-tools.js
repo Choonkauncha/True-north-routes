@@ -1,0 +1,5 @@
+import {validateRouteStops} from './voice-actions.js';
+export const ROUTE_TOOL = {name:'draft_route',description:'Collect one or more street addresses into a proposed route. This is a draft only. Ask the user to confirm before executing it.',parameters:{type:'OBJECT',properties:{addresses:{type:'ARRAY',items:{type:'STRING'},description:'Complete street addresses, including city and state when known'}},required:['addresses']}};
+export const PROFILE_TOOL = {name:'inspect_team_profile',description:'Admin only: inspect one non-admin team member profile by its UUID. Never disclose other profiles to appointment setters.',parameters:{type:'OBJECT',properties:{user_id:{type:'STRING'}},required:['user_id']}};
+export function toolDefinitions(role){return [{functionDeclarations:role==='admin'?[ROUTE_TOOL,PROFILE_TOOL]:[ROUTE_TOOL]}];}
+export function normalizeToolCall(call){if(call?.name==='draft_route')return {action:'route.build',addresses:validateRouteStops(call.args?.addresses)};if(call?.name==='inspect_team_profile')return {action:'profile.read',targetUserId:call.args?.user_id};throw new Error('Voice tool is not allowed.');}

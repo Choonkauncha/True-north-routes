@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {planVoiceAction,voicePermissions,validateRouteStops,voicePolicy} from '../lib/voice-actions.js';
+assert.equal(voicePermissions('appointment_setter').ownProfileOnly,true);
+assert.equal(voicePermissions('admin').canViewTeam,true);
+assert.equal(voicePermissions('admin').canEditAdminProfiles,false);
+assert.deepEqual(validateRouteStops(['123 Main Street, Mount Vernon, OH','123 Main Street, Mount Vernon, OH']),['123 Main Street, Mount Vernon, OH']);
+const a={role:'appointment_setter',actorId:'setter-id',action:'route.build',addresses:['123 Main Street, Mount Vernon, OH','456 High Street, Mount Vernon, OH']};
+assert.equal(planVoiceAction(a).status,'awaiting_confirmation');
+assert.equal(planVoiceAction({...a,confirmed:true}).status,'ready_for_client_execution');
+assert.throws(()=>planVoiceAction({...a,action:'profile.edit',targetUserId:'someone',targetRole:'salesperson',confirmed:true}),/Only administrators/);
+assert.throws(()=>planVoiceAction({...a,role:'admin',action:'profile.edit',targetUserId:'someone',targetRole:'admin',confirmed:true}),/never edit administrator/);
+assert.equal(planVoiceAction({...a,role:'admin',action:'profile.edit',targetUserId:'someone',targetRole:'salesperson'}).status,'awaiting_confirmation');
+assert.match(voicePolicy('admin'),/All admin profiles are immutable/);
+console.log('Voice action policy tests passed');

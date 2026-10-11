@@ -107,6 +107,20 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
     source.start(start); nextOutputTime = start + buffer.duration;
   }
 
+  async function executeTool(call) {
+    const session = await ctx.sb.auth.getSession();
+    const token = session.data?.session?.access_token;
+    if (!token) throw new Error('Sign in again to use voice actions.');
+    const response = await fetch('/api/voice-action', {method:'POST', headers:{authorization:`Bearer ${token}`,'content-type':'application/json'}, body:JSON.stringify({toolCall:{name:call.name,args:call.args}}), signal:AbortSignal.timeout(12000)});
+    const data = await response.json().catch(()=>({error:'Voice action failed'}));
+    if (!response.ok) return {error:data.error || 'Action denied'};
+    if (data.proposal?.action === 'route.build') {
+      emit(onTranscript,{role:'assistant',text:`Route draft: ${data.proposal.stops.join('; ')}. Review and confirm in the CRM before execution.`,final:true});
+      // Deliberately no automatic route persistence or navigation.
+    }
+    return data;
+  }
+
   async function handleMessage(message, attempt) {
     if (attempt !== generation || stopped) return;
     if (message?.setupComplete && !micStarted && !stopped) {
@@ -118,6 +132,16 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
         send({ clientContent: { turns: [{ role: 'user', parts: [{ text: openingMessage }] }], turnComplete: true } });
         state('listening');
       } catch (error) { if (error?.name !== 'AbortError' && attempt === generation) fail(error); }
+      return;
+    }
+    if (message?.toolCall?.functionCalls?.length) {
+      const functionResponses=[];
+      for (const call of message.toolCall.functionCalls) {
+        let result;
+        try { result=await executeTool(call); } catch { result={error:'Voice action could not be completed'}; }
+        functionResponses.push({id:call.id,name:call.name,response:result});
+      }
+      if (attempt === generation && !stopped) send({toolResponse:{functionResponses}});
       return;
     }
     const content = message?.serverContent;
