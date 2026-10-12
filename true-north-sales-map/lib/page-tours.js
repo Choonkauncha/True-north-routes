@@ -344,9 +344,9 @@ export const ADMIN_TOURS = {
       "An attention card can focus this view on unassigned or past-due inspections. Show all appointments removes that focus.",
     ),
     step(
-      "#apptTable",
+      "#scheduledInspections",
       "Read the handoff",
-      "Check the inspection time, setter, assigned sales rep, stage, and notes. Assignment and editing permissions remain tied to the existing handoff rules.",
+      "Upcoming inspections are first. Check the time, homeowner, address, phone, setter, assigned sales rep, stage, and notes. Tap a card for directions and the full handoff.",
     ),
     step(
       "#tab-appointments .dashboardPagination",

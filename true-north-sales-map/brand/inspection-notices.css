@@ -1,0 +1,184 @@
+.inspectionBell[hidden],
+.inspectionBellPanel[hidden],
+.inspectionDetail[hidden],
+.inspectionToast[hidden] { display: none !important; }
+.inspectionBellWrap { position: relative; display: inline-flex; align-items: center; }
+.inspectionBell {
+  position: relative;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #d5deea;
+  background: #fff;
+  color: #10263f;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.inspectionBell svg { width: 22px; height: 22px; display: block; }
+.inspectionBellCount {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #c2410c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.inspectionBellPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, calc(100vw - 20px));
+  max-height: min(70dvh, 480px);
+  overflow: auto;
+  background: #fff;
+  color: #142033;
+  border: 1px solid #d5deea;
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(8, 26, 35, 0.22);
+  z-index: 80;
+  padding: 8px;
+}
+.inspectionBell h2 { margin: 4px 8px 8px; font-size: 15px; }
+.inspectionNotice, .inspectionPush {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  padding: 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.inspectionNotice { display: grid; gap: 4px; }
+.inspectionNotice strong { font-size: 14px; }
+.inspectionNotice span { font-size: 13px; color: #3d4d63; line-height: 1.35; }
+.inspectionNotice.isUnread { background: #fff4eb; }
+.inspectionBellEmpty, .inspectionPushNote { margin: 8px; font-size: 13px; color: #52627a; }
+.inspectionPush { background: #10263f; color: #fff; font-weight: 650; margin-top: 6px; }
+.topbar .inspectionBell {
+  color: #fff;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.topbar .inspectionBellCount { background: #ff8a3d; color: #10263f; }
+
+.inspectionRange { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+.inspectionRange button {
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid #d5deea;
+  background: #fff;
+  color: #243854;
+  font-weight: 650;
+  cursor: pointer;
+}
+.inspectionRange button[aria-pressed="true"] { background: #10263f; color: #fff; border-color: #10263f; }
+
+.scheduledInspections { display: grid; gap: 10px; }
+.inspectionCard {
+  background: #fff;
+  border: 1px solid #dbe3ee;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.inspectionCard.isUpcoming { border-color: #b9d0ff; }
+.inspectionCardOpen {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 12px 14px 4px;
+  min-height: 44px;
+  cursor: pointer;
+  color: inherit;
+}
+.inspectionCardOpen strong { font-size: 16px; grid-column: 1; }
+.inspectionWhen { font-size: 13px; font-weight: 700; color: #1d4ed8; }
+.inspectionStage {
+  justify-self: end;
+  align-self: start;
+  background: #e8f0ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.inspectionCardBody { display: grid; gap: 6px; padding: 0 14px 12px; font-size: 14px; }
+.inspectionAddress, .inspectionPhone { color: #1d4ed8; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.inspectionCardBody p { margin: 0; color: #3d4d63; white-space: pre-wrap; }
+
+.inspectionDetail {
+  position: fixed;
+  z-index: 90;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  max-height: min(82dvh, 680px);
+  overflow: auto;
+  background: #fff;
+  color: #142033;
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(8, 26, 35, 0.28);
+  padding: 14px;
+}
+.inspectionDetailBar, .inspectionDetailActions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.inspectionDetail h2 { margin: 6px 0; font-size: 22px; }
+.inspectionDetail dl { display: grid; gap: 8px; margin: 14px 0; }
+.inspectionDetail dt { font-size: 12px; color: #52627a; }
+.inspectionDetail dd { margin: 0; font-size: 15px; }
+.inspectionDetail .btn, .inspectionDetailActions .btn { min-height: 44px; }
+@media (min-width: 860px) {
+  .inspectionDetail { left: auto; width: min(440px, 42vw); right: 24px; bottom: 24px; }
+}
+
+.inspectionToast {
+  position: fixed;
+  z-index: 100;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: min(440px, calc(100vw - 24px));
+  background: #10263f;
+  color: #fff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 12px 32px rgba(8, 26, 35, 0.35);
+  font-size: 15px;
+  line-height: 1.35;
+}
+.inspectionToast[hidden] { display: none !important; }
+.inspectionToast b { display: block; margin-bottom: 4px; }
+button.inspectionUpcoming {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) auto;
+  gap: 12px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #e6edf5;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 12px 0;
+}
+
+@media (max-width: 720px) {
+  #tab-appointments .inspectionTableFold { display: none; }
+  .inspectionDetail { max-height: 52dvh; }
+}

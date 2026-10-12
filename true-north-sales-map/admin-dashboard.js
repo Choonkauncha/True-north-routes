@@ -5,6 +5,13 @@ import { atlasIcon } from "./brand/atlas-icons.js";
 import "/tn-files/password-reset.js";
 import { bindAdminTabs, adminHashTarget } from "/lib/admin-tabs.js";
 import { managementProfile, canOpenManagement } from "/lib/account-rules.js";
+import { startInspectionAlerts } from "./tn-files/inspection-alerts.js";
+import {
+  inspectionCardsHtml,
+  inspectionDetailHtml,
+  prepareInspections,
+  sortInspections,
+} from "./lib/inspection-notices.js";
 const $ = (id) => document.getElementById(id);
 let cfg,
   sb,
@@ -16,7 +23,8 @@ let cfg,
   activities = [],
   homes = [],
   territories = [],
-  adminChannel = null;
+  adminChannel = null,
+  inspectionAlerts = null;
 import {
   dashboardIndex,
   dashboardSummary,
@@ -29,7 +37,7 @@ let refreshFlight = null,
 let refreshLeadsNext = false;
 const changedTables = new Set();
 const viewLimits = {};
-const state = { tab: "overview", appointmentFocus: "" };
+const state = { tab: "overview", appointmentFocus: "", inspectionRange: "all", openInspectionId: "" };
 document.addEventListener("tn-admin-view", (event) => {
   state.tab = event.detail;
 });
@@ -134,6 +142,14 @@ async function boot() {
   };
   $("openMap").onclick = () => (location.href = "/");
   $("exportCsv").onclick = exportCsv;
+  document.querySelectorAll("[data-range]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.inspectionRange = button.dataset.range || "all";
+      viewLimits.appointments = 100;
+      if (state.tab !== "appointments") showTab("appointments");
+      else renderAppointments();
+    });
+  });
   [
     "teamSearch",
     "teamRole",
@@ -200,6 +216,12 @@ async function enter(s) {
   $("app").hidden = false;
   $("app").classList.remove("hidden");
   $("welcome").textContent = `Signed in as ${me.name} · ${me.role} · ${email}`;
+  inspectionAlerts?.stop();
+  inspectionAlerts = startInspectionAlerts({
+    supabase: sb,
+    rep: me,
+    onOpen: (id) => openScheduledInspection(id),
+  });
   if (!state.entered) {
     state.entered = true;
     if (adminHashTarget(location.hash).tab) applyAdminHash();
@@ -346,6 +368,7 @@ function renderAttention() {
           document.getElementById("homeStatus").value = "New";
         if (button.dataset.attention === "appointments") {
           state.appointmentFocus = button.dataset.focus;
+          state.inspectionRange = "all";
           $("apptSearch").value = "";
           $("apptStage").value = "";
         }
@@ -374,10 +397,13 @@ function renderUpcoming() {
     ? rows
         .map((a) => {
           const l = index.leads.get(a.lead_id) || {};
-          return `<div class="activityItem"><div class="activityTime">${esc(date(a.scheduled_at))}</div><div><strong>${esc(l.name || "Homeowner")}</strong><p>${esc(l.address || "")} · Setter: ${esc(a.canvasser?.name || "—")} · Sales: ${esc(a.salesperson?.name || "—")}</p></div><div>${pill(a.stage)}</div></div>`;
+          return `<button type="button" class="activityItem inspectionUpcoming" data-inspection="${esc(a.id)}"><div class="activityTime">${esc(date(a.scheduled_at))}</div><div><strong>${esc(l.name || "Homeowner")}</strong><p>${esc(l.address || "")} · Setter: ${esc(a.canvasser?.name || "—")} · Sales: ${esc(a.salesperson?.name || "—")}</p></div><div>${pill(a.stage)}</div></button>`;
         })
         .join("")
     : '<div class="empty">No upcoming appointments.</div>';
+  $("upcoming").querySelectorAll("[data-inspection]").forEach((button) => {
+    button.onclick = () => openScheduledInspection(button.dataset.inspection);
+  });
 }
 function renderRecent() {
   const rows = activities.slice(0, 8);
@@ -447,23 +473,54 @@ function renderTeam() {
         .join("")
     : '<tr><td colspan="7"><div class="empty">No matching team members.</div></td></tr>';
 }
+function inspectionItems() {
+  return prepareInspections({
+    appointments: sortInspections(appointments),
+    leads: [...index.leads.values()],
+    homes,
+    reps,
+    range: state.inspectionRange,
+    query: $("apptSearch")?.value || "",
+    stage: $("apptStage")?.value || "",
+    focus: state.appointmentFocus,
+  });
+}
+function paintInspectionRange() {
+  document.querySelectorAll("[data-range]").forEach((button) => {
+    button.setAttribute("aria-pressed", button.dataset.range === state.inspectionRange ? "true" : "false");
+  });
+}
+function openScheduledInspection(id) {
+  state.openInspectionId = id || "";
+  if (state.tab !== "appointments") showTab("appointments");
+  else renderAppointments();
+  if (id) document.dispatchEvent(new CustomEvent("tn-inspection-viewed", { detail: { id } }));
+  document.getElementById("inspectionDetail")?.scrollIntoView?.({ block: "nearest" });
+}
 function renderAppointments() {
-  const q = ($("apptSearch").value || "").toLowerCase();
-  const st = $("apptStage").value;
-  const rows = appointments
-    .filter((a) => {
-      const l = index.leads.get(a.lead_id) || {};
-      const blob = [l.name, l.address, l.city].join(" ").toLowerCase();
-      const open = ["Requested", "Scheduled", "Confirmed"].includes(a.stage);
-      const focused =
-        !state.appointmentFocus ||
-        (open &&
-          (state.appointmentFocus === "unassigned"
-            ? !a.salesperson_id
-            : a.scheduled_at && new Date(a.scheduled_at) < new Date()));
-      return (!q || blob.includes(q)) && (!st || a.stage === st) && focused;
-    })
-    .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+  const items = inspectionItems();
+  paintInspectionRange();
+  const page = pageRows(items, "appointments");
+  const list = $("scheduledInspections");
+  if (list) {
+    list.innerHTML = inspectionCardsHtml(page);
+    list.querySelectorAll("[data-inspection]").forEach((button) => {
+      button.onclick = () => openScheduledInspection(button.dataset.inspection);
+    });
+  }
+  const detail = $("inspectionDetail");
+  const open = items.find((item) => String(item.id) === String(state.openInspectionId))
+    || page.find((item) => String(item.id) === String(state.openInspectionId));
+  if (detail) {
+    detail.hidden = !open;
+    detail.innerHTML = open ? inspectionDetailHtml(open) : "";
+    detail.querySelector("[data-inspection-close]")?.addEventListener("click", () => {
+      state.openInspectionId = "";
+      detail.hidden = true;
+      detail.innerHTML = "";
+    });
+  }
+  const rows = page;
   const notice = $("apptFocusNotice");
   if (notice) {
     notice.hidden = !state.appointmentFocus;
@@ -477,11 +534,8 @@ function renderAppointments() {
     });
   }
   $("apptTable").innerHTML =
-    pageRows(rows, "appointments")
-      .map((a) => {
-        const l = index.leads.get(a.lead_id) || {};
-        return `<tr><td><b>${esc(l.name || "")}</b><div class="small">${esc(l.address || "")}</div></td><td>${esc(date(a.scheduled_at))}</td><td>${esc(a.canvasser?.name || "—")}</td><td>${esc(a.salesperson?.name || "—")}</td><td>${pill(a.stage)}</td><td>${esc(a.notes || "")}</td></tr>`;
-      })
+    rows
+      .map((item) => `<tr><td><b>${esc(item.homeowner || "")}</b><div class="small">${esc(item.address || "")}</div><div class="small">${esc(item.phone || "")}</div></td><td>${esc(item.whenLabel)}</td><td>${esc(item.setter)}</td><td>${esc(item.rep)}</td><td>${pill(item.stage)}</td><td>${esc(item.notes || "")}</td></tr>`)
       .join("") ||
     '<tr><td colspan="6"><div class="empty">No appointments match.</div></td></tr>';
 }
@@ -620,6 +674,8 @@ function applyAdminHash() {
     document.querySelector(`#app [data-tab="${target.tab}"]`)?.click();
   else showTab(target.tab);
   if (target.messages) document.getElementById("openMessages")?.click();
+  const inspectionId = (decodeURIComponent(location.hash.replace(/^#/, "")).match(/(?:^|&)inspection=([^&]+)/) || [])[1] || "";
+  if (inspectionId) openScheduledInspection(inspectionId);
 }
 function startRealtime() {
   if (adminChannel) return;
