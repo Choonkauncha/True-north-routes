@@ -21,6 +21,7 @@ import { forgetRole, rememberRole } from './lib/management-gate.js';
 import { assertHandoffPhoto, handoffPermissions, isHandoffSetter, validateHandoffPatch, visibleHandoffs } from './lib/handoff-access.js';
 import { canSeeReceipt, canUploadReceipt } from './lib/receipt-access.js';
 import { createDeferredAuthHandler } from './lib/auth-events.js';
+import { startInspectionAlerts } from './tn-files/inspection-alerts.js';
 
 const STATUS_OPTIONS=['New','Knocked','No Answer','Interested','Appointment','Not Interested','Do Not Knock'];
 const DOOR_STATUSES=['Knocked','No Answer','Interested','Not Interested','Do Not Knock'].filter(s=>STATUS_OPTIONS.includes(s));
@@ -500,6 +501,10 @@ async function runEnterCloud(session){
     if(state.pendingPostSignIn){state.pendingPostSignIn=false; if(open) showPostSignIn();}
     if(!state.map) initMapOnce();
     startRealtime();
+    if (typeof startInspectionAlerts === 'function') {
+      state.inspectionAlerts?.stop();
+      state.inspectionAlerts = startInspectionAlerts({ supabase: state.supabase, rep: state.currentRep, onOpen: (id) => { if ($('adminBtn') && !$('adminBtn').hidden) location.href = `/admin#appointments&inspection=${encodeURIComponent(id || '')}`; } });
+    }
     state.cloudReady=true;
     updatePinBanner();
     const sideError=await sideP;
