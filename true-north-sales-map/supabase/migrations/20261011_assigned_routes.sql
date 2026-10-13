@@ -5,28 +5,24 @@
 -- Admins and managers can read, create, edit, and delete every route.
 begin;
 
-create or replace function public.is_admin_or_manager() returns boolean
-language sql stable security definer set search_path=public as $$
-  select exists(
-    select 1 from public.reps
-    where user_id = auth.uid() and active = true and role in ('admin', 'manager')
-  );
-$$;
-
-create or replace function public.current_rep_id() returns uuid
-language sql stable security definer set search_path=public as $$
-  select id from public.reps
-  where user_id = auth.uid() and active = true
+-- Route-local helpers never replace global session/password guards.
+create or replace function public.route_actor_id() returns uuid
+language sql stable security definer set search_path=public,pg_temp as $$
+  select r.id from public.reps r
+  where r.user_id=auth.uid() and r.active=true
+    and not coalesce((to_jsonb(r)->>'must_change_password')::boolean,false)
   limit 1;
 $$;
 
 create or replace function public.can_assign_routes() returns boolean
-language sql stable security definer set search_path=public as $$
-  select exists(
-    select 1 from public.reps
-    where user_id = auth.uid() and active = true and role in ('admin', 'manager', 'owner')
-  );
+language sql stable security definer set search_path=public,pg_temp as $$
+  select exists(select 1 from public.reps
+    where id=public.route_actor_id() and role in ('admin','manager'));
 $$;
+revoke all on function public.route_actor_id() from public,anon;
+revoke all on function public.can_assign_routes() from public,anon;
+grant execute on function public.route_actor_id() to authenticated;
+grant execute on function public.can_assign_routes() to authenticated;
 
 create table if not exists public.assigned_routes (
   id uuid primary key default gen_random_uuid(),
@@ -42,8 +38,6 @@ create index if not exists assigned_routes_created_by_idx on public.assigned_rou
 alter table public.assigned_routes enable row level security;
 revoke all on table public.assigned_routes from anon;
 grant select, insert, update, delete on public.assigned_routes to authenticated;
-grant execute on function public.is_admin_or_manager() to authenticated;
-grant execute on function public.current_rep_id() to authenticated;
 grant execute on function public.can_assign_routes() to authenticated;
 
 drop policy if exists assigned_routes_select on public.assigned_routes;
@@ -51,8 +45,8 @@ create policy assigned_routes_select on public.assigned_routes
   for select to authenticated
   using (
     public.can_assign_routes()
-    or assignee_id = public.current_rep_id()
-    or created_by = public.current_rep_id()
+    or assignee_id = public.route_actor_id()
+    or created_by = public.route_actor_id()
   );
 
 drop policy if exists assigned_routes_insert on public.assigned_routes;
@@ -60,19 +54,19 @@ create policy assigned_routes_insert on public.assigned_routes
   for insert to authenticated
   with check (
     public.can_assign_routes()
-    or (assignee_id = public.current_rep_id() and created_by = public.current_rep_id())
+    or (assignee_id = public.route_actor_id() and created_by = public.route_actor_id())
   );
 
 drop policy if exists assigned_routes_update on public.assigned_routes;
 create policy assigned_routes_update on public.assigned_routes
   for update to authenticated
-  using (public.can_assign_routes() or assignee_id = public.current_rep_id())
-  with check (public.can_assign_routes() or assignee_id = public.current_rep_id());
+  using (public.can_assign_routes() or assignee_id = public.route_actor_id())
+  with check (public.can_assign_routes() or assignee_id = public.route_actor_id());
 
 drop policy if exists assigned_routes_delete on public.assigned_routes;
 create policy assigned_routes_delete on public.assigned_routes
   for delete to authenticated
-  using (public.can_assign_routes() or assignee_id = public.current_rep_id());
+  using (public.can_assign_routes() or assignee_id = public.route_actor_id());
 
 -- Hide the table from roles whose Routes feature is turned off. Admins stay allowed.
 do $$ begin

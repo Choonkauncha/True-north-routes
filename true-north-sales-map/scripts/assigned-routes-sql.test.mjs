@@ -67,5 +67,9 @@ assert.equal((await db.query('select * from public.assigned_routes')).rows.lengt
 await db.exec(`delete from public.assigned_routes where assignee_id = '33333333-3333-4333-8333-333333333333'`);
 assert.equal((await db.query('select * from public.assigned_routes')).rows.length, 1, 'manager can delete an employee route');
 
+await db.exec("reset role; alter table reps add column must_change_password boolean default false; update reps set must_change_password=true where role='appointment_setter';");
+await asUser('11111111-1111-4111-8111-111111111111');
+assert.equal((await db.query('select * from assigned_routes')).rows.length,0,'flagged user cannot read routes');
+await assert.rejects(db.exec("insert into assigned_routes(assignee_id,created_by,lead_ids) values('55555555-5555-4555-8555-555555555555','11111111-1111-4111-8111-111111111111',array['blocked'])"));
 await db.close();
 console.log('Assigned route SQL: admin and manager see all, a rep sees only their own, rerun is safe');

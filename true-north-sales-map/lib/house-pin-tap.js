@@ -1,4 +1,4 @@
-/** Tap a house dot to add it. A second tap opens the sheet. Never remove on tap. */
+/** Tap a house dot to add it; retap a selected dot to remove it. */
 
 export const ROUTE_PIN_COLOR = '#0f7a32';
 
@@ -8,8 +8,8 @@ export const ROUTE_PIN_COLOR = '#0f7a32';
  * A locked view (an admin looking at someone else's route) does not add.
  */
 export function housePinAction({ onRoute, viewOnly }) {
-  if (onRoute || viewOnly) return 'open-detail';
-  return 'add';
+  if (viewOnly) return 'open-detail';
+  return onRoute ? 'remove' : 'add';
 }
 
 export function routeAddedMessage(address) {

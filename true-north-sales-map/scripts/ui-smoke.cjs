@@ -567,9 +567,11 @@ const server = http.createServer(async (req, res) => {
     await page.locator('#navEnd').click();
     await page.locator('#routeTrayBtn').click();
     await page.locator('.routeStop button').first().click();
-    await page.waitForFunction(()=>document.querySelectorAll('.routeStop').length===0);
+    await page.waitForFunction(()=>document.querySelectorAll('.routeStop').length===1);
     assert.equal(await page.locator('#selectedCount').innerText(),'1');
-    assert.equal(await page.locator('#startRouteBtn').isDisabled(),true,'Changed selection invalidates built route');
+    await page.waitForFunction(()=>!document.getElementById('startRouteBtn').disabled);
+    assert.equal(await page.locator('.routeStop').count(),1,'A late routing response cannot resurrect the removed stop');
+    assert.equal(await page.locator('#routeTray').getAttribute('data-route-stale'),'true','Edited route can be re-optimized');
     await page.locator('#clearRouteBtn').click();
     await page.waitForFunction(()=>document.getElementById('selectedCount').textContent==='0');
     assert.equal(await page.locator('#selectedCount').innerText(),'0');

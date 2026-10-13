@@ -17,5 +17,7 @@ grant all on storage.objects to authenticated;`);
 const sql=readFileSync(new URL('../supabase/setup_all.sql',import.meta.url),'utf8').replaceAll('create extension if not exists pgcrypto;','');
 await db.exec(sql).catch(e=>{console.error(e.message);process.exit(1)});
 await db.exec(sql).catch(e=>{console.error(e.message);process.exit(1)});
-console.log('Full fresh schema and repeat setup executed');
+assert.ok((await db.query("select to_regclass('public.assigned_routes') as name")).rows[0].name);
+assert.match((await db.query("select pg_get_functiondef('public.current_rep_id()'::regprocedure) as body")).rows[0].body,/session_ready/);
+console.log('Full fresh schema and repeat setup executed; assigned routes preserve global session guards');
 await db.close();

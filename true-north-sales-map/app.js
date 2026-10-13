@@ -1238,6 +1238,14 @@ function onHousePinTap(id){
   const lead=state.leadsById.get(id); if(!lead)return;
   const action=housePinAction({onRoute:state.selected.has(id), viewOnly:state.routeViewOnly});
   if(action==='add'){addHouseToRoute(id);return;}
+  if(action==='remove'){
+    if(window.tnFeatureAllowed?.('routes')===false){announce('Routes are turned off for this account.');return;}
+    toggleSelected(id);
+    state.map?.closePopup();
+    if(state.doorLeadId===id) closeDoorSheet();
+    announce(`Removed from route · ${lead.address||'Property lead'}`);
+    return;
+  }
   openHouseDetail(id);
 }
 function openHouseDetail(id){
@@ -1745,6 +1753,7 @@ function undoRouteAdd(){
   state.routeUndo=null;
   $('toastActions')?.classList.add('hidden');
   $('toastNext')?.classList.remove('hidden');
+  if(state.routeViewOnly||window.tnFeatureAllowed?.('routes')===false){announce('This route cannot be edited here.');return;}
   if(!state.selected.has(pending.id)){toast('That house is already off the route.');return;}
   state.selected.delete(pending.id);
   document.querySelectorAll(`.rowCheck[data-id="${CSS.escape(pending.id)}"]`).forEach(box=>{box.checked=false});
@@ -1857,12 +1866,16 @@ function invalidateBuiltRoute(){
   publishRouteState();
 }
 function reviseBuiltStops(){
+  // Ignore routing responses computed for the previous selection.
+  state.routeRequestSeq=(state.routeRequestSeq||0)+1;
   const byId=state.leadsById||new Map((state.leads||[]).map(lead=>[lead.id, lead]));
   const revised=reviseBuiltRoute(state.routeStops, state.selected, byId);
   if(!revised.stops.length){invalidateBuiltRoute();return;}
   state.routeStops=revised.stops;
   state.routeGeometry=null;
   state.routeStale=true;
+  $('routeDistance').textContent='Route changed · re-optimize for updated distance and time';
+  $('routeTrayStats').textContent='';
   state.routeBuildKey=routeBuildKey();
   if(state.routeLine&&state.map){state.map.removeLayer(state.routeLine);state.routeLine=null;}
   drawRoutePreview(false);
@@ -1886,7 +1899,7 @@ async function optimizeAndDrawRoute(){
   renderRouteStops();
   $('routeDistance').textContent='Optimizing…';
   try{await fetchRoadRoute(start,state.routeStops);}
-  finally{state.routeBuilding=false;updateSelectedBadge();$('optimizeRouteBtn').textContent=state.routeStops.length?'Rebuild route':'Build route';if(state.routeStops.length&&$('routeTrayNote')&&/Re-optimize to refresh/.test($('routeTrayNote').textContent))$('routeTrayNote').textContent='Select homes, then build an optimized route.';}
+  finally{state.routeBuilding=false;updateSelectedBadge();$('optimizeRouteBtn').textContent=state.routeStale?'Re-optimize':state.routeStops.length?'Rebuild route':'Build route';if(!state.routeStale&&state.routeStops.length&&$('routeTrayNote')&&/Re-optimize to refresh/.test($('routeTrayNote').textContent))$('routeTrayNote').textContent='Tap a house to add it. Tap again to remove it. Open details from the address list.';}
 }
 async function fetchRoadRoute(start,stops){
   const request=state.routeRequestSeq=(state.routeRequestSeq||0)+1;
@@ -1936,7 +1949,7 @@ function renderRouteStops(){
   $('openGoogleRouteBtn').disabled=!state.routeStops.length;
   $('optimizeRouteBtn').hidden=!state.routeStops.length;
   $('routeStops').innerHTML=state.routeStops.map((l,i)=>`<div class="routeStop"><span>${i+1}</span><div><b>${esc(l.address)}</b><small>${esc(l.city)} · ${scoreLead(l)} pts</small></div><button type="button" aria-label="Remove ${esc(l.address || 'stop')} from route" data-route-lead="${esc(l.id)}">×</button></div>`).join('')||'<div class="empty">No route yet.</div>';
-  $('routeStops').querySelectorAll('[data-route-lead]').forEach(btn=>btn.onclick=()=>{state.selected.delete(btn.dataset.routeLead);updateSelectedBadge();refreshSelectedMarkers();renderWorkList();rememberRouteChange();});
+  $('routeStops').querySelectorAll('[data-route-lead]').forEach(btn=>{btn.disabled=state.routeViewOnly;btn.onclick=()=>{if(state.selected.has(btn.dataset.routeLead))toggleSelected(btn.dataset.routeLead);renderWorkList();};});
 }
 function openGoogleRouteBlocks(){
   if(!state.routeStops.length){alert('Optimize a route first.');return}
@@ -2353,6 +2366,7 @@ async function loadStorms(){
 }
 async function housesInStormArea(){
   const pack=await ensureStormMaps();
+  if(state.routeViewOnly||window.tnFeatureAllowed?.('routes')===false)return;
   const hits=housesInStorm(state.leads, pack?.warnings||[], pack?.reports||[]);
   if(!hits.length){toast(`No houses are inside a warning or within ${HAIL_MILES} miles of a hail report.`);return;}
   state.stormHouseIds=new Set(hits.map(lead=>lead.id));
@@ -2365,6 +2379,7 @@ async function housesInStormArea(){
   $('routeWarning').textContent=leftOut?note:'';
   toast(note);
   renderAll();
+  rememberRouteChange();
   fitMapToScope(true);
   openRoutePanel();
 }
@@ -2430,6 +2445,7 @@ function setRouteTrayCollapsed(collapsed,{persist=true}={}){
   state.map?.invalidateSize({animate:false});
 }
 function applyAreaRoute(result){
+  if(state.routeViewOnly){announce('This route is view-only. Choose Edit to change it.');return;}
   const stops=result?.stops||[];
   state.selected.clear();
   stops.forEach(lead=>state.selected.add(lead.id));
@@ -2461,7 +2477,7 @@ function syncRouteChecks(id){
 }
 function toggleSelected(id){
   if(window.tnFeatureAllowed?.('routes')===false)return;
-  if(state.routeViewOnly){state.routeViewOnly=false; showRouteBanner();}
+  if(state.routeViewOnly){syncRouteChecks(id);announce('This route is view-only. Choose Edit to change it.');return;}
   if(state.selected.has(id))state.selected.delete(id);
   else if(state.selected.size>=ROUTE_STOP_LIMIT){toast(`Route stop limit is ${ROUTE_STOP_LIMIT}.`);syncRouteChecks(id);return;}
   else state.selected.add(id);
@@ -2475,7 +2491,7 @@ function syncRouteButtons(id){
   if(state.doorLeadId===id&&$('doorSheetRoute'))$('doorSheetRoute').textContent=label;
 }
 function refreshSelectedMarkers(){
-  state.routeBadgeSig='';
+  state.routeBadgeSig=null;
   state.pinShown.forEach(id=>{
     const lead=state.leadsById.get(id);
     const marker=state.pinMarkers.get(id);
@@ -2484,6 +2500,7 @@ function refreshSelectedMarkers(){
   syncRouteBadges();
 }
 function selectVisibleForRoute(){
+  if(state.routeViewOnly){announce('This route is view-only. Choose Edit to change it.');return;}
   if(window.tnFeatureAllowed?.('routes')===false)return;
   const mapped=state.filtered.filter(isCoords);
   let inView=[];
@@ -2499,6 +2516,7 @@ function selectVisibleForRoute(){
   rememberRouteChange();
 }
 function clearRoute(){
+  if(state.routeViewOnly){announce('This route is view-only. Choose Edit to change it.');return;}
   state.routeRequestSeq=(state.routeRequestSeq||0)+1;
   endNavigation('');
   areaDraw?.clearArea();
@@ -2506,7 +2524,7 @@ function clearRoute(){
   rememberRouteChange();
   $('routeWarning').textContent='';$('routeDistance').textContent='';$('routeTrayStats').textContent='';
   renderRouteStops();
-  $('routeTrayNote').textContent='Select homes, then build an optimized route.';
+  $('routeTrayNote').textContent='Tap a house to add it. Tap again to remove it. Open details from the address list.';
   renderAll();
 }
 function setRouteMode(mode){

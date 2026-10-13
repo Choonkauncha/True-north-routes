@@ -15,14 +15,14 @@ create table account_audit(actor_rep_id uuid references reps on delete set null,
 create table impersonation_grants(user_id uuid); create table impersonation_sessions(user_id uuid);
 create table shifts(id int,rep_id uuid references reps on delete cascade);
 create table leads(id int,assigned_rep_id uuid references reps on delete set null);
-create function session_ready() returns boolean language sql as 'select true';
-create function current_rep_role() returns text language sql as $$select 'admin'::text$$;
+create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
 insert into auth.users values('${admin}'),('${other}'),('${sales}');
 insert into reps values('${admin}','${admin}','Admin','a@test.com','admin',true),('${other}','${other}','Other','o@test.com','admin',true),('${sales}','${sales}','Sales','s@test.com','salesperson',true);
 insert into shifts values(1,'${sales}'); insert into leads values(1,'${sales}');`);
 await db.exec(readFileSync(new URL('../supabase/migrations/20261012_account_archive.sql',import.meta.url),'utf8'));
 await assert.rejects(db.query('select delete_account_to_archive($1,$2)',[admin,other]),/Admin profiles/);
 await assert.rejects(db.query('select delete_account_to_archive($1,$2)',[sales,other]),/Only an active admin/);
+await db.exec('drop table impersonation_grants; drop table impersonation_sessions;');
 await db.query('select delete_account_to_archive($1,$2)',[admin,sales]);
 assert.equal((await db.query('select * from auth.users where id=$1',[sales])).rows.length,0);
 assert.equal((await db.query('select * from reps where id=$1',[sales])).rows.length,0);

@@ -142,6 +142,10 @@ try {
     const stops = window.__tnRoute.stops();
     return !stops.includes('h2') && stops.includes('h1') && stops.includes('h3') && document.getElementById('routeTray')?.dataset.routeReady === 'true';
   });
+  await desktop.evaluate(() => window.__tnRoute.tap('h3'));
+  await desktop.waitForFunction(() => !window.__tnRoute.stops().includes('h3') && !window.__tnRoute.selected().includes('h3'));
+  const afterRetap = await desktop.evaluate(() => ({saved:JSON.parse(localStorage.getItem('tnrc2:assignedRoutes'))[0].lead_ids,stops:window.__tnRoute.stops()}));
+  assert.deepEqual(afterRetap.saved, afterRetap.stops);
   await desktop.close();
 
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -155,6 +159,8 @@ try {
     document.getElementById('fieldRouteTab')?.click();
   });
   await phone.screenshot({ path: path.join(out, 'phone_add_after_build.png') });
+  await phone.evaluate(() => window.__tnRoute.tap('h3'));
+  await phone.waitForFunction(() => !window.__tnRoute.stops().includes('h3'));
   await phone.close();
 
   const admin = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -169,6 +175,9 @@ try {
   const draft = await admin.evaluate(() => JSON.parse(sessionStorage.getItem('tnrc2:routeDraft') || 'null'));
   assert.deepEqual(draft.leadIds, ['h1', 'h2', 'h3']);
   await admin.screenshot({ path: path.join(out, 'admin_add_after_build.png') });
+  await admin.evaluate(() => window.__tnRoute.tap('h3'));
+  const updatedDraft = await admin.evaluate(() => JSON.parse(sessionStorage.getItem('tnrc2:routeDraft')));
+  assert.deepEqual(updatedDraft.leadIds,['h1','h2']);
   await admin.close();
   console.log('Adding stops after a route is built passed.');
 } finally {
