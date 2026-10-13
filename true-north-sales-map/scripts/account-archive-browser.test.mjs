@@ -2,10 +2,10 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
-const server=http.createServer((req,res)=>{try {res.end(readFileSync(new URL('..'+req.url,import.meta.url)));}catch{res.writeHead(404);res.end();}});
+const server=http.createServer((req,res)=>{try {res.setHeader('content-type',req.url.endsWith('.js')?'text/javascript':'text/html');res.end(readFileSync(new URL('..'+req.url,import.meta.url)));}catch{res.writeHead(404);res.end();}});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const origin=`http://127.0.0.1:${server.address().port}`;
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})});
 try {
  const page=await browser.newPage();
  await page.route('**/fixture',route=>route.fulfill({contentType:'text/html',body:'<div id="app"><nav class="rail"></nav><main class="dashMain"></main></div><script type="module" src="/tn-files/accounts-admin.js"></script>'}));

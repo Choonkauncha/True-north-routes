@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { housePinAction, pinClickSlack, routeAddedMessage, ROUTE_PIN_COLOR } from '../lib/house-pin-tap.js';
 
 assert.equal(housePinAction({ onRoute: false, viewOnly: false }), 'add');
-assert.equal(housePinAction({ onRoute: true, viewOnly: false }), 'open-detail');
+assert.equal(housePinAction({ onRoute: true, viewOnly: false }), 'remove');
 assert.equal(housePinAction({ onRoute: false, viewOnly: true }), 'open-detail');
 assert.equal(housePinAction({ onRoute: true, viewOnly: true }), 'open-detail');
 assert.equal(routeAddedMessage('10 North Main Street'), 'Added to route · 10 North Main Street');
@@ -27,4 +27,4 @@ assert.match(app, /writeStoredRoutes\(localStorage, state\.assignedRoutes\)/);
 assert.match(app, /if\(state\.doorUndo\) return;/);
 assert.match(app, /if\(state\.routeUndo\) return;/);
 
-console.log('House pin tap adds on the first tap, opens the sheet on the second, and does not remove');
+console.log('House pin tap adds, retap removes, and view-only taps open details');

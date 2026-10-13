@@ -27,3 +27,7 @@ assert.deepEqual(routeStopOrder([], ['c', 'b']), ['c', 'b']);
 assert.deepEqual(orderedRouteIds(removed.stops, ['b', 'c', 'd']), ['b', 'c', 'd']);
 
 console.log('Built routes keep added and removed stops until re-optimize');
+
+for (const point of [{lat:null,lng:null},{lat:'',lng:''},{lat:91,lng:0},{lat:0,lng:181}]) {
+  assert.deepEqual(reviseBuiltRoute([], ['invalid'], new Map([['invalid',{id:'invalid',...point}]])).stops, []);
+}

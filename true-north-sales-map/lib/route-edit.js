@@ -1,7 +1,9 @@
 /** Keep a built route when houses are added or removed after optimization. */
 
 function hasCoords(lead) {
-  return Number.isFinite(Number(lead?.lat)) && Number.isFinite(Number(lead?.lng));
+  return lead?.lat != null && lead?.lng != null && String(lead.lat).trim() !== '' && String(lead.lng).trim() !== ''
+    && Number.isFinite(Number(lead.lat)) && Number.isFinite(Number(lead.lng))
+    && Math.abs(Number(lead.lat)) <= 90 && Math.abs(Number(lead.lng)) <= 180;
 }
 
 export function routeKeyParts(key) {

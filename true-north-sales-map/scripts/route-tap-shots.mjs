@@ -1,4 +1,5 @@
 /** Capture phone and desktop shots of one-tap route add, plus the admin assignment flow. */
+import assert from 'node:assert/strict';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,7 +29,7 @@ const server = http.createServer((req, res) => {
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+const browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? {executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE} : {}), headless: true, args: ['--no-sandbox'] });
 
 async function prepare(page, { role, userId, routes }) {
   await page.route('**/data/leads.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(leads) }));
@@ -53,12 +54,13 @@ async function openMap(page, path = '/') {
 
 async function tapHouse(page, id) {
   const point = await page.evaluate((leadId) => window.__tnRoute.pinPoint(leadId), id);
-  await page.mouse.click(point.x, point.y);
+  if (await page.evaluate(() => navigator.maxTouchPoints > 0)) await page.touchscreen.tap(point.x, point.y);
+  else await page.mouse.click(point.x, point.y);
   return point;
 }
 
 try {
-  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 },hasTouch:true,isMobile:true });
   await prepare(phone, { role: 'appointment_setter', userId: 'local', routes: [] });
   await openMap(phone);
   await phone.screenshot({ path: path.join(out, 'phone_dot_before_tap.png') });
@@ -78,8 +80,10 @@ try {
   });
   await phone.screenshot({ path: path.join(out, 'phone_dot_after_tap_toast.png') });
   await tapHouse(phone, 'h1');
-  await phone.waitForFunction(() => document.getElementById('doorSheet')?.classList.contains('open') && document.getElementById('doorSheetRoute')?.textContent === 'Remove from route');
-  await phone.screenshot({ path: path.join(out, 'phone_sheet_second_tap.png') });
+  await phone.waitForFunction(() => !window.__tnRoute.selected().includes('h1') && document.getElementById('routeTrayCount')?.textContent === '0');
+  assert.deepEqual(await phone.evaluate(() => JSON.parse(localStorage.getItem('tnrc2:assignedRoutes'))[0].lead_ids), []);
+  assert.equal(await phone.locator('.routePinBadge').count(),0,'Last removal clears route numbers');
+  await phone.screenshot({ path: path.join(out, 'phone_removed_second_tap.png') });
   await phone.close();
 
   const desktop = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -90,9 +94,13 @@ try {
   await desktop.waitForFunction(() => document.getElementById('toastText')?.textContent.includes('Added to route · 10 North Main Street'));
   await desktop.screenshot({ path: path.join(out, 'desktop_dot_after_tap_toast.png') });
   await tapHouse(desktop, 'h1');
-  await desktop.waitForSelector('.leaflet-popup-content');
-  await desktop.waitForFunction(() => document.querySelector('.routeToggle')?.textContent === 'Remove from route');
-  await desktop.screenshot({ path: path.join(out, 'desktop_popup_second_tap.png') });
+  await desktop.waitForFunction(() => !window.__tnRoute.selected().includes('h1') && document.getElementById('toastText')?.textContent.includes('Removed from route'));
+  assert.deepEqual(await desktop.evaluate(() => JSON.parse(localStorage.getItem('tnrc2:assignedRoutes'))[0].lead_ids), []);
+  await tapHouse(desktop, 'h1');
+  await desktop.waitForFunction(() => window.__tnRoute.selected().includes('h1'));
+  await desktop.locator('#toastUndo').click();
+  await desktop.waitForFunction(() => !window.__tnRoute.selected().includes('h1'));
+  await desktop.screenshot({ path: path.join(out, 'desktop_removed_second_tap.png') });
   await desktop.close();
 
   const admin = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -114,6 +122,12 @@ try {
   await admin.screenshot({ path: path.join(out, 'admin_building_banner.png') });
   await admin.locator('#routeForDone').click();
   await admin.waitForFunction(() => document.getElementById('toastText')?.textContent.includes('Route saved for Riley Setter'));
+  await admin.evaluate(() => document.getElementById('fieldRouteTab').click());
+  await admin.locator('[data-route-view]').first().click();
+  await admin.evaluate(() => window.__tnRoute.tap('h2'));
+  assert.deepEqual(await admin.evaluate(() => window.__tnRoute.selected()),['h2'],'view-only tap preserves selection');
+  await admin.locator('[data-popup-route="h2"]').click();
+  assert.deepEqual(await admin.evaluate(() => window.__tnRoute.selected()),['h2'],'view-only popup cannot switch to editing');
   await admin.close();
 
   const rep = await browser.newPage({ viewport: { width: 390, height: 844 } });

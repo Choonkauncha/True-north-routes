@@ -26,5 +26,4 @@ For a brand-new database, `supabase/setup_all.sql` now includes the archive migr
 - `supabase/migrations/20261012_account_archive.sql`: transactional archive/deletion and database permissions.
 
 ## Validation
-Passed: existing account-rules, account-safety and forced-password checks; new API permission tests; executed archive migration in embedded PostgreSQL; verified deletion, history capture, preserved lead records, protected admins, idempotent retry and rollback on FK failure; JavaScript syntax checks.
-The full suite was attempted but stopped on an unavailable dependency. Browser test `scripts/account-archive-browser.test.mjs` is included but could not run because Chromium is not installed in this environment. Run it after installing project dependencies and Playwright Chromium. The live Supabase database and Vercel deployment have not been changed or tested by this package.
+Account permission and transaction rollback tests pass. The archive migration now works without session_ready() or impersonation tables. Chromium account tests cover protected admins, deletion, archive display, password visibility and creation-error recovery. See REVIEW-AND-DEPLOYMENT.md for the broader route and application review and live deployment limitations.

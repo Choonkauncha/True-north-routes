@@ -321,6 +321,10 @@ function when(iso) {
 }
 
 async function post(body) {
+  // Refresh the session before account actions after an idle dashboard.
+  const current = await sb.auth.getSession();
+  session = current.data?.session;
+  if (current.error || !session) throw new Error("Your session expired. Sign in again.");
   const response = await fetch("/api/accounts", {
     method: "POST",
     headers: {
