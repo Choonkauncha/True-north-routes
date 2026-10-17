@@ -406,6 +406,16 @@ function fillRoleMenu() {
     logout.onclick = () => { menu.hidden = true; document.getElementById('tnMore')?.setAttribute('aria-expanded', 'false'); mapLogout.click(); };
     menu.append(logout);
   }
+  const install = document.createElement('button');
+  install.type = 'button';
+  install.className = 'tnInstallBtn';
+  install.dataset.installApp = '';
+  install.dataset.tnAction = 'install';
+  install.hidden = true;
+  install.textContent = 'Install app';
+  install.addEventListener('click', () => { menu.hidden = true; document.getElementById('tnMore')?.setAttribute('aria-expanded', 'false'); });
+  menu.append(install);
+  window.__tnInstall?.refresh();
   menu.querySelector('[data-tn-action="message"]')?.addEventListener('click', () => {
     menu.hidden = true;
     document.getElementById('tnMore')?.setAttribute('aria-expanded', 'false');
@@ -1136,9 +1146,9 @@ function renderShiftsLogin(message = '') {
   renderShiftsMessage(`
     <div class="authCard card"><div class="pad">
       <img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242">
-      <div class="eyebrow">SHIFTS AND TRAILS</div>
-      <h1 style="font-size:24px">Sign in to management.</h1>
-      <p>Hours and travel trails are visible to admin and manager profiles.</p>
+      <div class="eyebrow">TRUE NORTH RESTORATIONS</div>
+      <h1>Sign in to True North</h1>
+      <p class="tnSignInRole">Shifts: hours and travel for admins and managers.</p>
       <form id="shiftsLogin">
         <div class="field"><label for="shiftsEmail">Email</label><input id="shiftsEmail" type="email" autocomplete="email" required></div>
         <div class="field"><label for="shiftsPassword">Password</label><input id="shiftsPassword" type="password" autocomplete="current-password" required></div>
@@ -1151,6 +1161,7 @@ function renderShiftsLogin(message = '') {
         <button class="btn dark" type="submit">Send reset link</button>
         <p data-forgot-msg class="tnResetMsg"></p>
       </form>
+      <div class="tnSignInInstall" data-install-section hidden><button type="button" class="tnInstallBtn" data-install-app hidden>Install app</button><p>Open True North from your Home Screen like any other app.</p></div>
     </div></div>`);
   document.getElementById('shiftsLogin').onsubmit = async event => {
     event.preventDefault();

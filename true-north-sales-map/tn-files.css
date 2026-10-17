@@ -136,7 +136,7 @@
 .tnPrintSheet{background:#fff;border-radius:14px;padding:18px}
 .tnPrintSheet h1{font-size:26px;margin:0 0 8px}
 .tnPrintRow{padding:10px 0;border-bottom:1px solid #edf0f2}
-.tnPrintRow b{display:block;font-size:12px;letter-spacing:.4px;color:#6C7A83;text-transform:uppercase}
+.tnPrintRow b{display:block;font-size:12px;letter-spacing:.4px;color:#5c6d76;text-transform:uppercase}
 .tnSignImg{max-width:280px;height:90px;object-fit:contain;background:#f7f9fa;border:1px solid #e1e6e9;border-radius:8px}
 @media(min-width:720px){
   .tnFilters{grid-template-columns:1.4fr 1fr 1fr 1fr}
@@ -168,4 +168,4 @@ a.tnAccountLink{display:inline-flex!important;align-items:center;min-height:44px
 .tnAccountDetail{margin-top:12px;display:grid;gap:8px}
 .tnAccountDetail h2{margin:8px 0 0;font-size:16px;color:#0c1424}
 .tnAccountDetail p{margin:0;padding:8px 0;border-bottom:1px solid #edf0f2;font-size:15px}
-.tnAccountDetail span{display:block;color:#6C7A83;font-size:13px}
+.tnAccountDetail span{display:block;color:#5c6d76;font-size:13px}

@@ -358,7 +358,7 @@ function renderMetrics() {
   $("metrics").innerHTML = [
     [m.worked, "Field touches", "activity", "Today, ET"],
     [m.apptToday, "Inspections today", "appointments", "Today, ET"],
-    [m.setters, "Appointment setters", "team", "Active team"],
+    [m.setters, "Setters", "team", "Active team"],
     [m.sales, "Sales reps", "accounts", "Active team"],
     [m.openHomes, "Homeowner requests", "homeowners", "Open queue"],
   ]
@@ -534,7 +534,7 @@ function activityHtml(a) {
         : a.action === "setter_appointment_booked"
           ? "inspection booked"
           : a.action === "appointment_booked"
-            ? "appointment booked"
+            ? "inspection booked"
             : {
                 inspection_completed: "inspection completed",
                 inspection_reopened: "inspection reopened",

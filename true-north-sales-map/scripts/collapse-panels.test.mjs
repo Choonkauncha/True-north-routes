@@ -59,7 +59,7 @@ assert.match(index, /brand\/collapse\.js/);
 
 const app = read('app.js');
 assert.match(app, /data-tn-panel="lead-details"/);
-assert.match(app, /Appointment handoff/);
+assert.match(app, /Inspection handoff/); // Customer-facing wording is "Inspection" everywhere.
 assert.match(app, /function openNavChoice/);
 assert.match(app, /function closeNavChoice/);
 

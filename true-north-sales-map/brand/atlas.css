@@ -13,9 +13,14 @@
   --atlas-line-strong: #607e9c;
   --atlas-text: #eff4f9;
   --atlas-label: #d4dfeb;
-  --atlas-muted: #aebed0;
-  /* Royal blue is sampled from the logo; cyan keeps small controls readable. */
-  --atlas-brand-blue: #0267ee;
+  /* Secondary text on dark surfaces: at least #AFC0CF for 4.5:1 or better. */
+  --atlas-muted: #afc0cf;
+  /* One palette (see styles.css :root). Brand blue is for primary buttons;
+     cyan is only for highlights, selected states and focus rings. */
+  --atlas-brand-blue: #1e6bff;
+  --atlas-primary: #1e6bff;
+  --atlas-primary-press: #1554d6;
+  --atlas-on-primary: #ffffff;
   --atlas-accent: #32c7f8;
   --atlas-accent-hover: #77ddff;
   --atlas-accent-soft: #123656;
@@ -46,10 +51,15 @@
   --tn-danger-bg: #442a2a;
   --tn-success: #99e0b3;
   --tn-success-bg: #253c31;
+}
+/* Legacy portal aliases flip the shared names to the dark theme on office pages.
+   The field map (html.tn-map) keeps the canonical palette from styles.css so
+   --navy is always navy there, never a light text color. */
+html:not(.tn-map) {
   --navy: var(--atlas-text);
   --navy2: var(--atlas-header);
-  --orange: var(--atlas-accent);
-  --orangeSoft: var(--atlas-accent-soft);
+  --brand: var(--atlas-primary);
+  --brand-soft: var(--atlas-accent-soft);
   --ink: var(--atlas-text);
   --muted: var(--atlas-muted);
   --line: var(--atlas-line);
@@ -345,16 +355,16 @@ body.tn-workspace .primaryBtn,
 body.tn-workspace .saveBtn,
 body.tn-workspace .tnTrainBtn.primary,
 body.tn-workspace .tnTrainBtn.dark {
-  background: var(--atlas-accent);
-  border-color: var(--atlas-accent);
-  color: var(--atlas-ink);
+  background: var(--atlas-primary);
+  border-color: var(--atlas-primary);
+  color: var(--atlas-on-primary);
 }
 body.tn-workspace .btn.primary:hover,
 body.tn-workspace .tnTap.dark:hover,
 body.tn-workspace .primaryBtn:hover,
 body.tn-workspace .saveBtn:hover {
-  background: var(--atlas-accent-hover);
-  border-color: var(--atlas-accent-hover);
+  background: var(--atlas-primary-press);
+  border-color: var(--atlas-primary-press);
 }
 body.tn-workspace .btn.danger,
 body.tn-workspace .tnTap.danger {
@@ -954,9 +964,9 @@ body.tn-map-workspace .nextCardActions button {
   border-color: var(--atlas-line-strong);
 }
 body.tn-map-workspace .nextCardActions button:first-child {
-  background: var(--atlas-accent);
-  color: var(--atlas-ink);
-  border-color: var(--atlas-accent);
+  background: var(--atlas-primary);
+  color: var(--atlas-on-primary);
+  border-color: var(--atlas-primary);
 }
 body.tn-map-workspace .nextCardActions #drawAreaBtn {
   background: var(--atlas-raised);
@@ -1028,9 +1038,9 @@ body.tn-map-workspace .pinPopup button {
   border-color: var(--atlas-line-strong);
 }
 body.tn-map-workspace .pinPopup .routeToggle {
-  background: var(--atlas-accent);
-  color: var(--atlas-ink);
-  border-color: var(--atlas-accent);
+  background: var(--atlas-primary);
+  color: var(--atlas-on-primary);
+  border-color: var(--atlas-primary);
 }
 body.tn-map-workspace .layerMenu label:hover {
   background: var(--atlas-raised);
@@ -1064,9 +1074,9 @@ body.tn-map-workspace .routeTrayActions button {
 }
 body.tn-map-workspace .routeTrayActions #routeTrayBtn,
 body.tn-map-workspace .routeTrayActions #startRouteBtn {
-  background: var(--atlas-accent);
-  border-color: var(--atlas-accent);
-  color: var(--atlas-ink);
+  background: var(--atlas-primary);
+  border-color: var(--atlas-primary);
+  color: var(--atlas-on-primary);
 }
 body.tn-map-workspace .routeModeToggle {
   background: var(--atlas-header);
@@ -1210,9 +1220,9 @@ body.tn-workspace .tnTrainControls button {
   border-color: var(--atlas-line-strong);
 }
 body.tn-workspace .tnTrainControls .primary {
-  background: var(--atlas-accent);
-  color: var(--atlas-ink);
-  border-color: var(--atlas-accent);
+  background: var(--atlas-primary);
+  color: var(--atlas-on-primary);
+  border-color: var(--atlas-primary);
 }
 body.tn-workspace .tnTrainMeter {
   background: var(--atlas-line);
@@ -1619,8 +1629,8 @@ body.tn-workspace .workspaceMenuBtn {
     color: var(--atlas-text);
   }
   body.tn-map-workspace .mobileBar button:nth-child(2) {
-    background: var(--atlas-accent);
-    color: var(--atlas-ink);
+    background: var(--atlas-primary);
+    color: var(--atlas-on-primary);
   }
 }
 @media (max-width: 600px) {
@@ -1854,8 +1864,8 @@ body.tn-workspace .workspaceMenuBtn {
     padding: 24px;
   }
   body.tn-map-workspace .mobileBar #mobileRoute {
-    background: var(--atlas-accent);
-    color: var(--atlas-ink);
+    background: var(--atlas-primary);
+    color: var(--atlas-on-primary);
   }
   body.tn-map-workspace .mobileBar .tnMsgBtn,
   body.tn-map-workspace .mobileBar .tnShiftsLink {
@@ -1942,6 +1952,6 @@ body.tn-workspace .doorSheetFooter .doorSheetRoute {
 }
 body.tn-workspace .doorSheetFooter a.doorSheetForm,
 body.tn-map-workspace .pinPopup a.popupForm {
-  background: #1766d6;
+  background: #1e6bff;
   color: #fff;
 }

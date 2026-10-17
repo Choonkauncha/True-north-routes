@@ -48,6 +48,8 @@ const index = read('index.html');
 assert.ok(index.includes('class="tn-map"'));
 assert.ok(index.includes('tn-signed-out'));
 assert.ok(index.includes('body>*:not(#loginModal):not(#tnPasswordHold){display:none!important}'));
+assert.ok(index.includes('html.tn-signed-out #tnMapAssistant{display:none!important}'), 'the assistant orb stays hidden on the sign-in screen');
+assert.equal(index.includes(':not(#tnMapAssistant)'), false, 'signed-out map must not exempt the orb from hiding');
 assert.ok(index.includes('#loginModal{display:flex!important;background:#0c1424!important'));
 
 const admin = read('admin.html');
@@ -70,7 +72,7 @@ assert.ok(transitions.includes('bootOutlineTravel'));
 assert.ok(transitions.includes('view-transition-name:tn-loader'));
 assert.ok(transitions.includes('tn-signed-out'));
 assert.ok(transitions.includes('width:min(168px,55vw,36dvh);height:auto;aspect-ratio:960 / 724;flex:none;overflow:visible'));
-assert.ok(transitions.includes('stroke:#0267ee'));
+assert.ok(transitions.includes('stroke:#1e6bff'));
 assert.ok(transitions.includes('stroke-dasharray:none;stroke-dashoffset:0;filter:none'));
 const styles = read('styles.css');
 assert.ok(styles.includes('width:min(168px,55vw,36dvh);height:auto;aspect-ratio:960 / 724;flex:none;overflow:visible'));

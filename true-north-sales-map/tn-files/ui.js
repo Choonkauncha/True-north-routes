@@ -129,6 +129,21 @@ export function mountSignIn(container) {
   if (container) container.innerHTML = signInCard();
 }
 
+// One-line role subtitle for the shared sign-in card, based on the page being opened.
+const SIGN_IN_ROLES = {
+  '/training': 'Training: lessons and the voice coach for every rep.',
+  '/forms': 'Forms: inspections and paperwork for every rep.',
+  '/files': 'Documents: receipts, estimates, and saved forms.',
+  '/photo': 'Photos: roof and property photos for reps.',
+  '/rep': 'Reps: your inspections, photos, and forms.',
+  '/account': 'Account: your profile and password.',
+  '/form-print': 'Forms: print a saved form.'
+};
+export function signInRole(path = typeof location === 'undefined' ? '/' : location.pathname) {
+  const key = String(path || '/').replace(/\.html$/, '').replace(/\/$/, '') || '/';
+  return SIGN_IN_ROLES[key] || 'Field team sign-in for True North Restorations.';
+}
+
 export function signInCard() {
-  return `<div class="authCard card"><div class="pad"><img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242"><div class="eyebrow">TRUE NORTH</div><h1 style="font-size:24px">Sign in</h1><form id="tnLogin"><div class="field"><label>Email</label><input id="tnEmail" type="email" required autocomplete="email"></div><div class="field" style="margin-top:10px"><label>Password</label><input id="tnPassword" type="password" required autocomplete="current-password"></div><button class="tnTap dark" style="width:100%;margin-top:12px" type="submit">Sign in</button><div id="tnLoginError" class="tnError"></div></form>${forgotPasswordMarkup()}</div></div>`;
+  return `<div class="authCard card"><div class="pad"><img class="signInLogo" src="/brand/logo-full.webp" alt="True North Restorations" width="320" height="242"><div class="eyebrow">TRUE NORTH RESTORATIONS</div><h1>Sign in to True North</h1><p class="tnSignInRole">${esc(signInRole())}</p><form id="tnLogin"><div class="field"><label>Email</label><input id="tnEmail" type="email" required autocomplete="email"></div><div class="field" style="margin-top:10px"><label>Password</label><input id="tnPassword" type="password" required autocomplete="current-password"></div><button class="tnTap primary tnSignInBtn" type="submit">Sign in</button><div id="tnLoginError" class="tnError"></div></form>${forgotPasswordMarkup()}<div class="tnSignInInstall" data-install-section hidden><button type="button" class="tnInstallBtn" data-install-app hidden>Install app</button><p>Open True North from your Home Screen like any other app.</p></div></div></div>`;
 }

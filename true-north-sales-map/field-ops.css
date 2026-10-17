@@ -50,7 +50,7 @@
 .tnThreadList{overflow:auto;background:#fff}
 .tnThreadBtn{display:flex;flex-direction:column;justify-content:center;width:100%;min-height:64px;text-align:left;border:0;border-bottom:1px solid #E6EBEE;background:#fff;padding:12px 16px;cursor:pointer}
 .tnThreadBtn b{display:block;color:#0c1424;font-size:17px}
-.tnThreadBtn small{display:block;color:#6C7A83;font-size:13px;margin-top:3px}
+.tnThreadBtn small{display:block;color:#5c6d76;font-size:13px;margin-top:3px}
 .tnThreadBtn .tnDot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#1e6bff;margin-right:8px}
 .tnConvo{display:flex;flex-direction:column;min-width:0;min-height:0;flex:1}
 .tnMsgLayout.listOnly .tnConvo{display:none}
@@ -73,16 +73,16 @@
 .tnPersonBtn{display:block;width:100%;min-height:60px;text-align:left;border:1px solid #DCE3E7;border-radius:14px;background:#fff;padding:12px 14px;margin:0 0 8px;cursor:pointer}
 .tnPersonBtn.selected{border-color:#1e6bff;box-shadow:inset 4px 0 0 #1e6bff}
 .tnPersonBtn strong{display:block;font-size:17px;color:#0c1424}
-.tnPersonBtn span{display:block;margin-top:3px;font-size:14px;color:#6C7A83}
+.tnPersonBtn span{display:block;margin-top:3px;font-size:14px;color:#5c6d76}
 .tnLive{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2E6B4B;margin-right:6px}
 .tnMilesBig{font-size:32px;line-height:1.1;font-weight:800;color:#0c1424;margin:6px 0}
 .tnShiftLayout{display:grid;grid-template-columns:minmax(280px,.9fr) minmax(0,1.15fr);gap:14px;align-items:start}
 .tnShiftMap{height:540px;border-radius:16px;border:1px solid #DCE3E7;overflow:hidden;background:#d8e0e3}
-.tnShiftNote{font-size:14px;color:#6C7A83;line-height:1.45;margin:6px 0 0}
+.tnShiftNote{font-size:14px;color:#5c6d76;line-height:1.45;margin:6px 0 0}
 .tnDayBar{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:12px 0}
 .tnDayBar input{border:1px solid #D4DEE2;border-radius:12px;padding:12px;min-height:44px;font-size:16px}
 .tnDayBar .btn{min-height:44px}
-.tnPointMeta{font-size:13px;color:#6C7A83}
+.tnPointMeta{font-size:13px;color:#5c6d76}
 
 .tnToast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,12px);z-index:3400;opacity:0;pointer-events:none;background:#0c1424;color:#fff;border-left:3px solid #1e6bff;padding:12px 14px;border-radius:12px;font-size:14px;font-weight:700;transition:.2s ease;max-width:calc(100vw - 24px);box-sizing:border-box;overflow-wrap:anywhere;text-align:center}
 .tnAlerts{display:block;width:100%;min-height:44px;border:0;border-bottom:1px solid #DCE3E7;background:#e8f0ff;color:#0c1424;font-weight:800;cursor:pointer}

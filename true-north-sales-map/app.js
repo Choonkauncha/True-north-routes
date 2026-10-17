@@ -14,6 +14,7 @@ import { clearLeadCache, leadCacheScope, readLeadCache, writeLeadCache } from '.
 import { LEAD_OVERLAY_COLUMNS, LEAD_OVERLAY_OR, STATIC_LEAD_SOURCES, mergeLeadOverlay, pageRanges } from './lib/lead-sync.js';
 import { registerMapAssistant, runPendingAssistantCommand } from './tn-files/global-assistant.js';
 import { planTimedRoute } from './lib/timed-route.js';
+import { statusLabel, titleCase } from './lib/display-text.js';
 import { STREET_ZOOM, clusterLeads, pinDiff, sampleHeat } from './lib/pin-layer.js';
 import { HAIL_MILES, WARNING_COLORS, housesInStorm, readStormCache, reportMarkerText, writeStormCache } from './lib/storm-maps.js';
 import { readSavedLayers, resolveLayers, writeSavedLayers } from './lib/map-layers.js';
@@ -122,8 +123,14 @@ async function boot(){
       else showLogin();
     }catch(e){console.error(e);showLogin();$('loginError').textContent=e.message||'Could not verify this account. Please sign in again.';}
   }else{
-    enterLocal('Cloud is not configured on this Vercel deployment. Local device mode is active.');
+    enterLocal('Offline demo mode. Changes stay on this device.');
   }
+}
+
+// Offline demo mode is a developer tool: offer it only on localhost or with ?dev=1.
+function localModeAllowed(loc=location){
+  const host=String(loc.hostname||'');
+  return ['localhost','127.0.0.1','::1','[::1]'].includes(host)||host.endsWith('.localhost')||new URLSearchParams(loc.search||'').get('dev')==='1';
 }
 
 async function fetchJSON(url){const r=await fetch(url);if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}
@@ -135,7 +142,8 @@ function bindStaticEvents(){
   });
   $('loginForm').addEventListener('submit',login);
   $('logoutBtn').onclick=()=>{ const userId=state.user?.id; showLogin(); forgetRole(localStorage, userId); state.supabase?.auth.signOut(); };
-  $('localModeBtn').onclick=()=>{hideLogin();enterLocal('Local device mode enabled. Connect Supabase for shared live team data.')};
+  $('localModeBtn').hidden=!localModeAllowed();
+  $('localModeBtn').onclick=()=>{hideLogin();enterLocal('Offline demo mode. Changes stay on this device.')};
   $('nextBtn').onclick=nextBest; $('nextCardBtn').onclick=nextBest;
   $('mobileNext').onclick=nextBest; $('mobileRoute').onclick=openRouteFromChrome; $('mobileLocate').onclick=locate;
   $('routeBtn').onclick=openRouteFromChrome; $('routeTrayBtn').onclick=optimizeAndDrawRoute;
@@ -482,8 +490,9 @@ async function runEnterCloud(session){
   state.cacheScope=leadCacheScope(state.config?.url,user.id);
   if(typeof document!=='undefined'&&document.documentElement) document.documentElement.dataset.localRoutes='';
   state.mode='cloud'; state.session={...session,user}; state.user=user; state.currentRep=profile.data; hideLogin();
-  registerMapAssistant({sb:state.supabase,rep:state.currentRep,getMapContext:mapAssistantContext,executeMapAction:executeMapAssistantAction});
   if(epoch!==authEpoch) return;
+  // The assistant orb appears only once this account is verified and current.
+  registerMapAssistant({sb:state.supabase,rep:state.currentRep,getMapContext:mapAssistantContext,executeMapAction:executeMapAssistantAction});
   state.sessionReady=true;
   if(!state.map) initMapOnce();
   deferFieldTools();
@@ -1082,9 +1091,23 @@ function leadHTML(l){
   const distance=state.currentLocation&&isCoords(l)?haversine(state.currentLocation.lat,state.currentLocation.lng,l.lat,l.lng):null;
   return `<div class="leadRow ${state.active===l.id?'active':''}" data-id="${esc(l.id)}">
     <input class="rowCheck" type="checkbox" data-id="${esc(l.id)}" ${state.selected.has(l.id)?'checked':''}>
-    <div class="rowBody"><div class="rowHeader"><strong>${esc(l.name||'Property lead')}</strong><span class="status ${statusClass(s)}">${esc(s)}</span></div>
-    <div class="addr">${esc(l.address)}<br><span>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</span></div>
-    <div class="rowMeta"><span class="score">${score} pts</span>${l.priority==='High'?`<span class="priorityTag">HIGH</span>`:''}${distance!=null?`<span>${distance.toFixed(1)} mi</span>`:''}${old?`<span>Built ${esc(old)}</span>`:''}${owner?`<span>${esc(owner)}</span>`:''}${territoryRep?`<span>Territory · ${esc(territoryRep)}</span>`:''}${appointment?`<span class="apptTag">APPT</span>`:''}</div></div></div>`;
+    <div class="rowBody"><div class="rowHeader"><strong>${esc(titleCase(l.name)||'Property lead')}</strong><span class="status ${statusClass(s)}">${esc(statusLabel(s))}</span></div>
+    <div class="addr">${esc(titleCase(l.address))}<br><span>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</span></div>
+    <div class="rowMeta"><span class="score" title="Lead score: higher scores are better doors to knock first">Score ${score}</span>${l.priority==='High'?`<span class="priorityTag" title="High-priority lead">High priority</span>`:''}${distance!=null?`<span>${distance.toFixed(1)} mi</span>`:''}${old?`<span>Built ${esc(old)}</span>`:''}${owner?`<span>${esc(owner)}</span>`:''}${territoryRep?`<span>Territory · ${esc(territoryRep)}</span>`:''}${appointment?`<span class="apptTag" title="An inspection is booked">Inspection booked</span>`:''}</div></div></div>`;
+}
+// Cluster popups open without auto-panning, so slide them back inside the screen
+// (e.g. a cluster near the left edge on a 390px phone) and keep the tip on the pin.
+function keepPopupOnScreen(popup){
+  const el=popup?.getElement?.(); if(!el) return;
+  const tip=el.querySelector('.leaflet-popup-tip-container');
+  el.style.marginLeft=''; if(tip) tip.style.marginLeft='';
+  const box=el.getBoundingClientRect(), pad=8, width=window.innerWidth;
+  let dx=0;
+  if(box.left<pad) dx=pad-box.left;
+  else if(box.right>width-pad) dx=width-pad-box.right;
+  if(!dx) return;
+  el.style.marginLeft=`${dx}px`;
+  if(tip) tip.style.marginLeft=`${-20-dx}px`;
 }
 function statusClass(s){return s.toLowerCase().replace(/\s+/g,'-')}
 
@@ -1104,14 +1127,14 @@ function renderHandoffs(){
   const list=$('handoffList');
   const actor=handoffActor();
   const appts=visibleHandoffs({role:actor.role, repId:actor.repId, appointments:state.appointments}).slice(0,120);
-  list.innerHTML=appts.length?appts.map(a=>appointmentHTML(a)).join(''):'<div class="empty">No open appointments.</div>';
+  list.innerHTML=appts.length?appts.map(a=>appointmentHTML(a)).join(''):'<div class="empty">No open inspections.</div>';
   list.querySelectorAll('[data-appt]').forEach(el=>el.onclick=()=>openAppointment(el.dataset.appt));
   const bar=$('repReceiptBar');
   if(bar) bar.classList.toggle('hidden', actor.role!=='salesperson');
 }
 function appointmentHTML(a){
   const l=state.leads.find(x=>x.id===a.lead_id)||{};
-  return `<div class="appointmentRow" data-appt="${esc(a.id)}"><div><strong>${esc(l.name||'Appointment')}</strong><div>${esc(l.address||'')}</div><small>${esc(formatDate(a.scheduled_at))} · ${esc(a.stage)}</small></div><span class="chev">›</span></div>`;
+  return `<div class="appointmentRow" data-appt="${esc(a.id)}"><div><strong>${esc(titleCase(l.name)||'Inspection')}</strong><div>${esc(titleCase(l.address)||'')}</div><small>${esc(formatDate(a.scheduled_at))} · ${esc(a.stage)}</small></div><span class="chev">›</span></div>`;
 }
 function formatDate(v){try{return new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(v))}catch{return String(v||'')}}
 
@@ -1338,6 +1361,7 @@ function syncPins(options={}){
       marker.on('mouseover',()=>marker.openPopup());
       marker.on('contextmenu',event=>{event.originalEvent?.preventDefault();marker.openPopup();});
       marker.on('click',()=>marker.openPopup());
+      marker.on('popupopen',event=>keepPopupOnScreen(event.popup));
       state.pinClusters.addLayer(marker);
     });
     syncRouteBadges();
@@ -1596,7 +1620,7 @@ function openDoorSheet(id){
   state.doorSaving=false;
   state.map?.closePopup();
   const s=leadStatus(l);
-  $('doorSheetAddress').textContent=l.address||'Property lead';
+  $('doorSheetAddress').textContent=titleCase(l.address)||'Property lead';
   $('doorSheetForm').href=houseFormHref(l);
   $('doorSheetRoute').textContent=routeToggleLabel(state.selected.has(l.id));
   const answer=$('doorSheetAnswer');
@@ -1811,16 +1835,16 @@ function openLead(id, options={}){
   const appt=state.appointments.find(a=>a.lead_id===id&&a.stage!=='Cancelled');
   const notes=l.notes||localSaved(l).notes||'';
   const reps=state.reps.slice().sort((a,b)=>a.name.localeCompare(b.name));
-  $('drawerContent').innerHTML=`<div class="drawerTop" data-lead-id="${esc(l.id)}"><div><div class="eyebrow">FIELD RECORD</div><h2>${esc(l.name||'Property lead')}</h2><div class="drawerAddr">${esc(l.address)}<br>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</div></div><span class="bigScore">${scoreLead(l)}</span></div>
+  $('drawerContent').innerHTML=`<div class="drawerTop" data-lead-id="${esc(l.id)}"><div><div class="eyebrow">FIELD RECORD</div><h2>${esc(titleCase(l.name)||'Property lead')}</h2><div class="drawerAddr">${esc(titleCase(l.address))}<br>${esc(l.city)}, ${esc(l.state)} ${esc(l.zip)}</div></div><span class="bigScore">${scoreLead(l)}</span></div>
     <section class="drawerSection" data-tn-panel="lead-details" data-tn-rank="primary"><h3>House details</h3><div class="detailGrid"><div><small>Source</small><b>${esc(l.source)}</b></div><div><small>Priority</small><b>${esc(l.priority||'Standard')}</b></div><div><small>Built</small><b>${esc(l.year_built??l.yearBuilt??'Unknown')}</b></div><div><small>Mapped</small><b>${esc(geocodeLabel(l))}</b></div></div>
     <div class="drawerActions"><button id="drawerMaps" class="darkBtn">Open Google Maps</button><button id="drawerDir" class="outlineBtn">Directions</button></div>
     <div class="fieldActions"><button data-qstatus="Knocked">Knocked</button><button data-qstatus="No Answer">No answer</button><button data-qstatus="Interested">Interested</button><button data-qstatus="Not Interested">Not interested</button></div>
-    <label>Sales status</label><select id="dStatus">${STATUS_OPTIONS.map(x=>`<option value="${esc(x)}" ${leadStatus(l)===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
+    <label>Sales status</label><select id="dStatus">${STATUS_OPTIONS.map(x=>`<option value="${esc(x)}" ${leadStatus(l)===x?'selected':''}>${esc(statusLabel(x))}</option>`).join('')}</select>
     <label>Assigned rep</label><select id="dOwner"><option value="">Unassigned</option>${reps.map(r=>`<option value="${esc(r.id)}" ${l.assignedRepId===r.id?'selected':''}>${esc(r.name)} · ${esc(roleLabel(r.role))}</option>`).join('')}</select>
     <div class="verifiedGrid"><label>Roof age (verified)</label><input id="dRoofAge" type="number" min="0" max="100" value="${esc(l.roof_age_years??l.roofAgeYears??'')}" placeholder="e.g. 16"><label><input id="dRoofVerified" type="checkbox" ${l.roof_age_verified||l.roofAgeVerified?'checked':''}> verified</label></div>
     <label>Notes</label><textarea id="dNotes" placeholder="Homeowner response, roof condition, next action…">${esc(notes)}</textarea>
     <button id="saveLeadBtn" class="saveBtn">Save field result</button></section>
-    <div class="drawerSection"><div class="sectionTitle">Appointment handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||state.reps.find(r=>r.id===appt.salesperson_id)?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">${handoffPermissions({role:handoffActor().role, repId:handoffActor().repId, appointment:appt}).notes||handoffPermissions({role:handoffActor().role, repId:handoffActor().repId, appointment:appt}).assign?'Open handoff':'View handoff'}</button></div>`:`<a class="outlineBtn" href="/setter.html?lead=${encodeURIComponent(l.id)}">Inspection form</a>`}</div>`;
+    <div class="drawerSection"><div class="sectionTitle">Inspection handoff</div>${appt?`<div class="apptCard"><b>${esc(formatDate(appt.scheduled_at))}</b><div>Salesperson: ${esc(appt.salesperson?.name||state.reps.find(r=>r.id===appt.salesperson_id)?.name||'Unassigned')}</div><span class="status ${statusClass(appt.stage)}">${esc(appt.stage)}</span><button id="editApptBtn">${handoffPermissions({role:handoffActor().role, repId:handoffActor().repId, appointment:appt}).notes||handoffPermissions({role:handoffActor().role, repId:handoffActor().repId, appointment:appt}).assign?'Open handoff':'View handoff'}</button></div>`:`<a class="outlineBtn" href="/setter.html?lead=${encodeURIComponent(l.id)}">Inspection form</a>`}</div>`;
   $('drawer').classList.remove('hidden');
   $('drawerMaps').onclick=()=>openMaps(l); $('drawerDir').onclick=()=>openDirections(l);
   if($('drawerSetter')) $('drawerSetter').onclick=()=>{location.href=`/setter.html?lead=${encodeURIComponent(l.id)}`;};
@@ -1955,7 +1979,7 @@ function drawRoutePreview(fit=true){
   if(state.routeLine){state.map.removeLayer(state.routeLine);state.routeLine=null}
   if(!state.routeStops?.length||!state.map)return;
   if(state.navigating){drawNavOverlay();return}
-  if(state.routeGeometry)state.routeLine=L.geoJSON(state.routeGeometry,{interactive:false,style:{color:'#0267ee',weight:5,opacity:.78}}).addTo(state.map);
+  if(state.routeGeometry)state.routeLine=L.geoJSON(state.routeGeometry,{interactive:false,style:{color:'#1e6bff',weight:5,opacity:.78}}).addTo(state.map);
   else{const coords=state.routeStops.map(l=>[Number(l.lat),Number(l.lng)]);state.routeLine=L.polyline(coords,{weight:5,opacity:.75,dashArray:'8 7',interactive:false}).addTo(state.map);}
   if(fit){
     try{state.map.fitBounds(state.routeLine.getBounds().pad(.35),{animate:false,maxZoom:17,paddingTopLeft:[24,88],paddingBottomRight:[24,140]});}catch{}
@@ -1974,7 +1998,7 @@ function redrawPins(){
 function renderRouteStops(){
   $('openGoogleRouteBtn').disabled=!state.routeStops.length;
   $('optimizeRouteBtn').hidden=!state.routeStops.length;
-  $('routeStops').innerHTML=state.routeStops.map((l,i)=>`<div class="routeStop"><span>${i+1}</span><div><b>${esc(l.address)}</b><small>${esc(l.city)} · ${scoreLead(l)} pts</small></div><button type="button" aria-label="Remove ${esc(l.address || 'stop')} from route" data-route-lead="${esc(l.id)}">×</button></div>`).join('')||'<div class="empty">No route yet.</div>';
+  $('routeStops').innerHTML=state.routeStops.map((l,i)=>`<div class="routeStop"><span>${i+1}</span><div><b>${esc(titleCase(l.address))}</b><small>${esc(l.city)} · Score ${scoreLead(l)}</small></div><button type="button" aria-label="Remove ${esc(l.address || 'stop')} from route" data-route-lead="${esc(l.id)}">×</button></div>`).join('')||'<div class="empty">No route yet.</div>';
   $('routeStops').querySelectorAll('[data-route-lead]').forEach(btn=>btn.onclick=()=>{toggleSelected(btn.dataset.routeLead);renderWorkList();});
 }
 function openGoogleRouteBlocks(){
@@ -2009,7 +2033,7 @@ function openAppointmentForm(l,appt=null){
   const salesName=state.reps.find(r=>r.id===appt.salesperson_id)?.name||appt.salesperson?.name||'Unassigned';
   $('handoffSummary').innerHTML=`<b>${esc(l.name||'Inspection')}</b><div>${esc(addressOf(l))}</div><div>${esc(formatDate(appt.scheduled_at))} · ${esc(appt.stage)}</div><div>Sales rep: ${esc(salesName)}</div>`;
   const viewOnly=!perms.notes&&!perms.assign&&!perms.photos&&!perms.complete&&!perms.reopen;
-  $('handoffAccessNote').textContent=viewOnly?(isHandoffSetter(actor.role)?'Appointment setters can view handoffs only.':'You can view this handoff only.'):'';
+  $('handoffAccessNote').textContent=viewOnly?(isHandoffSetter(actor.role)?'Setters can view inspection handoffs only.':'You can view this handoff only.'):'';
   $('appLeadId').value=l.id;
   $('appId').value=appt.id||'';
   $('appScheduled').value=appt.scheduled_at?toDatetimeLocal(appt.scheduled_at):'';
@@ -2191,7 +2215,7 @@ async function refreshMyReceipts(){
 function openAppointment(id){const a=state.appointments.find(x=>String(x.id)===String(id));if(!a)return;const l=state.leads.find(x=>x.id===a.lead_id)||{id:a.lead_id,name:'Inspection',address:'',city:'',state:'',zip:''};openAppointmentForm(l,a);}
 async function copyCurrentHandoff(){
   const id=$('appLeadId').value; const l=state.leads.find(x=>x.id===id);if(!l)return;
-  const text=`True North Restorations — Sales Handoff\nHomeowner: ${l.name||'Property lead'}\nAddress: ${addressOf(l)}\nAppointment: ${formatDate($('appScheduled').value)}\nSalesperson: ${state.reps.find(r=>r.id===$('appSalesperson').value)?.name||'Unassigned'}\nNotes: ${$('appNotes').value||'—'}`;
+  const text=`True North Restorations — Sales Handoff\nHomeowner: ${l.name||'Property lead'}\nAddress: ${addressOf(l)}\nInspection: ${formatDate($('appScheduled').value)}\nSalesperson: ${state.reps.find(r=>r.id===$('appSalesperson').value)?.name||'Unassigned'}\nNotes: ${$('appNotes').value||'—'}`;
   try{await navigator.clipboard.writeText(text);$('copyHandoffBtn').textContent='Copied';setTimeout(()=>$('copyHandoffBtn').textContent='Copy handoff',1200)}catch{alert(text)}
 }
 
@@ -2435,6 +2459,8 @@ function updateSelectedBadge(options={}){
   const n=state.selected.size;
   state.routeCountSeen=n;
   $('selectedCount').textContent=n;$('selectedCountRoute').textContent=n;$('routeTrayCount').textContent=n;$('mobileRouteCount').textContent=n;
+  // "Build route" shows a count badge only once a house is on the route.
+  for(const id of ['selectedCount','mobileRouteCount']){const badge=$(id);if(badge){badge.hidden=n===0;badge.classList?.toggle('hidden',n===0);}}
   $('optimizeRouteBtn').disabled=n===0||!!state.routeBuilding;
   $('routeTrayBtn').disabled=n===0||!!state.routeBuilding;
   $('startRouteBtn').disabled=n===0||!!state.routeBuilding;
@@ -3427,7 +3453,7 @@ function startRealtime(){
       const idx=state.appointments.findIndex(a=>a.id===payload.old?.id||a.id===payload.new?.id);
       if(payload.eventType==='DELETE'){if(idx>=0)state.appointments.splice(idx,1);}
       else if(idx>=0)state.appointments[idx]={...state.appointments[idx],...payload.new}; else state.appointments.push(payload.new);
-      renderAll(); toast('Appointment board updated');
+      renderAll(); toast('Inspections updated');
     })
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'lead_activity'},payload=>{state.activities.unshift(payload.new);state.activities=state.activities.slice(0,3000);renderStats();renderTeam();})
     .subscribe();

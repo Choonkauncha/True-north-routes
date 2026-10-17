@@ -12,7 +12,7 @@ export function mountMapAssistant(ctx={}){
  const identity=ctx.rep?.user_id||null;let state='idle',paused=false,busy=false,disposed=false;const controller=new AbortController();
  const orb=mountCoachOrb(root.querySelector('canvas'));
  const disposeDragging=mountOrbDragging(root,launch,panel);
- function show(open){panel.hidden=!open;disposeDragging.reposition();launch.setAttribute('aria-expanded',String(open));}
+ function show(open){panel.hidden=!open;root.classList.toggle('isOpen',open);disposeDragging.reposition();launch.setAttribute('aria-expanded',String(open));}
  async function executeMapTool(call){
   const session=await ctx.sb.auth.getSession();
   if(!session.data?.session||session.data.session.user.id!==identity)throw Error('Account changed. Restart voice.');

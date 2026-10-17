@@ -168,7 +168,7 @@ function enhanceContent() {
     teamSearch: "Search team members",
     teamRole: "Filter team by role",
     apptSearch: "Search appointments",
-    apptStage: "Filter appointment stage",
+    apptStage: "Filter inspection status",
     homeSearch: "Search homeowner requests",
     homeStatus: "Filter request status",
     activitySearch: "Search activity",

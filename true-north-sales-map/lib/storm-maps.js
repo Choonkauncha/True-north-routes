@@ -20,7 +20,7 @@ export const SPC_REPORTS = [
 export const WARNING_COLORS = {
   tornado: '#c62828',
   hail: '#6a1b9a',
-  wind: '#1565c0',
+  wind: '#1554d6',
   thunderstorm: '#ef6c00'
 };
 

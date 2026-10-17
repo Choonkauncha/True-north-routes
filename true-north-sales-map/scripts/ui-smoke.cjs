@@ -567,12 +567,15 @@ const server = http.createServer(async (req, res) => {
     await page.locator('#navEnd').click();
     await page.locator('#routeTrayBtn').click();
     await page.locator('.routeStop button').first().click();
-    await page.waitForFunction(()=>document.querySelectorAll('.routeStop').length===0);
+    // Since 892d102, removing a stop keeps the built route: the remaining stop stays on the line.
+    await page.waitForFunction(()=>document.querySelectorAll('.routeStop').length===1);
     assert.equal(await page.locator('#selectedCount').innerText(),'1');
-    assert.equal(await page.locator('#startRouteBtn').isDisabled(),true,'Changed selection invalidates built route');
+    assert.equal(await page.locator('.routeStop').count(),1,'Removing a stop keeps the rest of the built route');
     await page.locator('#clearRouteBtn').click();
     await page.waitForFunction(()=>document.getElementById('selectedCount').textContent==='0');
     assert.equal(await page.locator('#selectedCount').innerText(),'0');
+    assert.equal(await page.locator('#selectedCount').isHidden(),true,'Count badge hides at zero');
+    assert.equal(await page.locator('.routeStop').count(),0,'Clearing the route removes every stop');
     // A required password change must remain reachable while the map is denied.
     gateMustChange = true;
     await page.goto(origin + '/');
@@ -1117,7 +1120,7 @@ const server = http.createServer(async (req, res) => {
   await page.locator('#selectVisibleBtn').click();
   assert.ok(Number(await page.locator('#selectedCount').innerText())>0,'Route selection works');
   await page.locator('#clearRouteBtn').click();
-  await page.locator('#selectedCount').filter({hasText:/^0$/}).waitFor();
+  await page.locator('#selectedCount').filter({hasText:/^0$/}).waitFor({state:'attached'});assert.equal(await page.locator('#selectedCount').isHidden(),true,'Build route shows no count badge at 0');
   const routeIds=await page.locator('#workList .rowCheck').evaluateAll(items=>items.slice(0,2).map(el=>el.dataset.id));
   assert.equal(routeIds.length,2,'Two sample houses available');
   for(const id of routeIds)await page.locator('#workList .rowCheck[data-id="'+id+'"]').check();
@@ -1148,7 +1151,7 @@ const server = http.createServer(async (req, res) => {
   await page.locator('#closeRoute').click();
   await page.locator('#selectVisibleBtn').click();
   await page.locator('#clearRouteBtn').click();
-  await page.locator('#selectedCount').filter({hasText:/^0$/}).waitFor();
+  await page.locator('#selectedCount').filter({hasText:/^0$/}).waitFor({state:'attached'});assert.equal(await page.locator('#selectedCount').isHidden(),true,'Build route shows no count badge at 0');
   assert.equal(await page.locator('#selectedCount').innerText(),'0');
   assert.equal(await page.locator('#startRouteBtn').isDisabled(),true,'Empty route clearly unavailable');
   await page.locator('#routeTrayBtn').click();

@@ -126,3 +126,54 @@ body.tn-map-workspace .routeTrayExtras > summary { min-height:44px; box-sizing:b
 #tnAccounts button:disabled {opacity:.6;cursor:wait}
 #tnAccounts .accountCreate .tnHelp {margin:12px 0;display:block}
 #tnAccounts button:focus-visible,#tnAccounts summary:focus-visible {outline:3px solid #1e6bff;outline-offset:3px}
+
+/* ONE SIGN-IN LOOK
+   Every sign-in screen (map, management, setter, shifts, training, forms and the rest)
+   uses the same navy page, dark card, white heading, one-line role subtitle and a
+   brand-blue Sign in button. Values match the palette in styles.css :root. */
+html body .authCard,
+html body #loginModal .loginCard{
+  width:min(440px,100%)!important;margin:4vh auto 0;background:#102239!important;color:#eff4f9!important;
+  border:1px solid #304d6a!important;border-radius:18px!important;box-shadow:0 18px 50px rgba(0,0,0,.35)!important;
+}
+html body #loginModal .loginCard{margin:auto;padding:28px!important;max-height:calc(100dvh - 32px);overflow:auto}
+html body .authCard .pad{padding:28px!important}
+html body .authCard .signInLogo,
+html body #loginModal .loginCard .signInLogo{width:min(200px,60%)!important;margin:0 auto 18px!important;padding:0!important;background:transparent!important}
+html body .authCard .eyebrow,
+html body #loginModal .loginCard .eyebrow{color:#32c7f8!important;font-size:12px!important;letter-spacing:.12em!important;font-weight:800!important;margin:0 0 6px!important}
+html body .authCard h1,
+html body #loginModal .loginCard h2{color:#ffffff!important;font-size:26px!important;line-height:1.2!important;margin:0 0 6px!important;font-weight:800!important}
+html body .authCard .tnSignInRole,
+html body #loginModal .loginCard .tnSignInRole{color:#AFC0CF!important;font-size:15px!important;line-height:1.45!important;margin:0 0 18px!important}
+html body .authCard label,
+html body #loginModal .loginCard label{color:#d4dfeb!important;font-size:15px!important;font-weight:700!important}
+html body .authCard input,
+html body #loginModal .loginCard input{width:100%;min-height:48px!important;font-size:16px!important;background:#0b1a2d!important;color:#eff4f9!important;border:1px solid #607e9c!important;border-radius:12px!important;padding:12px 14px!important;box-sizing:border-box}
+html body .authCard input:focus-visible,
+html body #loginModal .loginCard input:focus-visible{outline:3px solid #32c7f8!important;outline-offset:1px!important;border-color:#32c7f8!important}
+html body .authCard form button[type="submit"],
+html body .authCard form .btn,
+html body .authCard form .tnTap,
+html body #loginModal .loginCard form button[type="submit"]{
+  width:100%!important;min-height:48px!important;margin-top:16px!important;border:0!important;border-radius:12px!important;
+  background:#1e6bff!important;color:#ffffff!important;font-size:16px!important;font-weight:800!important;cursor:pointer;
+}
+html body .authCard form button[type="submit"]:hover,
+html body #loginModal .loginCard form button[type="submit"]:hover{background:#1554d6!important}
+html body .authCard form button[type="submit"]:focus-visible,
+html body #loginModal .loginCard form button[type="submit"]:focus-visible{outline:3px solid #32c7f8!important;outline-offset:2px!important}
+html body .authCard .tnForgot,
+html body #loginModal .loginCard .tnForgot{color:#32c7f8!important;background:transparent!important;border:0!important}
+html body .authCard .error,html body .authCard .tnError,
+html body #loginModal .loginCard .error{color:#ffb2a8!important}
+html body .authCard .tnResetMsg.isOk,html body #loginModal .loginCard .tnResetMsg.isOk,
+html body #loginModal .loginCard .tnResetNote{color:#99e0b3!important}
+html body .tnSignInInstall{border-top:1px solid #304d6a;margin-top:18px;padding-top:16px}
+html body .tnSignInInstall[hidden]{display:none!important}
+html body .tnSignInInstall p{margin:8px 0 0!important;color:#AFC0CF!important;font-size:14px!important}
+html body .tnSignInInstall .tnInstallBtn{width:100%;min-height:48px;border-radius:12px;border:1px solid #607e9c;background:transparent;color:#ffffff;font-size:16px;font-weight:800;cursor:pointer}
+html body .tnSignInInstall .tnInstallBtn:focus-visible{outline:3px solid #32c7f8;outline-offset:2px}
+html body #loginModal .loginCard .textBtn{color:#AFC0CF!important;background:transparent!important;border:0!important;margin-top:12px}
+html body #loginModal .loginCard .textBtn[hidden],html body #localModeBtn[hidden]{display:none!important}
+html body .countBadge[hidden]{display:none!important}

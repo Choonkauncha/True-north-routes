@@ -32,7 +32,7 @@
 .tnCoachForm>label{display:block;margin-bottom:8px;font-size:13px;font-weight:700}
 .tnCoachComposer{display:flex;align-items:stretch;gap:10px}
 .tnCoachComposer textarea{width:100%;resize:vertical;min-height:66px;max-height:160px;padding:12px;background:var(--atlas-input);border:1px solid var(--atlas-line-strong);border-radius:10px;color:var(--atlas-text);font:inherit;font-size:16px;line-height:1.45}
-.tnCoachComposer button{padding:10px 18px;border:0;border-radius:10px;white-space:nowrap;background:var(--atlas-accent);color:var(--atlas-ink);font-weight:750;min-width:108px}
+.tnCoachComposer button{padding:10px 18px;border:0;border-radius:10px;white-space:nowrap;background:var(--atlas-primary,#1e6bff);color:var(--atlas-on-primary,#fff);font-weight:750;min-width:108px}
 .tnCoachFormMeta{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:var(--atlas-muted);margin-top:8px}
 .tnCoachFormMeta button{border:0;background:transparent;color:var(--atlas-label);font-size:11px;padding:6px}
 .tnCoachStatus{font-size:12px;color:#f5ca90;margin:8px 0 0;line-height:1.5}

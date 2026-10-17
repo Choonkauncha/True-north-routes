@@ -52,6 +52,8 @@ const source = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const cloudSource = source.slice(source.indexOf('async function enterCloud('), source.indexOf('async function loadCloudData('));
 const element = { textContent: '', className: '', hidden: false, classList: { add() {}, remove() {}, toggle() {} } };
 const pending = new Map();
+const orbs = [];
+let pendingRuns = 0;
 const fallback = [];
 const state = { user: null, cloudReady: false, map: {}, config: {url:'project'}, pendingPostSignIn: false,
   supabase: {
@@ -67,7 +69,10 @@ const context = vm.createContext({
   startRealtime() {}, updatePinBanner() {}, publishSideData() {},
   loadSideData: async () => {},
   loadLeadBundle: current => new Promise((resolve, reject) => pending.set(state.user.id, { resolve, reject, current })),
-  enterLocal: message => fallback.push(message)
+  enterLocal: message => fallback.push(message),
+  // The orb is registered only for a verified, current account (never while signed out).
+  mapAssistantContext() {}, executeMapAssistantAction() {},
+  registerMapAssistant: ctx => orbs.push(ctx.rep), runPendingAssistantCommand: async () => { pendingRuns++; }
 });
 vm.runInContext(`let authEpoch=0, cloudToken='', cloudFlight=null; ${cloudSource}; globalThis.flight=()=>cloudFlight; globalThis.logout=()=>{authEpoch++;cloudToken='';cloudFlight=null;state.user=null;};`, context);
 const first = context.enterCloud(session('A'));
@@ -85,6 +90,9 @@ await second;
 assert.equal(state.user.id, 'B');
 assert.equal(state.cloudReady, true);
 assert.equal(context.flight(), null);
+assert.equal(orbs.length, 2, 'each verified sign-in registers the assistant once');
+assert.ok(orbs.every(rep => rep && rep.active), 'the assistant always receives an active rep profile');
+assert.equal(pendingRuns, 1, 'queued assistant commands run only after the current account finishes loading');
 
 const bundleSource = source.slice(source.indexOf('async function loadLeadBundle('), source.indexOf('function publishSideData('));
 let finishRows;

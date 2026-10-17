@@ -295,7 +295,7 @@ export const ADMIN_TOURS = {
     step(
       ".rail",
       "Move between office tools",
-      "Choose Accounts, Team, Appointments, Documents, Training, Messages, or Shifts. On a narrow phone, expand Management to reveal the section buttons.",
+      "Choose Accounts, Team, Inspections, Documents, Training, Messages, or Shifts. On a narrow phone, expand Management to reveal the section buttons.",
     ),
   ],
   accounts: [

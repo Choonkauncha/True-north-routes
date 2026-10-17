@@ -5,7 +5,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 
 const root = path.resolve(import.meta.dirname, '..');
-const out = '/opt/cursor/artifacts';
+const out = process.env.TN_ARTIFACTS_DIR || process.env.ARTIFACTS_DIR || new URL('../.ui-artifacts/', import.meta.url).pathname;
 fs.mkdirSync(out, { recursive: true });
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.png': 'image/png', '.json': 'application/json', '.svg': 'image/svg+xml' };
 const leads = [

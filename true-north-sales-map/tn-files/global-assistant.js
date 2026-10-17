@@ -22,7 +22,8 @@ export async function runPendingAssistantCommand(){
  if(!response.ok||!authorization.authorized||authorization.actorId!==pending.userId)throw Error(authorization.error||'Map command denied.');
  return mapContext.executeMapAction(authorization.execute.name,authorization.execute.args);
 }
-function guest(){currentUser=null;mapContext=null;orb=mountMapAssistant();}
+// Signed-out visitors never see the orb: sign-in screens stay clean and nothing can cover the form.
+function guest(){currentUser=null;mapContext=null;orb?.dispose();orb=null;}
 async function attach(session){
  const ticket=++generation;
  if(!session){guest();return;}

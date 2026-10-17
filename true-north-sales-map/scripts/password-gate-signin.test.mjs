@@ -9,5 +9,5 @@ vm.runInContext(bootSource+'\nthis.waitBoot=()=>bootPromise;',context);
 await context.waitBoot();assert.equal(gates,0);assert.equal(releases,1);
 session={access_token:'signed-in-user',expires_at:Date.now()/1000+3600};listeners['tn-password-required']();listeners['tn-password-required']();await context.waitBoot();if(context.waitBoot())await context.waitBoot();assert.ok(gates>=1,'Flagged login opens gate after initial signed-out import');
 const page=readFileSync(new URL('../index.html',import.meta.url),'utf8');assert.ok(page.includes(':not(#tnPasswordHold)'));assert.match(page,/#tnPasswordHold\{[^}]*display:grid!important[^}]*z-index:100002!important/);
-const transitions=readFileSync(new URL('../brand/transitions.css',import.meta.url),'utf8');assert.ok(transitions.includes('body>*:not(#loginModal):not(#tnPasswordHold){display:none!important}'));
+const transitions=readFileSync(new URL('../brand/transitions.css',import.meta.url),'utf8');assert.ok(transitions.includes('body>*:not(#loginModal):not(#tnPasswordHold){display:none!important}'));assert.ok(transitions.includes('html.tn-signed-out #tnMapAssistant{display:none!important}'));
 console.log('Flagged sign-in reopens password overlay; signed-out CSS preserves its visibility');
