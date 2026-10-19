@@ -506,6 +506,68 @@ const server = http.createServer(async (req, res) => {
     localStorage.setItem("sb-127-auth-token", JSON.stringify(s));
     localStorage.setItem("tn-role:" + s.user.id, "admin");
   }, session());
+  if (process.env.UI_NAV_FLOW) {
+    for (const nextRole of ['appointment_setter', 'salesperson', 'admin']) {
+      role = nextRole;
+      await page.setViewportSize({width:390,height:844});
+      await page.goto(origin + '/account.html');
+      await page.locator('.profileHero').waitFor();
+      await page.screenshot({path:path.join(artifacts,'navigation-'+nextRole+'-mobile.png')});
+      assert.equal(await page.locator('.workspaceContext a').getAttribute('href'), '/');
+      await page.locator('.workspaceMenuBtn').click();
+      await page.locator('.workspaceNavClose').click();
+      assert.equal(await page.locator('.workspaceMenuBtn').getAttribute('aria-expanded'), 'false');
+      assert.equal(await page.evaluate(()=>document.activeElement.className), 'workspaceMenuBtn');
+      await page.locator('.atlasJump').click();
+      await page.locator('#atlasCommandQuery').fill('roof photos');
+      assert.equal(await page.locator('.atlasCommandResult').count(),nextRole==='appointment_setter'?0:1);
+      await page.locator('#atlasCommandQuery').fill('forms');
+      assert.ok(await page.locator('.atlasCommandResult[href="/forms.html"]').count());
+      // Refresh the fixture permission while page search is already open.
+      if (nextRole !== 'admin') {
+        db.feature_permissions = [{role:nextRole,feature:'forms',enabled:false}];
+        await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+        await page.waitForFunction(()=>!document.querySelector('.atlasCommandResult[href="/forms.html"]'));
+        db.feature_permissions = [];
+        await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+        await page.waitForFunction(()=>!!document.querySelector('.atlasCommandResult[href="/forms.html"]'));
+      }
+      await page.keyboard.press('Escape');
+      for (const width of [320,390,768,1024,1440]) {
+        await page.setViewportSize({width,height:900});
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Tool page fits '+width);
+        if(width<=1100) {
+          await page.locator('.workspaceMenuBtn').click();
+          const close=await page.locator('.workspaceNavClose').boundingBox();
+          assert.ok(close && close.x>=0 && close.x+close.width<=width+1);
+          await page.keyboard.press('Escape');
+        }
+      }
+      console.log('Navigation, permission refresh and return path passed:',role);
+    }
+    role='admin';
+    await page.setViewportSize({width:1440,height:900});
+    await page.goto(origin + '/');
+    await page.locator('#workList .leadRow').first().waitFor();
+    if(await page.locator('#postSignInContinue').isVisible())await page.locator('#postSignInContinue').click();
+    await page.locator('#mapLoader').waitFor({state:'hidden'});
+    await page.setViewportSize({width:390,height:844});
+    await page.locator('#tnMore').click();
+    assert.equal(await page.locator('#tnMore').innerText(),'Menu');
+    await page.getByRole('button',{name:'Find a page…',exact:true}).click();
+    await page.locator('#atlasCommandQuery').fill('book');
+    assert.equal(await page.locator('.atlasCommandResult').first().getAttribute('href'),'/setter.html');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'tnMore');
+    await page.locator('#tnMore').click();
+    await page.screenshot({path:path.join(artifacts,'navigation-menu-mobile.png')});
+    await page.getByRole('button',{name:'Close menu ×',exact:true}).click();
+    assert.equal(await page.locator('#tnMore').getAttribute('aria-expanded'),'false');
+    assert.deepEqual(errors,[]);
+    await browser.close();server.close();
+    console.log('Navigation flow smoke passed.');
+    return;
+  }
   if (process.env.UI_MAP_FIRST) {
     role = 'admin';
     await page.setViewportSize({width:1440,height:900});

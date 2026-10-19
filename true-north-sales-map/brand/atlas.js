@@ -20,6 +20,7 @@ export function mountAtlas(nav, header) {
   const input = dialog.querySelector("input");
   const results = dialog.querySelector(".atlasCommandResults");
   let returnFocus = null;
+  let resultSignature = '';
   const hints = {
     map: "Find homes, plan a route, and navigate",
     intake: "Homeowner details and inspection handoff",
@@ -33,7 +34,7 @@ export function mountAtlas(nav, header) {
   function render() {
     const query = input.value.trim().toLowerCase();
     const links = [...nav.querySelectorAll("[data-workspace-link]")].filter(
-      (link) => !link.hidden && !link.classList.contains("hidden"),
+      (link) => !link.closest('[hidden], .hidden, [data-feature-disabled]'),
     );
     const entries = links.map(link => ({ key: link.dataset.workspaceLink, label: link.textContent.trim(), href: link.getAttribute('href'), current: link.hasAttribute('aria-current') }));
     if (links.some(link => link.dataset.workspaceLink === 'management')) {
@@ -46,6 +47,11 @@ export function mountAtlas(nav, header) {
         ['files', 'Document library', 'Forms, files, and receipts'],
       ]) entries.push({ key, label, hint, href: '/admin.html#'+key });
     }
+    // Permission application can repeat the same attributes after a DOM update.
+    // Only repaint changed entries, preserving focus and avoiding observer loops.
+    const signature = JSON.stringify([query, entries]);
+    if (signature === resultSignature) return;
+    resultSignature = signature;
     results.replaceChildren();
     for (const entry of entries) {
       const {key,label}=entry;
@@ -87,7 +93,7 @@ export function mountAtlas(nav, header) {
   dialog.addEventListener('close', () => {
     if (returnFocus?.isConnected) returnFocus.focus({preventScroll:true});
   });
-  new MutationObserver(() => { if(dialog.open) render(); }).observe(nav, {subtree:true,attributes:true,attributeFilter:['hidden','class']});
+  new MutationObserver(() => { if(dialog.open) render(); }).observe(nav, {subtree:true,attributes:true,attributeFilter:['hidden','class','data-feature-disabled']});
   dialog.querySelector(".atlasCommandClose").onclick = () => dialog.close();
   dialog.querySelector(".atlasWalkthrough").onclick = () => {
     dialog.close();
@@ -98,6 +104,12 @@ export function mountAtlas(nav, header) {
     if (event.target === dialog) dialog.close();
   });
   dialog.addEventListener("keydown", (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      dialog.close();
+      return;
+    }
     const links = [...results.querySelectorAll("a")];
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       if (!links.length) return;

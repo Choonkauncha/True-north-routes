@@ -337,7 +337,8 @@ function mountPhoneMenu() {
   button.type = 'button';
   button.id = 'tnMore';
   button.className = 'tnMore';
-  button.textContent = 'More';
+  button.textContent = 'Menu';
+  button.setAttribute('aria-label', 'Open navigation menu');
   button.setAttribute('aria-expanded', 'false');
   button.setAttribute('aria-controls', 'tnMoreMenu');
   const menu = document.createElement('div');
@@ -369,6 +370,18 @@ function mountPhoneMenu() {
   menu.addEventListener('click', event => {
     if (event.target.closest('a')) close();
   });
+  menu.addEventListener('keydown', event => {
+    if (event.key !== 'Tab') return;
+    const controls = [...menu.querySelectorAll('a[href],button:not(:disabled)')]
+      .filter(el => el.getClientRects().length);
+    const first = controls[0], last = controls.at(-1);
+    if (!first) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus();
+    }
+  });
   fillRoleMenu();
   watchAdminButton();
 }
@@ -388,6 +401,26 @@ function fillRoleMenu() {
   )).join('');
   if (fieldOps) menu.prepend(fieldOps);
   menu.hidden = !open;
+  const closeMenu = document.createElement('button');
+  closeMenu.type = 'button';
+  closeMenu.textContent = 'Close menu ×';
+  closeMenu.onclick = () => {
+    menu.hidden = true;
+    const trigger = document.getElementById('tnMore');
+    trigger?.setAttribute('aria-expanded', 'false');
+    trigger?.focus();
+  };
+  menu.prepend(closeMenu);
+  const searchPage = document.createElement('button');
+  searchPage.type = 'button';
+  searchPage.textContent = 'Find a page…';
+  searchPage.onclick = () => {
+    closeMenu.click();
+    document.querySelector('.atlasJump')?.click();
+  };
+  if (document.querySelector('.atlasJump')) menu.append(searchPage);
+  // Reuse the same feature gates as the workspace links, including the map.
+  menu.querySelector('a[href="/"]')?.setAttribute('data-workspace-link', 'map');
   const focusMap = document.getElementById('focusBtn');
   if (focusMap) {
     const focus = document.createElement('button');

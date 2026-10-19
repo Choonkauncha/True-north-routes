@@ -126,3 +126,17 @@ body.tn-map-workspace .routeTrayExtras > summary { min-height:44px; box-sizing:b
 #tnAccounts button:disabled {opacity:.6;cursor:wait}
 #tnAccounts .accountCreate .tnHelp {margin:12px 0;display:block}
 #tnAccounts button:focus-visible,#tnAccounts summary:focus-visible {outline:3px solid #1e6bff;outline-offset:3px}
+
+/* Keep a predictable return path on every field tool page. */
+.workspaceContext { display:flex; align-items:center; gap:16px; padding:10px 28px; border-bottom:1px solid var(--atlas-line); background:var(--atlas-header); color:var(--atlas-muted); font-size:13px; }
+.workspaceContext a { display:inline-flex; align-items:center; min-height:44px; color:var(--atlas-accent); font-weight:650; text-decoration:none; }
+.workspaceContext a:hover { text-decoration:underline; }
+.workspaceContext span { border-left:1px solid var(--atlas-line-strong); padding-left:16px; }
+.workspaceNavClose { display:none; }
+@media(max-width:1100px) {
+  body.tn-workspace .workspaceNavClose { display:block; width:100%; text-align:right; color:var(--atlas-text); background:var(--atlas-raised); border:1px solid var(--atlas-line-strong); border-radius:8px; padding:10px; }
+  .workspaceContext { padding:4px 16px; flex-wrap:wrap; gap:10px; }
+  body.tn-workspace .workspaceMenuBtn > span { display:inline; }
+  body.tn-workspace .workspaceMenuBtn { display:inline-flex; align-items:center; gap:6px; }
+}
+@media print { .workspaceContext, .workspaceNavClose { display:none!important; } }

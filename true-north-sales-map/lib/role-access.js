@@ -37,7 +37,7 @@ export function canMessageManagement(role) {
 export function fieldHomeLinks(role) {
   const links = [
     { href: '/', label: 'Map and routes', id: 'map' },
-    { href: '/setter.html', label: 'Inspection form', id: 'inspection' },
+    { href: '/setter.html', label: 'Book inspection', id: 'inspection' },
     { href: '/forms.html', label: 'My forms', id: 'forms' },
     { action: 'message', label: 'Message management', id: 'message' }
   ];

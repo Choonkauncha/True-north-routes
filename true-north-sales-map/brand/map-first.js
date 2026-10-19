@@ -36,9 +36,9 @@ document.addEventListener('pointerdown', event => {
 // The existing role-aware menu supplies account, training, messages and management.
 const labelWorkMenu = () => {
   const button = document.getElementById('tnMore');
-  if (button && button.textContent !== 'Work') {
-    button.textContent = 'Work';
-    button.setAttribute('aria-label', 'Open work tools');
+  if (button && button.textContent !== 'Menu') {
+    button.textContent = 'Menu';
+    button.setAttribute('aria-label', 'Open navigation menu');
   }
 };
 labelWorkMenu();

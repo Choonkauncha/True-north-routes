@@ -4,7 +4,7 @@ import { mountAtlas } from "./atlas.js";
 
 /** Shared workspace chrome. Authorization stays in the existing page modules. */
 const body = document.body;
-const page = location.pathname.replace(/\.html$/, "").replace(/\/$/, "") || "/";
+const page = location.pathname.replace(/\.html$/, "").replace(/\/$/, "").replace(/^\/index$/, "/") || "/";
 const isMap = Boolean(document.getElementById("appShell"));
 const isAdmin = Boolean(document.querySelector(".dashboardShell"));
 const isPublic = body.classList.contains("tn-public");
@@ -91,6 +91,7 @@ function mountNavigation() {
         nav
           .querySelector("a[aria-current], .workspaceNavItems a:not([hidden])")
           ?.focus();
+      else button.focus();
     };
     scrim.onclick = () => {
       close();
@@ -106,7 +107,7 @@ function mountNavigation() {
         button.focus();
       }
       if (event.key === "Tab") {
-        const links = [...nav.querySelectorAll("a")].filter(visible);
+        const links = [...nav.querySelectorAll("a, button:not(:disabled)")].filter(visible);
         const first = links[0],
           last = links.at(-1);
         if (event.shiftKey && document.activeElement === first) {
@@ -160,6 +161,29 @@ function mountNavigation() {
   const app = document.querySelector("main");
   if (app) observer.observe(app, { childList: true, subtree: true });
   mountAtlas(nav, header);
+  if (!isMap) mountPageContext(nav, header);
+}
+
+function mountPageContext(nav, header) {
+  const current = nav.querySelector('[aria-current="page"]');
+  const context = document.createElement('nav');
+  context.className = 'workspaceContext';
+  context.setAttribute('aria-label', 'Current location');
+  const back = document.createElement('a');
+  back.href = '/';
+  back.dataset.workspaceLink = 'map';
+  back.textContent = '← Back to map';
+  const label = document.createElement('span');
+  label.setAttribute('aria-current', 'page');
+  label.textContent = current?.textContent.trim() || 'Field tools';
+  context.append(back, label);
+  nav.after(context);
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'workspaceNavClose';
+  closeButton.textContent = 'Close menu ×';
+  closeButton.onclick = () => header.querySelector('.workspaceMenuBtn')?.click();
+  nav.prepend(closeButton);
 }
 
 function enhanceContent() {
