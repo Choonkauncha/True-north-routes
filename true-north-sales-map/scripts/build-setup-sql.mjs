@@ -22,7 +22,8 @@ const parts = [
   ['supabase/migrations/20261010_integrity_access.sql', '17. Session readiness and atomic saves'],
   ['supabase/migrations/20261012_account_archive.sql', '18. Profile deletion and archive'],
   ['supabase/migrations/20261014_live_location_and_accounts.sql', '19. Live locations and permanent account removal'],
-  ['supabase/migrations/20261023222511_users_gps_shift_capture.sql', '20. Users GPS and own-shift capture']
+  ['supabase/migrations/20261023222511_users_gps_shift_capture.sql', '20. Users GPS and own-shift capture'],
+  ['supabase/migrations/20261023233000_admin_delete_appointments.sql', '21. Admin-only appointment deletion']
 ];
 
 export function buildSetupSql(root) {

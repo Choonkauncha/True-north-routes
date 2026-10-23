@@ -2,6 +2,7 @@ import { mountSchedulingAdmin } from './tn-files/scheduling-admin.js';
 import { mountCoachAdmin } from './tn-files/coach-admin.js';
 import { mountFeatureAdmin } from './tn-files/feature-admin.js';
 import { createClient } from "/vendor/supabase/supabase.js";
+import { canDeleteAppointments, deleteAppointment, withoutLocallyDeleted } from "/lib/appointment-delete.js";
 import { atlasIcon } from "./brand/atlas-icons.js";
 import "/tn-files/password-reset.js";
 import { bindAdminTabs, adminHashTarget, activateAdminTab } from "/lib/admin-tabs.js";
@@ -309,6 +310,7 @@ async function loadData({ refreshLeads = true } = {}) {
       ]);
       if (epoch !== dashboardEpoch) return;
       [reps, leads, appointments, activities, homes, territories] = data;
+      appointments = withoutLocallyDeleted(appointments, window.localStorage);
       index = dashboardIndex(leads, reps);
       fillPersonFilter();
       renderAll();
@@ -516,15 +518,39 @@ function renderAppointments() {
       renderAppointments();
     });
   }
+  const canDelete = canDeleteAppointments(me);
+  const actionsHead = document.querySelector("[data-appt-actions]");
+  if (actionsHead) actionsHead.hidden = !canDelete;
   $("apptTable").innerHTML =
     pageRows(rows, "appointments")
       .map((a) => {
         const l = index.leads.get(a.lead_id) || {};
-        return `<tr><td><b>${esc(l.name || "")}</b><div class="small">${esc(l.address || "")}</div></td><td>${esc(date(a.scheduled_at))}</td><td>${esc(a.canvasser?.name || "—")}</td><td>${esc(a.salesperson?.name || "—")}</td><td>${pill(a.stage)}</td><td>${esc(a.notes || "")}</td></tr>`;
+        return `<tr><td><b>${esc(l.name || "")}</b><div class="small">${esc(l.address || "")}</div></td><td>${esc(date(a.scheduled_at))}</td><td>${esc(a.canvasser?.name || "—")}</td><td>${esc(a.salesperson?.name || "—")}</td><td>${pill(a.stage)}</td><td>${esc(a.notes || "")}</td>${canDelete ? `<td><button type="button" class="btn danger apptDelete" data-delete-appointment="${esc(a.id)}" aria-label="Delete appointment for ${esc(l.name || l.address || "this homeowner")}">Delete</button></td>` : ""}</tr>`;
       })
       .join("") ||
-    '<tr><td colspan="6"><div class="empty">No appointments match.</div></td></tr>';
+    `<tr><td colspan="${canDelete ? 7 : 6}"><div class="empty">No appointments match.</div></td></tr>`;
 }
+async function onDeleteAppointment(button) {
+  const id = button.dataset.deleteAppointment;
+  const appt = appointments.find((a) => a.id === id);
+  if (!appt) return;
+  const l = index.leads.get(appt.lead_id) || {};
+  const who = l.name || l.address || "this homeowner";
+  if (!window.confirm(`Delete the appointment for ${who}${appt.scheduled_at ? " on " + date(appt.scheduled_at) : ""}? This can't be undone.`)) return;
+  button.disabled = true;
+  try {
+    appointments = await deleteAppointment({ sb, id, list: appointments, storage: window.localStorage, me });
+    renderAppointments();
+    toastMsg("Appointment deleted.");
+  } catch (error) {
+    button.disabled = false;
+    toastMsg(error.message || "Could not delete the appointment.");
+  }
+}
+document.addEventListener("click", (event) => {
+  const button = event.target.closest?.("[data-delete-appointment]");
+  if (button) onDeleteAppointment(button);
+});
 function renderHomeowners() {
   const q = ($("homeSearch").value || "").toLowerCase();
   const st = $("homeStatus").value;

@@ -50,3 +50,18 @@ body.tn-admin-workspace #managementSectionsToggle{display:none}
 @media(prefers-reduced-motion:reduce){body.tn-admin-workspace #managementRail{transition:none}}
 
 body.tn-admin-workspace .headerLinks:empty{display:none}
+
+/* Header: full logo links back to the field map, with the company name beside it. */
+body.tn-admin-workspace .tnHeader .managementHomeLink{display:flex;align-items:center;gap:12px;min-width:0;color:var(--atlas-text,#fff);text-decoration:none;border-radius:8px}
+body.tn-admin-workspace .tnHeader .managementHomeLink:focus-visible{outline:2px solid var(--atlas-accent);outline-offset:3px}
+body.tn-admin-workspace .tnHeader .managementLogo{display:block;flex:none;height:56px;width:auto;max-width:none;object-fit:contain}
+body.tn-admin-workspace .tnHeader .managementBrandName{display:block;font-size:18px;font-weight:650;line-height:1.15;letter-spacing:-.01em;color:var(--atlas-text,#fff);white-space:nowrap}
+@media(max-width:380px){body.tn-admin-workspace .tnHeader .managementLogo{height:46px}body.tn-admin-workspace .tnHeader .managementBrandName{font-size:15px}}
+/* Clock In lives inside Sections; nothing sits in a row under the header. */
+.managementFieldOps:empty{display:none}
+body.tn-admin-workspace .managementFieldOps{padding:0 6px 16px}
+body.tn-admin-workspace #managementRail .managementFieldOps .tnFieldOps{position:static;inset:auto;z-index:auto;display:flex;flex-direction:column;gap:8px;width:100%;margin:0;transform:none;opacity:1;visibility:visible}
+body.tn-admin-workspace #managementRail .managementFieldOps .tnClockBtn{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;padding:10px 12px;border:0;border-radius:8px;background:#2E6B4B;color:#fff;font-family:inherit;font-size:13px;font-weight:700;box-shadow:none;cursor:pointer}
+body.tn-admin-workspace #managementRail .managementFieldOps .tnClockBtn.isOut{background:#A44835}
+body.tn-admin-workspace #managementRail .managementFieldOps .tnClockBtn[hidden]{display:none}
+body.tn-admin-workspace #managementRail #openMessages[data-unread]::after{content:attr(data-unread);margin-left:auto;min-width:20px;padding:1px 6px;border-radius:999px;background:var(--atlas-accent,#1e6bff);color:#fff;font-size:11px;font-weight:700;text-align:center}

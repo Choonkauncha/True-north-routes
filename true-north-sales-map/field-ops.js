@@ -791,6 +791,12 @@ function watchSheets() {
 }
 
 function placeFieldOps(wrap) {
+  // Management keeps Clock In with the rest of its tools inside Sections.
+  const managementSlot = document.getElementById('managementFieldOps');
+  if (managementSlot) {
+    if (wrap.parentElement !== managementSlot) managementSlot.appendChild(wrap);
+    return;
+  }
   const workMenu = document.getElementById('tnMoreMenu');
   if (workMenu) {
     if (wrap.parentElement !== workMenu) workMenu.prepend(wrap);
@@ -875,7 +881,7 @@ function renderWidget() {
   const shifts = document.getElementById('tnShiftsLink');
   clock.hidden = !canClockIn(status);
   updateLocationStatus(state.locationStatus);
-  const inWorkMenu = root.parentElement?.id === 'tnMoreMenu';
+  const inWorkMenu = root.parentElement?.id === 'tnMoreMenu' || root.parentElement?.id === 'managementFieldOps';
   messages.hidden = inWorkMenu || !(status.isField || status.isAdmin);
   shifts.hidden = inWorkMenu || !status.isAdmin || onShifts;
   clock.disabled = state.clockBusy;
@@ -883,6 +889,11 @@ function renderWidget() {
   const unread = Number(status.unread) || 0;
   badge.textContent = unread > 9 ? '9+' : String(unread);
   badge.classList.toggle('hidden', unread < 1);
+  const railMessages = document.getElementById('openMessages');
+  if (railMessages) {
+    if (unread > 0) railMessages.dataset.unread = unread > 9 ? '9+' : String(unread);
+    else delete railMessages.dataset.unread;
+  }
   messages.setAttribute('aria-expanded', state.msgOpen ? 'true' : 'false');
   fillRoleMenu();
   renderClockLabel();

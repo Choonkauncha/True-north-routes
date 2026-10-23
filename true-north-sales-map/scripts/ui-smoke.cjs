@@ -313,6 +313,13 @@ const server = http.createServer(async (req, res) => {
       writes.push({table:name,data:{id,...data}});for(const row of db[name]||[])if(row.id===id)Object.assign(row,data);
       return send(res,[]);
     }
+    if (req.method === "DELETE") {
+      const id=url.searchParams.get('id')?.replace(/^eq\./,'');
+      const removed=(db[name]||[]).filter(row=>String(row.id)===id);
+      db[name]=(db[name]||[]).filter(row=>String(row.id)!==id);
+      writes.push({table:name,deleted:id});
+      return send(res,removed.map(row=>({id:row.id})));
+    }
     if (req.method === "POST") {
       let body = "";
       for await (const c of req) body += c;
@@ -546,6 +553,46 @@ const server = http.createServer(async (req, res) => {
     await page.locator('#retryDashboard').click();
     await ready();
     console.log('Management initial load recovery passed.');
+    if (process.env.SHOTS_DIR) {
+      const tag = process.env.SHOTS_TAG || 'shot';
+      await page.setViewportSize({width:390,height:844});
+      await goSection('appointments');
+      await page.waitForTimeout(500);
+      await page.evaluate(()=>scrollTo(0,0));
+      await page.screenshot({path:path.join(process.env.SHOTS_DIR,tag+'-appointments-390x844.png')});
+      await openManagement();
+      await page.waitForTimeout(400);
+      await page.evaluate(()=>{document.getElementById('managementRail').scrollTop=0;});
+      await page.waitForTimeout(100);
+      await page.screenshot({path:path.join(process.env.SHOTS_DIR,tag+'-sections-open-390x844.png')});
+      await page.keyboard.press('Escape');
+      await page.setViewportSize({width:1600,height:1050});
+    }
+    // Header: full logo links to the field map, name beside it, no Clock In / Messages row.
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.locator('.tnHeader a#managementHomeLink[href="/"]').count(),1,'Logo links to the field map');
+    assert.ok(await page.locator('.tnHeader .managementLogo').evaluate(img=>img.getBoundingClientRect().height>=40 && img.naturalWidth>0),'Full logo is visible');
+    assert.equal((await page.locator('.tnHeader .managementBrandName').innerText()).replace(/\s+/g,' ').trim(),'True North Restorations');
+    assert.equal(await page.locator('.tnHeader #tnClockBtn, .tnHeader #tnMsgBtn').count(),0,'Clock In and Messages left the header');
+    assert.equal(await page.locator('#managementRail #managementFieldOps #tnClockBtn').count(),1,'Clock In is in Sections');
+    assert.equal(await page.locator('#managementRail #openMessages').count(),1,'Messages is in Sections');
+    await openManagement();
+    assert.ok(await page.locator('#managementRail #tnClockBtn').isVisible(),'Clock In shows when Sections is open');
+    await page.keyboard.press('Escape');
+    // Admins can delete an appointment after confirming.
+    await goSection('appointments');
+    const before=await page.locator('#apptTable [data-delete-appointment]').count();
+    assert.ok(before>0,'Admin sees delete actions');
+    page.once('dialog',d=>d.dismiss());
+    await page.locator('#apptTable [data-delete-appointment]').first().click();
+    assert.equal(await page.locator('#apptTable [data-delete-appointment]').count(),before,'Cancel keeps the appointment');
+    const target=await page.locator('#apptTable [data-delete-appointment]').first().getAttribute('data-delete-appointment');
+    page.once('dialog',d=>d.accept());
+    await page.locator('#apptTable [data-delete-appointment]').first().click();
+    await page.waitForFunction(id=>!document.querySelector('[data-delete-appointment="'+id+'"]'),target);
+    assert.ok(writes.some(w=>w.table==='appointments'&&w.deleted===target),'Delete reached appointments');
+    console.log('Management header, Sections tools, and appointment delete passed.');
+    await page.setViewportSize({width:1600,height:1050});
     assert.ok(await page.locator('#managementCurrentSection').isVisible());
     assert.equal(await page.locator('.workspaceMenuBtn, #workspaceNav').count(),0,'Management has one navigation system');
     assert.equal(await page.locator('.tnHeader #managementSectionsToggle').count(),1,'Sections occupies the header menu position');

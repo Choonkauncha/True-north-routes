@@ -6,7 +6,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 
 const root = path.resolve(import.meta.dirname, '..');
-const out = '/opt/cursor/artifacts';
+const out = process.env.ARTIFACTS || '/tmp/tn-artifacts';
 fs.mkdirSync(out, { recursive: true });
 const wavPath = path.join(out, 'voice-coach-mic.wav');
 fs.writeFileSync(wavPath, toneWav());
