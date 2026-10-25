@@ -797,6 +797,11 @@ function placeFieldOps(wrap) {
     if (wrap.parentElement !== managementSlot) managementSlot.appendChild(wrap);
     return;
   }
+  const phoneSlot = document.getElementById('phoneFieldOps');
+  if (phoneSlot && window.matchMedia('(max-width: 1100px)').matches) {
+    if (wrap.parentElement !== phoneSlot) phoneSlot.appendChild(wrap);
+    return;
+  }
   const workMenu = document.getElementById('tnMoreMenu');
   if (workMenu) {
     if (wrap.parentElement !== workMenu) workMenu.prepend(wrap);
@@ -1707,6 +1712,7 @@ async function boot() {
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && state.msgOpen) closeMessages();
 });
+document.addEventListener('tn-header-layout', syncMobileChrome);
 document.addEventListener('tn-panel-toggle', event => {
   if (event.detail?.id === 'shift-trail' && event.detail.collapsed === false) {
     scheduleShiftMapResize(240);

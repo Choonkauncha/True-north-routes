@@ -15,7 +15,8 @@
     "test:assistant": "node scripts/assistant-command.test.mjs && node scripts/assistant-intent-coverage.test.mjs && node scripts/live-coach.test.mjs && node scripts/map-assistant.test.mjs && node scripts/global-assistant.test.mjs && UI_ASSISTANT=1 node scripts/ui-smoke.cjs",
     "test:management": "node scripts/management-navigation.test.mjs && node scripts/management-workflows.test.mjs && UI_MANAGEMENT=1 node scripts/ui-smoke.cjs",
     "test:gps": "node scripts/gps-visits.test.mjs && node scripts/gps-api.test.mjs && node scripts/gps-sql.test.mjs && node scripts/location-sharing.test.mjs && node scripts/live-location.test.mjs && node scripts/users-gps-state.test.mjs",
-    "test:gps:browser": "node scripts/users-gps-browser.test.mjs"
+    "test:gps:browser": "node scripts/users-gps-browser.test.mjs",
+    "test:phone-headers": "UI_PHONE_HEADERS=1 node scripts/ui-smoke.cjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

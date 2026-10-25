@@ -59,6 +59,16 @@ try {
   for (const width of [1400,768,390,320]) {
     await page.setViewportSize({width,height:950});
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'GPS fits '+width+'px');
+    if(width<=1100) {
+      await page.locator('.phoneHomeLink').waitFor({state:'visible'});
+      assert.equal(await page.locator('.tnHeader .headerLinks').count(),0,'GPS page/account controls moved to Sections');
+      assert.ok(await page.locator('.phoneHomeLink').evaluate(el=>{const img=el.querySelector('img'),t=el.querySelector('span').getBoundingClientRect(),m=document.querySelector('.workspaceMenuBtn').getBoundingClientRect();return img.naturalWidth>0&&getComputedStyle(img).objectFit==='contain'&&t.right<=m.left;}),'GPS full brand fits '+width);
+      await page.locator('.workspaceMenuBtn').click();
+      assert.ok(await page.locator('#phoneSections .headerLinks a[href="/shifts.html"]').isVisible(),'GPS Shifts destination stays accessible');
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('.workspaceMenuBtn').getAttribute('aria-expanded'),'false');
+    }
+
     for(const selector of ['.gpsHeading h1','.gpsDetailHead h2','.gpsVisitsHead h3']) {
       const ratio=await page.locator(selector).evaluate(el=>{
         const lum=c=>(c.match(/[\d.]+/g)||[]).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);

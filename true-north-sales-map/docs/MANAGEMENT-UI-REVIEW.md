@@ -55,3 +55,15 @@ Team activity and Accounts, Training and My training, and Users GPS and Shifts s
 ## Limits
 
 No production write workflows were executed. Upload/save/send operations retain existing behavior and permissions. This is a presentation and accessibility pass; it does not change database schemas, tracking rules, account access or business logic. Remaining duplicate controls above require separate approval before removal.
+
+## Phone-header follow-up
+
+The initial review did not visually cover every connected page. The owner reported that Book inspection still showed the older phone header with Clock In/Messages and a cropped emblem. That page shared its header with account, forms, photos and shifts, rather than the Management header.
+
+The follow-up checks the header across all twelve Management tabs and the connected booking, account, roof-photo bank, photo capture, forms, standalone Documents, Training, Shifts, form-copy, GPS and map screens. Phone screenshots are visually reviewed, including Documents Library/builder/editor and Training status/editor. Reset/sign-in branding is checked separately because the authenticated header is intentionally hidden there.
+
+A shared phone header now displays the complete logo and company name, links home to the field map, and provides one labeled Sections button. Original Clock In, Messages, page search and account controls move into Sections on phone/tablet widths; their handlers, role gates and desktop placement are preserved. Training does not gain clock/message tools it previously lacked. No proposed feature removals have been made. GPS and form-copy use the same presentation while retaining their independent page logic. Page-search focus returns to Sections when its original trigger is inside the closed menu.
+
+Verification uses isolated synthetic data at 320, 390, 430 and 768px, plus desktop restoration, opening Messages without sending, keyboard dismissal, role/permission refresh, map and GPS menus, and full-logo bounding checks. `npm run test:phone-headers` runs the expanded suite and captures internal review screenshots.
+
+The broader map smoke suite passes the header/viewport checks but times out later during route-stop cleanup. The same timeout reproduces on the unchanged pre-follow-up commit. This header change does not change route selection or cleanup behavior.

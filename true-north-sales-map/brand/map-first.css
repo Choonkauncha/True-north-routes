@@ -192,3 +192,5 @@ body.tn-map-workspace .routeModeToggle{flex-shrink:0;align-self:stretch;width:10
 }
 
 body.tn-map-workspace #listSheet[data-route-ready] #startRouteBtn{color:#fff!important}
+
+body.tn-map-workspace .topbar>a.brand{text-decoration:none;color:inherit}
