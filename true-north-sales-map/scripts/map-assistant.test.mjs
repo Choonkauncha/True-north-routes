@@ -75,7 +75,7 @@ for (const toolCall of [{ name: 'build_route', args: { count: 12 } }, { name: 'c
   assert.equal((await handleVoiceAction(request(toolCall), options)).status, 403);
 }
 
-// 2. Playwright browser verification of minimalist single-sentence Orb HUD, Tap-to-Start, 4 Contextual Action Words, and Expanded Capabilities
+// 2. Playwright browser verification of single-sentence inline translucent HUD, Tap-to-Start, and Expanded Capabilities
 assert.deepEqual(clampOrbPosition(-40, 9999, 390, 844, 82), { x: 8, y: 754 });
 
 const root = process.cwd();
@@ -119,8 +119,10 @@ try {
     await page.goto(`${base}/account.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#tnMapAssistant .mapAssistantLauncher canvas');
 
-    // No legacy popup card or extra control button row exists
+    // No legacy popup card, no separate button grid, no colored dots, no extra control buttons
     assert.equal(await page.locator('.mapAssistantPanel').count(), 0, 'legacy popup module must not exist');
+    assert.equal(await page.locator('.mapAssistantWords').count(), 0, 'no separate 2x2 button grid below whisper');
+    assert.equal(await page.locator('.mapAssistantWordDot').count(), 0, 'no colored legend dots');
     assert.equal(await page.locator('#tnMapAssistant [data-pause], #tnMapAssistant [data-end], #tnMapAssistant [data-close]').count(), 0, 'no extra control button chrome');
     assert.equal(await page.locator('#tnMapAssistantHud').isVisible(), false, 'HUD starts hidden until tap-to-start');
     assert.equal(await page.locator('[data-tap-hint]').textContent(), 'Tap to start');
@@ -137,36 +139,40 @@ try {
     assert.ok(moved.x < box.x && moved.y < box.y, 'orb can be dragged across the screen');
     assert.equal(await page.locator('#tnMapAssistantHud').isVisible(), false, 'dragging must not open HUD');
 
-    // Tap-to-start opens the minimalist HUD with Sentence 1 first and 0 action words revealed yet
+    // Tap-to-start opens the minimalist HUD with Sentence 1 first and hides the tap hint badge
     await page.click('#tnMapAssistant .mapAssistantLauncher');
     await page.waitForSelector('#tnMapAssistantHud', { state: 'visible' });
+    assert.equal(await page.locator('[data-tap-hint]').isVisible(), false, 'no LISTENING badge when active');
     assert.equal(await page.locator('[data-whisper-text]').textContent(), "Hi, I'm your True North assistant.");
-    assert.equal(await page.locator('.mapAssistantWord[data-revealed="true"]').count(), 0, 'no action words on step 1');
+    assert.equal(await page.locator('[data-whisper-text] .mapAssistantWord').count(), 0, 'no inline buttons on step 1');
 
-    // Sentence 2 reveals the first 2 contextual action words, then Sentence 3 reveals the next 2 (total 4 compact pills)
-    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent === 'I can build your route or find priority leads.');
-    assert.equal(await page.locator('.mapAssistantWord[data-revealed="true"]').count(), 2);
+    // Sentence 2 renders inline translucent action words inside the single sentence
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.dataset.step === '2');
+    assert.equal(await page.locator('[data-whisper-text] .mapAssistantWord').count(), 2, '2 inline action buttons inside sentence 2');
 
-    await page.waitForFunction(() => {
-      const words = [...document.querySelectorAll('#tnMapAssistant .mapAssistantWord')];
-      return words.length === 4 && words.every(w => w.dataset.revealed === 'true' && w.classList.contains('isRevealed'));
-    });
+    // Sentence 3 replaces Sentence 2 with its own 2 inline action words (not accumulated)
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.dataset.step === '3');
+    assert.equal(await page.locator('[data-whisper-text] .mapAssistantWord').count(), 2, 'only sentence 3 inline action buttons on screen');
+
+    // Sentence 4 rests with 3 inline compact action words inside the single sentence
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.dataset.step === '4');
+    assert.equal(await page.locator('[data-whisper-text] .mapAssistantWord').count(), 3, '3 inline action buttons on resting prompt');
 
     const hudBox = await page.locator('#tnMapAssistantHud').boundingBox();
     assert.ok(hudBox.x >= 0 && hudBox.y >= 0 && hudBox.x + hudBox.width <= viewport.width && hudBox.y + hudBox.height <= viewport.height, 'HUD stays within viewport after drag');
 
-    // Verify translucent glassmorphism on whisper pill and action words
+    // Verify translucent glassmorphism on whisper pill and inline action words
     const wordStyle = await page.locator('.mapAssistantWord').first().evaluate(el => {
       const cs = getComputedStyle(el);
       return { backdrop: cs.backdropFilter || cs.webkitBackdropFilter };
     });
-    assert.match(wordStyle.backdrop, /blur/i, 'action words use translucent glassmorphic blur');
+    assert.match(wordStyle.backdrop, /blur/i, 'inline action words use translucent glassmorphic blur');
 
     // Tapping the orb again stops/closes the HUD cleanly
     await page.click('#tnMapAssistant .mapAssistantLauncher');
     assert.equal(await page.locator('#tnMapAssistantHud').isVisible(), false);
 
-    // Mount with authenticated map context and verify expanded capabilities via translucent action words & spoken intents
+    // Mount with authenticated map context and verify inline action words & spoken intents
     await page.evaluate(async () => {
       const { mountMapAssistant } = await import('/tn-files/map-assistant.js');
       window.__calls = [];
@@ -188,18 +194,19 @@ try {
 
     await page.click('#tnMapAssistant .mapAssistantLauncher');
     await page.waitForSelector('#tnMapAssistantHud', { state: 'visible' });
+    await page.waitForSelector('[data-whisper-text] [data-command="build_route"]');
+    await page.click('[data-whisper-text] [data-command="build_route"]');
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent === 'Built a 6-stop route (~35 min).');
+    assert.equal(await page.locator('#tnMapAssistant .mapAssistantWord').count(), 0, 'all inline buttons disappear when result sentence shows');
 
-    await page.waitForSelector('[data-command="build_route"].isRevealed');
-    await page.click('[data-command="build_route"]');
-    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('Built a 6-stop route'));
-
-    await page.click('[data-command="find_priority_leads"]');
+    // Voice/spoken commands execute all other expanded capabilities while keeping a single result sentence
+    await page.evaluate(() => window.__assistant.runSpokenText('Find 12 priority leads'));
     await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('Selected 12 priority leads'));
+    assert.equal(await page.locator('#tnMapAssistant .mapAssistantWord').count(), 0);
 
-    await page.click('[data-action-word="log_answered"]');
+    await page.evaluate(() => window.__assistant.runSpokenText('Log answered'));
     await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('Logged Answered at 412 Oak St'));
 
-    // Voice/spoken commands execute all other expanded capabilities while keeping the single-sentence HUD
     await page.evaluate(() => window.__assistant.runSpokenText('Show untouched homes'));
     await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('Showing 19 new houses'));
 
@@ -220,4 +227,4 @@ try {
   await browser.close();
   server.close();
 }
-console.log('Map assistant: minimalist single-sentence HUD, 4 contextual action words, tap-to-start, and expanded capabilities passed');
+console.log('Map assistant: single-sentence inline translucent HUD, tap-to-start, and expanded capabilities passed');

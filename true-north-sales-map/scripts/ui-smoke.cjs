@@ -699,31 +699,27 @@ const server = http.createServer(async (req, res) => {
       await page.screenshot({path:path.join(shotsDir,'orb-idle-mobile.png')});
       await page.setViewportSize({width:1440,height:900});await page.waitForTimeout(200);
     }
-    if(shotsDir){await page.setViewportSize({width:390,height:844});await page.waitForTimeout(150);}
+    if(shotsDir){await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);}
     await page.locator('#tnMapAssistant .mapAssistantLauncher').click();
     await page.locator('#tnMapAssistantHud').waitFor({state:'visible'});
     if(shotsDir){
-      await page.waitForTimeout(380);
-      await page.screenshot({path:path.join(shotsDir,'orb-minimal-step1-mobile.png')});
-      await page.setViewportSize({width:1440,height:900});
+      await page.waitForTimeout(360);
+      await page.screenshot({path:path.join(shotsDir,'orb-v3-step1-mobile.png')});
     }
     await page.waitForFunction(()=>window.testLive?.sent?.some(s=>s.setup));
-    await page.waitForFunction(()=>{const w=[...document.querySelectorAll('#tnMapAssistant .mapAssistantWord')];return w.length===4&&w.every(el=>el.dataset.revealed==='true');});
+    await page.waitForFunction(()=>document.querySelector('[data-whisper-text]')?.dataset.step==='2');
     if(shotsDir){
-      await page.waitForTimeout(1250);
-      await page.screenshot({path:path.join(shotsDir,'orb-minimal-active-desktop.png')});
-      await page.setViewportSize({width:390,height:844});await page.waitForTimeout(350);
-      await page.screenshot({path:path.join(shotsDir,'orb-minimal-active-mobile.png')});
+      await page.waitForTimeout(360);
+      await page.screenshot({path:path.join(shotsDir,'orb-v3-step2-mobile.png')});
       await page.setViewportSize({width:1440,height:900});await page.waitForTimeout(200);
+      await page.screenshot({path:path.join(shotsDir,'orb-v3-desktop.png')});
     }
     await page.locator('#tnMapAssistant [data-command="build_route"]').click();
     await page.waitForFunction(()=>window.__tnRoute.stops().length>0);
     await page.locator('#tnMapAssistant [data-result]').filter({hasText:'Built a 20-stop route'}).waitFor();
     if(shotsDir){
-      await page.waitForTimeout(380);
-      await page.screenshot({path:path.join(shotsDir,'orb-minimal-action-desktop.png')});
-      await page.setViewportSize({width:390,height:844});await page.waitForTimeout(350);
-      await page.screenshot({path:path.join(shotsDir,'orb-minimal-action-mobile.png')});
+      await page.setViewportSize({width:390,height:844});await page.waitForTimeout(380);
+      await page.screenshot({path:path.join(shotsDir,'orb-v3-action-mobile.png')});
       await page.setViewportSize({width:1440,height:900});await page.waitForTimeout(200);
     }
     const built=await page.evaluate(()=>window.__tnRoute.stops().length);assert.equal(built,20);
