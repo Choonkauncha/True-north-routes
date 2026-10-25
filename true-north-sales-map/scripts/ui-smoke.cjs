@@ -838,7 +838,7 @@ const server = http.createServer(async (req, res) => {
           this.readyState=0;this.sent=[];window.testLive=this;
           setTimeout(()=>{this.readyState=1;this.onopen?.();},0);
         }
-        send(raw){const data=JSON.parse(raw);this.sent.push(data);if(data.setup)setTimeout(()=>this.receive({setupComplete:{}}),0);}
+        send(raw){const data=JSON.parse(raw);this.sent.push(data);if(data.setup)setTimeout(()=>this.receive({setupComplete:{}}),0);if(data.clientContent)setTimeout(()=>this.receive({serverContent:{modelTurn:{parts:[{inlineData:{data:'AAA='}}]},outputTranscription:{text:"Hi, I'm your True North assistant."}}}),20);}
         receive(data){this.onmessage?.({data:JSON.stringify(data)});}
         close(){this.readyState=3;this.onclose?.({code:1000});}
       }

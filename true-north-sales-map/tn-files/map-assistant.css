@@ -74,6 +74,7 @@
 }
 
 .mapAssistantRoot.isActive .mapAssistantLauncher::before,
+.mapAssistantLauncher[data-voice-state="connecting"]::before,
 .mapAssistantLauncher[data-voice-state="listening"]::before,
 .mapAssistantLauncher[data-voice-state="speaking"]::before,
 .mapAssistantLauncher[data-voice-state="working"]::before {
@@ -300,6 +301,7 @@
 }
 
 .mapAssistantRoot.isActive .mapAssistantLiveDot,
+.mapAssistantLauncher[data-voice-state="connecting"] .mapAssistantLiveDot,
 .mapAssistantLauncher[data-voice-state="listening"] .mapAssistantLiveDot,
 .mapAssistantLauncher[data-voice-state="speaking"] .mapAssistantLiveDot,
 .mapAssistantLauncher[data-voice-state="working"] .mapAssistantLiveDot {

@@ -116,7 +116,9 @@ export function createLiveCoach(ctx, { onState, onTranscript, onError, onExpires
 
   function playAudio(value) {
     if (stopped || paused || !outputContext || !value) return;
+    if (outputContext.state === 'suspended') outputContext.resume?.().catch(() => {});
     const pcm = base64ToPcm16(value);
+    if (!pcm.length) return;
     const buffer = outputContext.createBuffer(1, pcm.length, OUTPUT_RATE);
     const channel = buffer.getChannelData(0);
     for (let i = 0; i < pcm.length; i += 1) channel[i] = pcm[i] / 32768;

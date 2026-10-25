@@ -172,6 +172,53 @@ try {
     await page.click('#tnMapAssistant .mapAssistantLauncher');
     assert.equal(await page.locator('#tnMapAssistantHud').isVisible(), false);
 
+    // Verify dialogue stays hidden while agent is loading/connecting and only starts appearing when the agent actually starts talking
+    await page.evaluate(async () => {
+      const NativeSocket = window.WebSocket;
+      class ControlledLiveSocket {
+        static OPEN = 1;
+        constructor(url) {
+          if (!String(url).includes("BidiGenerateContentConstrained")) return new NativeSocket(url);
+          this.readyState = 0;
+          this.sent = [];
+          window.__controlledLive = this;
+          setTimeout(() => { this.readyState = 1; this.onopen?.(); }, 10);
+        }
+        send(raw) {
+          const data = JSON.parse(raw);
+          this.sent.push(data);
+        }
+        receive(data) {
+          this.onmessage?.({ data: JSON.stringify(data) });
+        }
+        close() {
+          this.readyState = 3;
+          this.onclose?.({ code: 1000 });
+        }
+      }
+      window.WebSocket = ControlledLiveSocket;
+      const origFetch = window.fetch.bind(window);
+      window.fetch = async (url, opts) => {
+        if (String(url).includes("/api/live-token")) {
+          await new Promise(r => setTimeout(r, 120));
+          return new Response(JSON.stringify({
+            token: "test-ephemeral-token",
+            model: "gemini-3.8-live",
+            voice: "Kore",
+            expiresAt: new Date(Date.now() + 600000).toISOString(),
+            systemInstruction: "Test map assistant."
+          }), { status: 200, headers: { "content-type": "application/json" } });
+        }
+        return origFetch(url, opts);
+      };
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: {
+          getUserMedia: async () => new AudioContext().createMediaStreamDestination().stream
+        }
+      });
+    });
+
     // Mount with authenticated map context and verify inline action words & spoken intents
     await page.evaluate(async () => {
       const { mountMapAssistant } = await import('/tn-files/map-assistant.js');
@@ -193,7 +240,25 @@ try {
     });
 
     await page.click('#tnMapAssistant .mapAssistantLauncher');
+    // Immediately after tap, while loading/connecting before the agent talks, the dialogue HUD MUST stay hidden
+    assert.equal(await page.locator('#tnMapAssistantHud').isVisible(), false, 'dialogue must not appear before agent is loaded and talking');
+    assert.equal(await page.locator('#tnMapAssistant .mapAssistantLauncher').getAttribute('data-voice-state'), 'connecting');
+    await page.waitForFunction(() => window.__controlledLive?.sent?.some(s => s.setup));
+    // Even after WebSocket setupComplete + mic start, before the agent actually speaks, dialogue is still hidden
+    await page.evaluate(() => window.__controlledLive.receive({ setupComplete: {} }));
+    await page.waitForFunction(() => window.__controlledLive?.sent?.some(s => s.clientContent));
+    assert.equal(await page.locator('#tnMapAssistantHud').isVisible(), false, 'dialogue remains hidden until agent actually starts talking');
+    // Now the agent starts talking (audio modelTurn + streaming outputTranscription)
+    await page.evaluate(() => {
+      window.__controlledLive.receive({
+        serverContent: {
+          modelTurn: { parts: [{ inlineData: { data: 'AAA=' } }] },
+          outputTranscription: { text: 'Hi, ' }
+        }
+      });
+    });
     await page.waitForSelector('#tnMapAssistantHud', { state: 'visible' });
+    assert.equal(await page.locator('[data-whisper-text]').textContent(), "Hi, I'm your True North assistant.");
     await page.waitForSelector('[data-whisper-text] [data-command="build_route"]');
     await page.click('[data-whisper-text] [data-command="build_route"]');
     await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent === 'Built a 6-stop route (~35 min).');
