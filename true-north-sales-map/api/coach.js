@@ -4,7 +4,7 @@ import { needsPasswordGate } from '../lib/must-change-password.js';
 import { buildCoachSnapshot, coachRoleAllowed, coachWindow, coachGreeting } from '../lib/coach.js';
 import { recentOhioStorms } from '../lib/ohio-storms.js';
 import { buildCoachSnapshot as freshSnapshot } from '../lib/coach.js';
-import { validateMapTool, normalizeToolCall } from '../lib/voice-tools.js';
+import { validateMapTool, normalizeToolCall, ROUTE_TOOL_NAMES } from '../lib/voice-tools.js';
 import { planVoiceAction } from '../lib/voice-actions.js';
 
 const json=(body,status=200,headers={})=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json','cache-control':'private, no-store','vary':'Authorization',...headers}});
@@ -113,7 +113,16 @@ export async function handleVoiceAction(request,{env=process.env,fetchImpl=fetch
         await requireFeature(request,'weather',{env,fetchImpl});
         return json(await recentOhioStorms({days:call.args.days,fetchImpl}));
       }
-      await requireFeature(request,'routes',{env,fetchImpl});
+      if(ROUTE_TOOL_NAMES.has(call.name)) await requireFeature(request,'routes',{env,fetchImpl});
+      else if(call.name==='book_inspection') await requireFeature(request,'intake',{env,fetchImpl});
+      else if(call.name==='open_lead_form') await requireFeature(request,'forms',{env,fetchImpl});
+      else if(call.name==='clock_shift') await requireFeature(request,'shifts',{env,fetchImpl});
+      else if(call.name==='navigate_app'){
+        const target=call.args.target;
+        if(target==='admin'&&!['admin','manager','owner'].includes(ctx.rep.role))throw fail('Management access requires an admin or manager profile.',403);
+        const featureMap={setter:'intake',forms:'forms',shifts:'shifts',training:'training',account:'account'};
+        if(featureMap[target]) await requireFeature(request,featureMap[target],{env,fetchImpl});
+      }
       return json({authorized:true,actorId:ctx.userId,execute:call});
     }
     const action=normalizeToolCall(body?.toolCall);

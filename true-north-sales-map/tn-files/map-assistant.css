@@ -1,28 +1,488 @@
-.mapAssistant{position:fixed;right:18px;bottom:calc(22px + env(safe-area-inset-bottom));z-index:2147483000;display:flex;flex-direction:column;align-items:flex-end;gap:10px;pointer-events:none}.mapAssistant>*{pointer-events:auto}.mapAssistantLauncher{width:82px;height:82px;border-radius:50%;border:1px solid #77dce966;background:radial-gradient(circle,#092d43,#07111e);box-shadow:0 8px 28px #00162c66,0 0 20px #3bdcfa33;cursor:pointer;position:relative;overflow:hidden}.mapAssistantLauncher canvas{display:block;width:100%;height:100%}.mapAssistantLauncher:focus-visible{outline:3px solid #24bcf4;outline-offset:4px}.mapAssistantOrbFallback{display:none}.tnCoachOrbFallback .mapAssistantOrbFallback{display:grid;place-items:center;height:100%;font-size:38px;color:#5fe3ec}.mapAssistantLauncher[data-voice-state=listening]{border-color:#3dd9ca}.mapAssistantLauncher[data-voice-state=speaking]{border-color:#68b7ff}.mapAssistantPanel{width:min(330px,calc(100vw - 28px));background:#f9fcff;border:1px solid #dbe7ed;border-radius:18px;padding:16px;box-shadow:0 16px 50px #07162644;color:#172b40;font-size:14px;line-height:1.45}.mapAssistantPanel[hidden]{display:none}.mapAssistantPanel header{display:flex;align-items:center;justify-content:space-between}.mapAssistantPanel header button{background:none;border:0;font-size:25px;cursor:pointer}.mapAssistantPanel p{margin:10px 0}.mapAssistantDisclosure{font-size:12px;color:#5b6c7a}.mapAssistantActions{display:flex;gap:8px}.mapAssistantActions button{padding:10px 14px;border-radius:9px;border:1px solid #c6d6e1;background:#edf6ff;cursor:pointer;min-height:44px}.mapAssistantResult{max-height:210px;overflow:auto;border-top:1px solid #dbe7ed;padding-top:10px}.mapAssistantResult a{color:#125da1}.clusterMenu{display:grid;gap:9px;min-width:190px}.clusterMenu button{padding:10px;border:1px solid #cfdae5;border-radius:9px;background:#f1f7ff;color:#132b40;cursor:pointer;min-height:44px}.clusterMenu button:first-of-type{background:#0767d9;color:white}.isNavigating .mapAssistant{bottom:calc(122px + env(safe-area-inset-bottom))}@media(max-width:700px){.mapAssistant{right:10px;bottom:calc(88px + env(safe-area-inset-bottom))}.mapAssistantLauncher{width:64px;height:64px}.mapAssistantPanel{max-height:55dvh;overflow:auto}.sheet-open .mapAssistantPanel{max-height:40dvh}.isNavigating .mapAssistant{bottom:calc(138px + env(safe-area-inset-bottom))}}
+.mapAssistant,
+.mapAssistantRoot {
+  position: fixed;
+  right: 18px;
+  bottom: calc(22px + env(safe-area-inset-bottom));
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #eef8ff;
+  pointer-events: none;
+  user-select: none;
+}
 
-@media print{.mapAssistant{display:none!important}}
+.mapAssistantLauncher,
+.mapAssistantWhisper,
+.mapAssistantWord {
+  pointer-events: auto;
+}
 
-.mapAssistantPanel{position:absolute;bottom:calc(100% + 10px);right:0}
-.mapAssistant.orbPanelLeft .mapAssistantPanel{left:0;right:auto}
-.mapAssistant.orbPanelBelow .mapAssistantPanel{top:calc(100% + 10px);bottom:auto}
-.mapAssistantLauncher{touch-action:none;cursor:grab;background:radial-gradient(circle at 35% 28%,#102d45cc,#03121bcc)}
-.mapAssistantLauncher:active{cursor:grabbing}
+.mapAssistantLauncher {
+  width: 78px;
+  height: 78px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0 !important;
+  background: radial-gradient(circle, rgba(9, 37, 56, 0.34), transparent 72%) !important;
+  box-shadow: none !important;
+  cursor: grab;
+  touch-action: none;
+  position: relative;
+  overflow: visible;
+  isolation: isolate;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), filter 0.22s ease;
+}
 
-/* The launcher is the mesh itself, with audio-driven light rather than a static icon. */
-.mapAssistantLauncher{width:76px;height:76px;padding:0;border:0!important;background:radial-gradient(circle,#09253844,transparent 70%)!important;box-shadow:none!important;overflow:visible;isolation:isolate}
-.mapAssistantLauncher::before{content:"";position:absolute;inset:17%;border-radius:50%;background:#20cff4;filter:blur(16px);opacity:calc(.1 + var(--orb-energy,0)*.5);z-index:-1}
-.mapAssistantLauncher canvas{width:100%;height:100%;border-radius:50%;filter:drop-shadow(0 0 5px #36c9f34d)}
-.mapAssistantLiveDot{display:none;position:absolute;width:7px;height:7px;background:#4ce4b4;border:2px solid #07182c;border-radius:50%;right:10px;bottom:9px}
-.mapAssistantLauncher[data-voice-state=listening] .mapAssistantLiveDot,.mapAssistantLauncher[data-voice-state=speaking] .mapAssistantLiveDot{display:block}
-.mapAssistantLauncher[data-voice-state=working]{filter:drop-shadow(0 0 7px #529cff)}
-.mapAssistantPanel{box-sizing:border-box;width:min(352px,calc(100vw - 24px));padding:18px;background:#0c1c30;color:#edf7ff;border:1px solid #395369;border-radius:20px;box-shadow:0 16px 54px #0007;max-height:70dvh;overflow:auto}
-.mapAssistantPanel header{padding-bottom:10px;align-items:flex-start}.mapAssistantPanel header b{display:block;font-size:20px;letter-spacing:-.4px}.mapAssistantPanel header button{color:#c6deef;min-width:40px;min-height:40px;line-height:1}
-.mapAssistantEyebrow{font-size:10px;letter-spacing:1.5px;color:#89b4ce;display:block;font-weight:700}.mapAssistantPanel>p{color:#b6cedf;font-size:13px}.mapAssistantPresence{display:flex;align-items:center;gap:8px;color:#a9e8ed;font-size:12px;min-height:30px}.mapAssistantPresence i{width:6px;height:6px;border-radius:50%;background:#69cfdc;flex:none}
-.mapAssistantActions button,.mapAssistantCommands button{box-sizing:border-box;min-height:44px;border:1px solid #35506a;border-radius:10px;background:#162d45;color:#e6f5ff;padding:10px;font:inherit;font-size:13px;cursor:pointer}
-.mapAssistantActions [data-start]{flex:1;background:#45d3e6;color:#09213b;border-color:#45d3e6;font-weight:750}.mapAssistantCommands{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mapAssistantCommands button:hover{background:#254763}.mapAssistantCommands [data-command=clear_route]{color:#f5bcb6}
-.mapAssistantPanel button:disabled{opacity:.45;cursor:wait}.mapAssistantPanel button[hidden]{display:none}.mapAssistantPanel button:focus-visible{outline:2px solid #65e6ff;outline-offset:3px}.mapAssistantResult{border:1px solid #31516a;background:#102a40;border-radius:10px;padding:12px;font-size:13px;color:#c9f4ed;margin-top:14px}.mapAssistantResult[data-result=error]{color:#ffd0c9;background:#3c242c}.mapAssistantPanel .mapAssistantDisclosure{font-size:10px;color:#8da9bd;line-height:1.5;margin-bottom:0}.mapAssistantCaption{font-size:12px;max-height:60px;overflow:auto;color:#a9bfce}.mapAssistantResult a{color:#7ce5f4}
-@media(max-width:700px){.mapAssistantLauncher{width:64px;height:64px}.mapAssistantPanel{max-height:65dvh}.sheet-open .mapAssistantPanel{max-height:55dvh}}
-@media(prefers-reduced-motion:reduce){.mapAssistantLauncher canvas{filter:none}}
-body .mapAssistantPanel>p{color:#b6cedf;font-size:13px;line-height:1.5}
-body .mapAssistantPanel .mapAssistantEyebrow{font-size:10px;color:#89b4ce;letter-spacing:1.5px}
-body .mapAssistantPanel .mapAssistantDisclosure{font-size:10px;color:#8da9bd;line-height:1.5}
+.mapAssistantLauncher:active {
+  cursor: grabbing;
+  transform: scale(0.95);
+}
+
+.mapAssistantLauncher::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: #20cff4;
+  filter: blur(16px);
+  opacity: calc(0.14 + var(--orb-energy, 0) * 0.56);
+  z-index: -1;
+  transition: opacity 0.2s ease;
+}
+
+.mapAssistantRoot.isActive .mapAssistantLauncher::before {
+  opacity: calc(0.28 + var(--orb-energy, 0) * 0.62);
+}
+
+.mapAssistantLauncher canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 8px rgba(54, 201, 243, 0.38));
+}
+
+.mapAssistantLauncher:focus-visible {
+  outline: 2px solid #24bcf4;
+  outline-offset: 4px;
+}
+
+.mapAssistantOrbFallback {
+  display: none;
+}
+
+.tnCoachOrbFallback .mapAssistantOrbFallback {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 38px;
+  color: #5fe3ec;
+}
+
+.mapAssistantLiveDot {
+  display: none;
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #4ce4b4;
+  border: 2px solid #07182c;
+  border-radius: 50%;
+  right: 9px;
+  top: 9px;
+  box-shadow: 0 0 10px #4ce4b4;
+}
+
+.mapAssistantLauncher[data-voice-state="listening"] .mapAssistantLiveDot,
+.mapAssistantLauncher[data-voice-state="speaking"] .mapAssistantLiveDot,
+.mapAssistantRoot.isActive .mapAssistantLiveDot {
+  display: block;
+}
+
+.mapAssistantLauncher[data-voice-state="working"] {
+  filter: drop-shadow(0 0 10px #529cff);
+}
+
+.mapAssistantTapHint {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(6, 15, 30, 0.72);
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  border: 1px solid rgba(125, 211, 252, 0.34);
+  color: #bae6fd;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(2, 8, 20, 0.42);
+  pointer-events: none;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.mapAssistantRoot.isActive .mapAssistantTapHint {
+  background: rgba(8, 47, 73, 0.84);
+  border-color: rgba(56, 189, 248, 0.72);
+  color: #e0f2fe;
+}
+
+/* Futuristic minimal floating HUD (replaces legacy popup panel) */
+.mapAssistantHud {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  width: min(344px, calc(100vw - 20px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  background: transparent;
+  pointer-events: none;
+  transform: translateX(var(--hud-shift-x, 0px));
+  z-index: 2;
+}
+
+.mapAssistantHud[hidden] {
+  display: none !important;
+}
+
+.mapAssistant.orbHudLeft .mapAssistantHud,
+.mapAssistant.orbPanelLeft .mapAssistantHud {
+  left: 0;
+  right: auto;
+  align-items: flex-start;
+}
+
+.mapAssistant.orbHudBelow .mapAssistantHud,
+.mapAssistant.orbPanelBelow .mapAssistantHud {
+  top: calc(100% + 12px);
+  bottom: auto;
+  flex-direction: column-reverse;
+}
+
+/* Minimal translucent whisper capsule */
+.mapAssistantWhisper {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 13px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(8, 19, 36, 0.64), rgba(5, 12, 24, 0.50));
+  backdrop-filter: blur(18px) saturate(165%);
+  -webkit-backdrop-filter: blur(18px) saturate(165%);
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  box-shadow:
+    0 14px 34px rgba(2, 8, 22, 0.44),
+    0 0 22px rgba(56, 189, 248, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.mapAssistantWhisperTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.mapAssistantBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #bae6fd;
+}
+
+.mapAssistantPulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #38bdf8;
+  box-shadow: 0 0 10px #38bdf8;
+  animation: tnOrbHudPulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.mapAssistantBadge[data-state="speaking"] .mapAssistantPulseDot {
+  background: #67e8f9;
+  box-shadow: 0 0 14px #67e8f9;
+}
+
+.mapAssistantBadge[data-state="working"] .mapAssistantPulseDot {
+  background: #fbbf24;
+  box-shadow: 0 0 12px #fbbf24;
+}
+
+.mapAssistantBadge[data-state="error"] .mapAssistantPulseDot {
+  background: #fb7185;
+  box-shadow: 0 0 12px #fb7185;
+}
+
+@keyframes tnOrbHudPulse {
+  0%, 100% { transform: scale(1); opacity: 0.95; }
+  50% { transform: scale(1.28); opacity: 0.55; }
+}
+
+.mapAssistantWhisperControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mapAssistantMicroBtn {
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: rgba(15, 23, 42, 0.48);
+  color: #cbd5e1;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.mapAssistantMicroBtn[hidden] {
+  display: none !important;
+}
+
+.mapAssistantMicroBtn:hover {
+  background: rgba(30, 41, 59, 0.72);
+  border-color: rgba(125, 211, 252, 0.45);
+  color: #f8fafc;
+}
+
+.mapAssistantCaption {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.42;
+  font-weight: 500;
+  color: rgba(240, 249, 255, 0.94);
+  text-shadow: 0 1px 8px rgba(2, 8, 20, 0.65);
+}
+
+.mapAssistantResult {
+  margin: 7px 0 0;
+  padding: 6px 10px;
+  border-radius: 11px;
+  background: rgba(14, 116, 144, 0.28);
+  border: 1px solid rgba(103, 232, 249, 0.36);
+  color: #e0f2fe;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  max-height: 150px;
+  overflow: auto;
+}
+
+.mapAssistantResult[hidden] {
+  display: none !important;
+}
+
+.mapAssistantResult a {
+  color: #7ce5f4;
+}
+
+.mapAssistantResult.isError,
+.mapAssistantResult[data-result="error"] {
+  background: rgba(159, 18, 57, 0.34);
+  border-color: rgba(251, 113, 133, 0.48);
+  color: #ffe4e6;
+}
+
+/* Futuristic minimal translucent action word chips */
+.mapAssistantWords {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.mapAssistant.orbHudLeft .mapAssistantWords,
+.mapAssistant.orbPanelLeft .mapAssistantWords {
+  justify-content: flex-start;
+}
+
+.mapAssistantWord {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(8, 19, 36, 0.56);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  box-shadow:
+    0 8px 22px rgba(2, 8, 22, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: #f0f9ff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(10px) scale(0.92);
+  filter: blur(4px);
+  pointer-events: none;
+  transition:
+    opacity 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.26s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.mapAssistantWord.isRevealed,
+.mapAssistantWord[data-revealed="true"] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+  pointer-events: auto;
+}
+
+.mapAssistantWord:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.mapAssistantWordDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.85);
+  flex-shrink: 0;
+}
+
+.mapAssistantWord[data-tone="primary"] {
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.62), rgba(8, 25, 48, 0.68));
+  border-color: rgba(103, 232, 249, 0.55);
+}
+
+.mapAssistantWord[data-tone="primary"] .mapAssistantWordDot {
+  background: #67e8f9;
+  box-shadow: 0 0 10px #67e8f9;
+}
+
+.mapAssistantWord[data-tone="emerald"] {
+  border-color: rgba(52, 211, 153, 0.38);
+}
+
+.mapAssistantWord[data-tone="emerald"] .mapAssistantWordDot {
+  background: #34d399;
+  box-shadow: 0 0 9px rgba(52, 211, 153, 0.85);
+}
+
+.mapAssistantWord[data-tone="amber"] {
+  border-color: rgba(251, 191, 36, 0.38);
+}
+
+.mapAssistantWord[data-tone="amber"] .mapAssistantWordDot {
+  background: #fbbf24;
+  box-shadow: 0 0 9px rgba(251, 191, 36, 0.85);
+}
+
+.mapAssistantWord[data-tone="danger"] {
+  border-color: rgba(251, 113, 133, 0.36);
+}
+
+.mapAssistantWord[data-tone="danger"] .mapAssistantWordDot {
+  background: #fb7185;
+  box-shadow: 0 0 9px rgba(251, 113, 133, 0.85);
+}
+
+.mapAssistantWord:hover,
+.mapAssistantWord:focus-visible {
+  background: rgba(14, 34, 62, 0.76);
+  border-color: rgba(125, 211, 252, 0.68);
+  box-shadow:
+    0 10px 26px rgba(2, 8, 22, 0.48),
+    0 0 16px rgba(56, 189, 248, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px) scale(1.02);
+  outline: none;
+}
+
+.mapAssistantWord.isRunning {
+  background: rgba(14, 116, 144, 0.72);
+  border-color: #67e8f9;
+  box-shadow: 0 0 20px rgba(103, 232, 249, 0.45);
+}
+
+.clusterMenu {
+  display: grid;
+  gap: 9px;
+  min-width: 190px;
+}
+
+.clusterMenu button {
+  padding: 10px;
+  border: 1px solid #cfdae5;
+  border-radius: 9px;
+  background: #f1f7ff;
+  color: #132b40;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.clusterMenu button:first-of-type {
+  background: #0767d9;
+  color: white;
+}
+
+.isNavigating .mapAssistant {
+  bottom: calc(122px + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 700px) {
+  .mapAssistant {
+    right: 10px;
+    bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+  .mapAssistantLauncher {
+    width: 66px;
+    height: 66px;
+  }
+  .mapAssistantHud {
+    width: min(332px, calc(100vw - 20px));
+    gap: 8px;
+  }
+  .mapAssistantWord {
+    padding: 6px 10px;
+    font-size: 11.5px;
+  }
+  .mapAssistantWhisper {
+    padding: 9px 11px;
+  }
+  .isNavigating .mapAssistant {
+    bottom: calc(138px + env(safe-area-inset-bottom));
+  }
+}
+
+@media print {
+  .mapAssistant {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mapAssistantLauncher canvas {
+    filter: none;
+  }
+}

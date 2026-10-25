@@ -3685,7 +3685,7 @@ begin;
 
 create or replace function public.is_active_admin() returns boolean
 language sql stable security definer set search_path=public as $$
-  select public.session_ready() and exists(
+  select exists(
     select 1 from public.reps where user_id = auth.uid() and active and role = 'admin'
   );
 $$;
