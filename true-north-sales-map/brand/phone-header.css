@@ -1,0 +1,34 @@
+.phoneHomeLink,.phoneMenuTools,.phoneMenuActions{display:none}
+@media(max-width:1100px){
+ body.tn-phone-header{--workspace-header:64px}
+ body.tn-phone-header .tnHeader{display:flex;align-items:center;flex-wrap:nowrap;height:64px;min-height:64px;padding:0 10px;gap:8px;box-sizing:border-box}
+ body.tn-phone-header .tnHeader>.brand{display:none!important}
+ body.tn-phone-header .phoneHomeLink{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;color:#edf4fb;text-decoration:none}
+ body.tn-phone-header .phoneHomeLink img{display:block;flex:none;width:58px;height:44px;object-fit:contain;object-position:center}
+ body.tn-phone-header .phoneHomeLink span{display:block;min-width:0;font:650 clamp(11px,3.5vw,15px)/1.15 Inter,system-ui,sans-serif;letter-spacing:-.01em;white-space:normal;color:inherit}
+ body.tn-phone-header .tnHeader .workspaceMenuBtn{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:none;min-height:44px;padding:10px 8px;font-size:11px;font-family:inherit;color:#edf4fb;background:#0b1d30;border:1px solid #36516b;border-radius:8px;order:1}
+ body.tn-phone-header .workspaceMenuBtn>span{display:inline}
+ body.tn-phone-header .workspaceMenuBtn svg{width:16px;height:16px}
+ body.tn-phone-header .tnHeader #tnPageHelp{order:2;flex:none;width:36px;min-width:36px;height:44px;padding:8px;margin:0}
+ body.tn-phone-header .phoneMenuTools,body.tn-phone-header .phoneMenuActions{display:block;width:100%;min-width:0}
+ body.tn-phone-header #phoneFieldOps .tnFieldOps{position:static;display:grid;grid-template-columns:1fr;gap:8px;padding:12px 0;margin:0;border-block:1px solid #36516b;width:100%;box-sizing:border-box}
+ body.tn-phone-header #phoneFieldOps :is(button,a){display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 12px;width:100%;box-sizing:border-box;font-size:13px;border-radius:8px}
+ body.tn-phone-header #phoneFieldOps [hidden]{display:none!important}
+ body.tn-phone-header #phoneFieldOps .tnClockBtn{color:#fff;background:#17664a}
+ body.tn-phone-header #phoneFieldOps .tnClockBtn.isOut{background:#a33d35}
+ body.tn-phone-header #phoneFieldOps :is(.tnMsgBtn,.tnShiftsLink){background:#17334d;color:#edf4fb;border:1px solid #36516b}
+ body.tn-phone-header .phoneMenuActions .headerLinks{display:flex;flex-wrap:wrap;width:100%;gap:8px;margin:12px 0}
+ body.tn-phone-header .phoneMenuActions .headerLinks>:is(a,button){min-height:44px;padding:10px 12px}
+ body.tn-phone-header .phoneMenuActions .atlasJump{display:flex;width:100%;min-height:44px;margin-top:12px}
+ body.tn-phone-header :is(.phoneHomeLink,.workspaceMenuBtn):focus-visible{outline:3px solid #45cef4;outline-offset:3px}
+}
+.phoneStandaloneNav,.phoneStandaloneScrim,.phoneStandaloneToggle{display:none}
+@media(max-width:1100px){
+ body.tn-phone-header .phoneStandaloneNav.isOpen{display:block;position:fixed;right:0;top:0;width:min(340px,100vw);height:100dvh;box-sizing:border-box;padding:18px;background:#0b1d30;color:#edf4fb;border-left:1px solid #36516b;z-index:3000;overflow-y:auto}
+ body.tn-phone-header .phoneStandaloneNav :is(a,button){color:#edf4fb;text-decoration:none;border:1px solid #36516b;background:#17334d;border-radius:8px;min-height:44px;padding:10px 12px;box-sizing:border-box}
+ body.tn-phone-header .phoneStandaloneNav .workspaceBrand{display:flex;margin:12px 0}
+ body.tn-phone-header .phoneStandaloneScrim:not([hidden]){display:block;position:fixed;inset:0;background:#0008;border:0;z-index:2900}
+ body.tn-phone-header .phoneMenuActions .headerLinks>a:not([hidden]):not(.hidden):not([data-feature-disabled]){display:flex!important;align-items:center;justify-content:center}
+}
+
+@media print{.phoneHomeLink,.phoneStandaloneNav,.phoneStandaloneScrim,.phoneMenuTools,.phoneMenuActions,.phoneStandaloneToggle{display:none!important}}

@@ -91,7 +91,10 @@ export function mountAtlas(nav, header) {
   }
   trigger.onclick = open;
   dialog.addEventListener('close', () => {
-    if (returnFocus?.isConnected) returnFocus.focus({preventScroll:true});
+    if (returnFocus?.isConnected) {
+      const target = returnFocus.getClientRects().length ? returnFocus : header.querySelector('.workspaceMenuBtn');
+      target?.focus({preventScroll:true});
+    }
   });
   new MutationObserver(() => { if(dialog.open) render(); }).observe(nav, {subtree:true,attributes:true,attributeFilter:['hidden','class','data-feature-disabled']});
   dialog.querySelector(".atlasCommandClose").onclick = () => dialog.close();

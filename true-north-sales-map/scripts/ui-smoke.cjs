@@ -535,6 +535,105 @@ const server = http.createServer(async (req, res) => {
     localStorage.setItem("sb-127-auth-token", JSON.stringify(s));
     localStorage.setItem("tn-role:" + s.user.id, "admin");
   }, session());
+  if (process.env.UI_PHONE_HEADERS) {
+    page.setDefaultTimeout(15000);
+    const tabs=['overview','team','appointments','homeowners','activity','territories','files','training','accounts','features','coach-settings','scheduling'];
+    await page.goto(origin+'/admin.html');
+    await page.waitForFunction(()=>document.documentElement.dataset.tnAdmin==='ready');
+    for(const width of [320,390,430]) {
+      await page.setViewportSize({width,height:900});
+      for(const tab of tabs) {
+        await openManagement();await page.locator('#managementRail [data-tab="'+tab+'"]').click();
+        await page.locator('#tab-'+tab).waitFor({state:'visible'});
+        assert.equal(await page.locator('.tnHeader #tnClockBtn, .tnHeader #tnMsgBtn').count(),0,tab+' has no field buttons in header');
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),tab+' fits '+width);
+        if(width===390)await page.screenshot({path:path.join(artifacts,'phone-audit-admin-'+tab+'.png'),animations:'disabled'});
+      }
+    }
+    await page.setViewportSize({width:390,height:900});
+    await openManagement();await page.locator('#managementRail [data-tab=files]').click();
+    for(const view of ['library','builder']) {
+      await page.locator('#tnFilesRoot .tnSeg [data-view='+view+']').click();
+      await page.locator(view==='library'?'#receiptsSection':'#newForm').waitFor();
+      await page.screenshot({path:path.join(artifacts,'phone-audit-documents-'+view+'.png'),animations:'disabled'});
+    }
+    await page.locator('#newForm').click();await page.locator('#formName').waitFor();
+    await page.screenshot({path:path.join(artifacts,'phone-audit-form-editor.png'),animations:'disabled'});
+    await page.locator('#closeEditor').click();
+    await openManagement();await page.locator('#managementRail [data-tab=training]').click();
+    await page.locator('[data-admin-view=status]').click();
+    await page.screenshot({path:path.join(artifacts,'phone-audit-training-status.png'),animations:'disabled'});
+    await page.locator('#tnTrainAdd').click();await page.locator('#tnTrainForm').waitFor();
+    await page.screenshot({path:path.join(artifacts,'phone-audit-training-editor.png'),animations:'disabled'});
+    await page.locator('#tnTrainCancel').click();
+    const routes=['setter','account','rep','forms','files','training','photo','shifts','form-print'];
+    for(const route of routes) {
+      role=route==='training'?'appointment_setter':'admin';
+      const hasOps=!['training','form-print','reset-password'].includes(route);
+      await page.setViewportSize({width:390,height:900});
+      await page.goto(origin+'/'+route+'.html'+(route==='photo'?'?lead=TEST-2':route==='form-print'?'?id=FORM-1':''));
+      await page.locator('.phoneHomeLink').waitFor({state:'visible'});
+      if(hasOps)await page.waitForFunction(()=>document.querySelector('#phoneFieldOps #tnClockBtn'));
+      for(const width of [320,390,430,768]) {
+        await page.setViewportSize({width,height:900});
+        assert.equal(await page.locator('.tnHeader #tnClockBtn, .tnHeader #tnMsgBtn').count(),0,route+' keeps field tools inside Sections');
+        assert.equal(await page.locator('.tnHeader .workspaceMenuBtn').innerText(),'Sections');
+        assert.ok(await page.locator('.phoneHomeLink').evaluate(el=>{
+          const img=el.querySelector('img'),text=el.querySelector('span'),r=img.getBoundingClientRect(),t=text.getBoundingClientRect(),toggle=document.querySelector('.workspaceMenuBtn').getBoundingClientRect();
+          return el.getAttribute('href')==='/'&&img.naturalWidth>0&&getComputedStyle(img).objectFit==='contain'&&r.width>=50&&r.height>=40&&text.scrollWidth<=text.clientWidth+1&&t.right<=toggle.left;
+        }),route+' full linked logo and company name fit '+width);
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),route+' fits '+width);
+        if(width===390)await page.screenshot({path:path.join(artifacts,'phone-audit-'+route+'.png'),animations:'disabled'});
+        await page.locator('.workspaceMenuBtn').click();
+        if(hasOps) {
+          assert.ok(await page.locator('#phoneFieldOps #tnClockBtn').isVisible(),route+' Clock In accessible');
+          assert.ok(await page.locator('#phoneFieldOps #tnMsgBtn').isVisible(),route+' Messages accessible');
+        }
+        if(width===390)await page.screenshot({path:path.join(artifacts,'phone-audit-'+route+'-sections.png'),animations:'disabled'});
+        await page.keyboard.press('Escape');
+        assert.equal(await page.locator('.workspaceMenuBtn').getAttribute('aria-expanded'),'false');
+      }
+      // Original controls still work after moving; no message is sent.
+      if(hasOps) {
+      await page.locator('.workspaceMenuBtn').click();await page.locator('#tnMsgBtn').click();
+      await page.locator('#tnMsgOverlay').waitFor({state:'visible'});
+      assert.equal(await page.locator('.workspaceMenuBtn').getAttribute('aria-expanded'),'false');
+      if(route==='setter')await page.screenshot({path:path.join(artifacts,'phone-audit-messages.png'),animations:'disabled'});
+      await page.locator('#tnMsgClose').click();
+      }
+      await page.setViewportSize({width:1440,height:1000});
+      if(hasOps) {
+        await page.waitForFunction(()=>document.querySelector('.tnHeader .headerLinks #tnClockBtn'));
+        assert.ok(await page.locator('.tnHeader #tnClockBtn').isVisible(),route+' desktop controls restored');
+      }
+      console.log('Phone header and menu verified: '+route);
+    }
+    role='admin';await page.goto(origin+'/');await page.locator('#workList .leadRow').first().waitFor();
+    if(await page.locator('#postSignInContinue').isVisible())await page.locator('#postSignInContinue').click();
+    await page.locator('#mapLoader').waitFor({state:'hidden'});
+    for(const width of [320,390,430,768]) {
+      await page.setViewportSize({width,height:900});
+      assert.equal(await page.locator('#tnMore').innerText(),'Sections','Map has one Sections menu');
+      assert.ok(await page.locator('.topbar .brand').evaluate(el=>{const img=el.querySelector('img'),r=el.getBoundingClientRect(),m=document.querySelector('#tnMore').getBoundingClientRect();return el.getAttribute('href')==='/'&&img.naturalWidth>0&&getComputedStyle(img).objectFit==='contain'&&r.right<=m.left;}),'Full linked map brand fits '+width);
+      assert.equal(await page.locator('#tnClockBtn').isVisible(),false,'Map clock is only visible inside Sections');
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Map fits '+width);
+      if(width===390)await page.screenshot({path:path.join(artifacts,'phone-audit-map.png'),animations:'disabled'});
+      await page.locator('#tnMore').click();
+      assert.ok(await page.locator('#tnMoreMenu #tnClockBtn').isVisible(),'Map Clock In remains available');
+      assert.ok(await page.locator('#tnMoreMenu [data-tn-action=message]').isVisible(),'Map Messages remains available');
+      await page.keyboard.press('Escape');
+    }
+    await page.goto(origin+'/reset-password.html');await page.locator('.signInLogo').waitFor({state:'visible'});
+    for(const width of [320,390,430]) {
+      await page.setViewportSize({width,height:900});
+      assert.ok(await page.locator('.signInLogo').evaluate(img=>img.naturalWidth>0&&getComputedStyle(img).objectFit==='contain'),'Reset/sign-in full logo fits '+width);
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Reset screen fits '+width);
+      if(width===390)await page.screenshot({path:path.join(artifacts,'phone-audit-reset-signin.png'),animations:'disabled'});
+    }
+    assert.deepEqual(errors,[]);
+    console.log('All Management tabs and connected phone headers passed.');
+    await browser.close();server.close();return;
+  }
   if (process.env.UI_MANAGEMENT) {
     page.setDefaultTimeout(20000);
     const ready = () => page.waitForFunction(()=>document.documentElement.dataset.tnAdmin==='ready');
@@ -906,6 +1005,7 @@ const server = http.createServer(async (req, res) => {
       await page.locator('.workspaceNavClose').click();
       assert.equal(await page.locator('.workspaceMenuBtn').getAttribute('aria-expanded'), 'false');
       assert.equal(await page.evaluate(()=>document.activeElement.className), 'workspaceMenuBtn');
+      if(!(await page.locator('.atlasJump').isVisible()))await page.locator('.workspaceMenuBtn').click();
       await page.locator('.atlasJump').click();
       await page.locator('#atlasCommandQuery').fill('roof photos');
       assert.equal(await page.locator('.atlasCommandResult').count(),nextRole==='appointment_setter'?0:1);
@@ -941,7 +1041,7 @@ const server = http.createServer(async (req, res) => {
     await page.locator('#mapLoader').waitFor({state:'hidden'});
     await page.setViewportSize({width:390,height:844});
     await page.locator('#tnMore').click();
-    assert.equal(await page.locator('#tnMore').innerText(),'Menu');
+    assert.equal(await page.locator('#tnMore').innerText(),'Sections');
     await page.getByRole('button',{name:'Find a page…',exact:true}).click();
     await page.locator('#atlasCommandQuery').fill('book');
     assert.equal(await page.locator('.atlasCommandResult').first().getAttribute('href'),'/setter.html');

@@ -1,3 +1,4 @@
+import { mountPhoneHeader } from "./phone-header.js";
 import { bootFeatureAccess } from './feature-access.js';
 import "./page-help.js";
 import { mountAtlas } from "./atlas.js";
@@ -69,7 +70,7 @@ function mountNavigation() {
     const button = document.createElement("button");
     button.className = "workspaceMenuBtn";
     button.type = "button";
-    button.innerHTML = `${icon("menu")}<span>Menu</span>`;
+    button.innerHTML = `${icon("menu")}<span>Sections</span>`;
     button.setAttribute("aria-controls", nav.id);
     button.setAttribute("aria-expanded", "false");
     header.append(button);
@@ -100,7 +101,7 @@ function mountNavigation() {
       button.focus();
     };
     nav.addEventListener('click', (event) => {
-      if (event.target.closest('a') && nav.classList.contains('isOpen')) close();
+      if (event.target.closest('a, #tnMsgBtn, .atlasJump') && nav.classList.contains('isOpen')) close();
     });
     nav.addEventListener("keydown", (event) => {
       if (!nav.classList.contains("isOpen")) return;
@@ -130,27 +131,30 @@ function mountNavigation() {
     const photo = nav.querySelector('[data-workspace-link="photos"]');
     const shifts = nav.querySelector('[data-workspace-link="shifts"]');
     const shiftSource = document.querySelector('.tnFieldOps .tnShiftsLink');
-    shifts.hidden = !(shiftSource && !shiftSource.hidden && !shiftSource.classList.contains('hidden'));
+    const shiftsHidden = !(shiftSource && !shiftSource.hidden && !shiftSource.classList.contains('hidden'));
+    if (shifts.hidden !== shiftsHidden) shifts.hidden = shiftsHidden;
     const managementSource = document.querySelector(
-      "#adminBtn, .tnHeader .tnManageLink, #managementDashboard",
+      "#adminBtn, .tnManageLink, #managementDashboard",
     );
     const photoSource = document.querySelector(
       '#roofPhotosLink, .headerLinks a[href="/rep.html"], #tnMoreMenu a[href="/rep.html"], main .profileAction[href="/rep.html"]',
     );
-    management.hidden =
+    const managementHidden =
       !isAdmin &&
       !(
         managementSource &&
         !managementSource.hidden &&
         !managementSource.classList.contains("hidden")
       );
-    photo.hidden =
+    if (management.hidden !== managementHidden) management.hidden = managementHidden;
+    const photoHidden =
       !["/rep", "/photo"].includes(page) &&
       !(
         photoSource &&
         !photoSource.hidden &&
         !photoSource.classList.contains("hidden")
       );
+    if (photo.hidden !== photoHidden) photo.hidden = photoHidden;
   };
   sync();
   const observer = new MutationObserver(sync);
@@ -163,7 +167,11 @@ function mountNavigation() {
   const app = document.querySelector("main");
   if (app) observer.observe(app, { childList: true, subtree: true });
   mountAtlas(nav, header);
-  if (!isMap) mountPageContext(nav, header);
+  if (!isMap) {
+    mountPageContext(nav, header);
+    mountPhoneHeader(header, nav);
+    observer.observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden"] });
+  }
 }
 
 function mountPageContext(nav, header) {
@@ -183,7 +191,7 @@ function mountPageContext(nav, header) {
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
   closeButton.className = 'workspaceNavClose';
-  closeButton.textContent = 'Close menu ×';
+  closeButton.textContent = 'Close Sections ×';
   closeButton.onclick = () => header.querySelector('.workspaceMenuBtn')?.click();
   nav.prepend(closeButton);
 }
