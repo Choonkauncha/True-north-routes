@@ -67,3 +67,5 @@ A shared phone header now displays the complete logo and company name, links hom
 Verification uses isolated synthetic data at 320, 390, 430 and 768px, plus desktop restoration, opening Messages without sending, keyboard dismissal, role/permission refresh, map and GPS menus, and full-logo bounding checks. `npm run test:phone-headers` runs the expanded suite and captures internal review screenshots.
 
 The broader map smoke suite passes the header/viewport checks but times out later during route-stop cleanup. The same timeout reproduces on the unchanged pre-follow-up commit. This header change does not change route selection or cleanup behavior.
+
+After rebasing onto the separately merged assistant update (`c30a881`), the focused phone-header suite and navigation/permission checks pass. The broader map suite also exposed the assistant launcher intercepting Map options in a short landscape viewport. That finding is separate from header placement and is not claimed as passing in this review.
