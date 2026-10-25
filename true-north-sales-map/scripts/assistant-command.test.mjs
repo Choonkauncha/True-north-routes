@@ -3,6 +3,7 @@ import {
   ASSISTANT_GREETING,
   ASSISTANT_GREETING_STEPS,
   ASSISTANT_ACTION_WORDS,
+  singleSentenceText,
   matchAssistantIntent,
   createAssistantCommandRunner,
   commandResultText
@@ -11,9 +12,12 @@ import { validateMapTool, toolDefinitions } from '../lib/voice-tools.js';
 import { createOrbMesh, projectOrbVertex } from '../lib/orb-mesh.js';
 import { handleVoiceAction } from '../api/coach.js';
 
-assert.ok(ASSISTANT_GREETING.includes("True North assistant"));
-assert.ok(ASSISTANT_GREETING_STEPS.length >= 4);
-assert.ok(ASSISTANT_ACTION_WORDS.length >= 10);
+assert.equal(ASSISTANT_GREETING, "Hi, I'm your True North assistant.");
+assert.equal(ASSISTANT_GREETING_STEPS.length, 4);
+assert.equal(ASSISTANT_ACTION_WORDS.length, 4);
+for (const step of ASSISTANT_GREETING_STEPS) {
+  assert.equal(singleSentenceText(step.text), step.text, 'each greeting step is a single concise sentence');
+}
 
 for (const role of ['admin', 'salesperson', 'appointment_setter']) {
   const names = toolDefinitions(role, { map: true })[0].functionDeclarations.map(tool => tool.name);
@@ -76,16 +80,16 @@ assert.deepEqual(order, [
   'auth:log_door_status', 'exec:log_door_status',
   'auth:summarize_status', 'exec:summarize_status'
 ]);
-assert.match(commandResultText(timed), /5 houses · about 120 minutes/);
-assert.equal(commandResultText(cleared), 'Route cleared. 3 selected houses removed.');
-assert.match(commandResultText(priority), /12 priority leads selected · Top: 101 Main St/);
+assert.match(commandResultText(timed), /Built a 5-stop route \(~120 min\)/);
+assert.equal(commandResultText(cleared), 'Route cleared (3 stops removed).');
+assert.match(commandResultText(priority), /Selected 12 priority leads near 101 Main St/);
 assert.equal(commandResultText(filtered), 'Showing 14 new houses.');
-assert.equal(commandResultText(logged), 'Logged Answered · 101 Main St.');
-assert.match(commandResultText(summary), /50 houses \(30 untouched, 12 knocked, 4 interested\) · 8 route stops/);
-assert.equal(commandResultText({ status: 'opening_map', executed: false }), 'Opening the field map to finish your command…');
-assert.match(commandResultText({ error: 'Route unavailable' }), /unavailable/);
+assert.equal(commandResultText(logged), 'Logged Answered at 101 Main St.');
+assert.match(commandResultText(summary), /50 houses \(30 untouched, 12 knocked\) · 8 route stops/);
+assert.equal(commandResultText({ status: 'opening_map', executed: false }), 'Opening the field map to finish your command.');
+assert.match(commandResultText({ error: 'Route unavailable. Check connection.' }), /^Route unavailable\.$/);
 assert.match(commandResultText(await run({ name: 'get_live_context', args: {} })), /4 houses selected · 1 built stops/);
-assert.match(commandResultText(await run({ name: 'recent_ohio_storms', args: { days: 3 } })), /2 recent Ohio storm reports · some sources unavailable/);
+assert.match(commandResultText(await run({ name: 'recent_ohio_storms', args: { days: 3 } })), /2 recent Ohio storm reports \(partial\)/);
 
 // Test natural-language intent matching
 assert.deepEqual(matchAssistantIntent('Build route with 15 stops'), { name: 'build_route', args: { count: 15 } });

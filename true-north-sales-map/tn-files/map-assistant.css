@@ -1,15 +1,15 @@
 .mapAssistant,
 .mapAssistantRoot {
   position: fixed;
-  right: 18px;
-  bottom: calc(22px + env(safe-area-inset-bottom));
+  right: 16px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
   z-index: 2147483000;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 8px;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #eef8ff;
+  color: #f0f9ff;
   pointer-events: none;
   user-select: none;
 }
@@ -21,12 +21,12 @@
 }
 
 .mapAssistantLauncher {
-  width: 78px;
-  height: 78px;
+  width: 74px;
+  height: 74px;
   padding: 0;
   border-radius: 50%;
   border: 0 !important;
-  background: radial-gradient(circle, rgba(9, 37, 56, 0.34), transparent 72%) !important;
+  background: radial-gradient(circle, rgba(9, 37, 56, 0.28), transparent 70%) !important;
   box-shadow: none !important;
   cursor: grab;
   touch-action: none;
@@ -47,14 +47,14 @@
   inset: 14%;
   border-radius: 50%;
   background: #20cff4;
-  filter: blur(16px);
-  opacity: calc(0.14 + var(--orb-energy, 0) * 0.56);
+  filter: blur(15px);
+  opacity: calc(0.12 + var(--orb-energy, 0) * 0.52);
   z-index: -1;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.25s ease;
 }
 
 .mapAssistantRoot.isActive .mapAssistantLauncher::before {
-  opacity: calc(0.28 + var(--orb-energy, 0) * 0.62);
+  opacity: calc(0.24 + var(--orb-energy, 0) * 0.58);
 }
 
 .mapAssistantLauncher canvas {
@@ -62,7 +62,7 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  filter: drop-shadow(0 0 8px rgba(54, 201, 243, 0.38));
+  filter: drop-shadow(0 0 7px rgba(54, 201, 243, 0.34));
 }
 
 .mapAssistantLauncher:focus-visible {
@@ -78,21 +78,21 @@
   display: grid;
   place-items: center;
   height: 100%;
-  font-size: 38px;
+  font-size: 36px;
   color: #5fe3ec;
 }
 
 .mapAssistantLiveDot {
   display: none;
   position: absolute;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   background: #4ce4b4;
-  border: 2px solid #07182c;
+  border: 1.5px solid #07182c;
   border-radius: 50%;
-  right: 9px;
-  top: 9px;
-  box-shadow: 0 0 10px #4ce4b4;
+  right: 8px;
+  top: 8px;
+  box-shadow: 0 0 8px #4ce4b4;
 }
 
 .mapAssistantLauncher[data-voice-state="listening"] .mapAssistantLiveDot,
@@ -102,47 +102,47 @@
 }
 
 .mapAssistantLauncher[data-voice-state="working"] {
-  filter: drop-shadow(0 0 10px #529cff);
+  filter: drop-shadow(0 0 9px #529cff);
 }
 
 .mapAssistantTapHint {
   position: absolute;
-  bottom: -6px;
+  bottom: -5px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(6, 15, 30, 0.72);
-  backdrop-filter: blur(10px) saturate(150%);
-  -webkit-backdrop-filter: blur(10px) saturate(150%);
-  border: 1px solid rgba(125, 211, 252, 0.34);
+  background: rgba(12, 20, 36, 0.62);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  border: 1px solid rgba(50, 199, 248, 0.28);
   color: #bae6fd;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
-  box-shadow: 0 6px 16px rgba(2, 8, 20, 0.42);
   pointer-events: none;
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .mapAssistantRoot.isActive .mapAssistantTapHint {
-  background: rgba(8, 47, 73, 0.84);
-  border-color: rgba(56, 189, 248, 0.72);
+  background: rgba(8, 47, 73, 0.72);
+  border-color: rgba(56, 189, 248, 0.56);
   color: #e0f2fe;
 }
 
-/* Futuristic minimal floating HUD (replaces legacy popup panel) */
+/* Minimalist floating HUD — no card, no header bar, no button chrome */
 .mapAssistantHud {
   position: absolute;
-  bottom: calc(100% + 12px);
+  bottom: calc(100% + 10px);
   right: 0;
-  width: min(344px, calc(100vw - 20px));
+  width: max-content;
+  max-width: min(308px, calc(100vw - 24px));
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 7px;
   background: transparent;
   pointer-events: none;
   transform: translateX(var(--hud-shift-x, 0px));
@@ -162,150 +162,75 @@
 
 .mapAssistant.orbHudBelow .mapAssistantHud,
 .mapAssistant.orbPanelBelow .mapAssistantHud {
-  top: calc(100% + 12px);
+  top: calc(100% + 10px);
   bottom: auto;
   flex-direction: column-reverse;
 }
 
-/* Minimal translucent whisper capsule */
+/* Single-sentence floating whisper pill with soft-blur crossfade settle */
 .mapAssistantWhisper {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px 13px;
-  border-radius: 18px;
-  background: linear-gradient(145deg, rgba(8, 19, 36, 0.64), rgba(5, 12, 24, 0.50));
-  backdrop-filter: blur(18px) saturate(165%);
-  -webkit-backdrop-filter: blur(18px) saturate(165%);
-  border: 1px solid rgba(125, 211, 252, 0.28);
-  box-shadow:
-    0 14px 34px rgba(2, 8, 22, 0.44),
-    0 0 22px rgba(56, 189, 248, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
-}
-
-.mapAssistantWhisperTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 5px;
-}
-
-.mapAssistantBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #bae6fd;
-}
-
-.mapAssistantPulseDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: #38bdf8;
-  box-shadow: 0 0 10px #38bdf8;
-  animation: tnOrbHudPulse 1.6s ease-in-out infinite;
-  flex-shrink: 0;
-}
-
-.mapAssistantBadge[data-state="speaking"] .mapAssistantPulseDot {
-  background: #67e8f9;
-  box-shadow: 0 0 14px #67e8f9;
-}
-
-.mapAssistantBadge[data-state="working"] .mapAssistantPulseDot {
-  background: #fbbf24;
-  box-shadow: 0 0 12px #fbbf24;
-}
-
-.mapAssistantBadge[data-state="error"] .mapAssistantPulseDot {
-  background: #fb7185;
-  box-shadow: 0 0 12px #fb7185;
-}
-
-@keyframes tnOrbHudPulse {
-  0%, 100% { transform: scale(1); opacity: 0.95; }
-  50% { transform: scale(1.28); opacity: 0.55; }
-}
-
-.mapAssistantWhisperControls {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.mapAssistantMicroBtn {
-  border: 1px solid rgba(148, 163, 184, 0.26);
-  border-radius: 999px;
-  padding: 2px 8px;
-  background: rgba(15, 23, 42, 0.48);
-  color: #cbd5e1;
-  font: inherit;
-  font-size: 10.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
-}
-
-.mapAssistantMicroBtn[hidden] {
-  display: none !important;
-}
-
-.mapAssistantMicroBtn:hover {
-  background: rgba(30, 41, 59, 0.72);
-  border-color: rgba(125, 211, 252, 0.45);
-  color: #f8fafc;
-}
-
-.mapAssistantCaption {
   margin: 0;
-  font-size: 12.5px;
-  line-height: 1.42;
+  max-width: 308px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(10, 18, 34, 0.68);
+  backdrop-filter: blur(10px) saturate(145%);
+  -webkit-backdrop-filter: blur(10px) saturate(145%);
+  border: 1px solid rgba(50, 199, 248, 0.28);
+  box-shadow: 0 8px 22px rgba(2, 8, 22, 0.26);
+  color: rgba(240, 249, 255, 0.96);
+  font-size: 13px;
   font-weight: 500;
-  color: rgba(240, 249, 255, 0.94);
-  text-shadow: 0 1px 8px rgba(2, 8, 20, 0.65);
+  line-height: 1.32;
+  letter-spacing: -0.005em;
+  text-align: right;
+  text-shadow: 0 1px 6px rgba(2, 8, 20, 0.55);
+  transition: border-color 0.22s ease, background 0.22s ease;
 }
 
-.mapAssistantResult {
-  margin: 7px 0 0;
-  padding: 6px 10px;
-  border-radius: 11px;
-  background: rgba(14, 116, 144, 0.28);
-  border: 1px solid rgba(103, 232, 249, 0.36);
+.mapAssistant.orbHudLeft .mapAssistantWhisper,
+.mapAssistant.orbPanelLeft .mapAssistantWhisper {
+  text-align: left;
+}
+
+.mapAssistantWhisper.isSettling {
+  animation: tnWhisperSettle 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes tnWhisperSettle {
+  0% {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+    transform: translateY(0);
+  }
+}
+
+.mapAssistantWhisper.isResult,
+.mapAssistantWhisper[data-result="success"] {
+  background: rgba(10, 32, 52, 0.62);
+  border-color: rgba(103, 232, 249, 0.48);
   color: #e0f2fe;
-  font-size: 11.5px;
-  font-weight: 600;
-  line-height: 1.35;
-  max-height: 150px;
-  overflow: auto;
 }
 
-.mapAssistantResult[hidden] {
-  display: none !important;
-}
-
-.mapAssistantResult a {
-  color: #7ce5f4;
-}
-
-.mapAssistantResult.isError,
-.mapAssistantResult[data-result="error"] {
-  background: rgba(159, 18, 57, 0.34);
+.mapAssistantWhisper.isError,
+.mapAssistantWhisper[data-result="error"] {
+  background: rgba(68, 16, 34, 0.62);
   border-color: rgba(251, 113, 133, 0.48);
   color: #ffe4e6;
 }
 
-/* Futuristic minimal translucent action word chips */
+/* Compact contextual action words (2-4 sleek translucent pills) */
 .mapAssistantWords {
-  width: 100%;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 7px;
+  gap: 5px;
+  max-width: 260px;
   pointer-events: none;
 }
 
@@ -317,42 +242,39 @@
 .mapAssistantWord {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
+  gap: 5px;
+  padding: 5px 10px;
   border-radius: 999px;
-  background: rgba(8, 19, 36, 0.56);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  border: 1px solid rgba(125, 211, 252, 0.28);
-  box-shadow:
-    0 8px 22px rgba(2, 8, 22, 0.36),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background: rgba(10, 18, 34, 0.62);
+  backdrop-filter: blur(10px) saturate(145%);
+  -webkit-backdrop-filter: blur(10px) saturate(145%);
+  border: 1px solid rgba(50, 199, 248, 0.26);
+  box-shadow: 0 4px 14px rgba(2, 8, 22, 0.24);
   color: #f0f9ff;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.015em;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   opacity: 0;
-  transform: translateY(10px) scale(0.92);
+  transform: translateY(5px) scale(0.95);
   filter: blur(4px);
   pointer-events: none;
   transition:
     opacity 0.26s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
     filter 0.26s ease,
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
+    background 0.16s ease,
+    border-color 0.16s ease;
 }
 
 .mapAssistantWord.isRevealed,
 .mapAssistantWord[data-revealed="true"] {
   opacity: 1;
   transform: translateY(0) scale(1);
-  filter: blur(0);
+  filter: none;
   pointer-events: auto;
 }
 
@@ -362,67 +284,39 @@
 }
 
 .mapAssistantWordDot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 999px;
   background: #38bdf8;
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.85);
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.8);
   flex-shrink: 0;
 }
 
 .mapAssistantWord[data-tone="primary"] {
-  background: linear-gradient(135deg, rgba(14, 116, 144, 0.62), rgba(8, 25, 48, 0.68));
-  border-color: rgba(103, 232, 249, 0.55);
+  background: rgba(14, 62, 92, 0.54);
+  border-color: rgba(103, 232, 249, 0.44);
 }
 
 .mapAssistantWord[data-tone="primary"] .mapAssistantWordDot {
   background: #67e8f9;
-  box-shadow: 0 0 10px #67e8f9;
-}
-
-.mapAssistantWord[data-tone="emerald"] {
-  border-color: rgba(52, 211, 153, 0.38);
 }
 
 .mapAssistantWord[data-tone="emerald"] .mapAssistantWordDot {
   background: #34d399;
-  box-shadow: 0 0 9px rgba(52, 211, 153, 0.85);
-}
-
-.mapAssistantWord[data-tone="amber"] {
-  border-color: rgba(251, 191, 36, 0.38);
-}
-
-.mapAssistantWord[data-tone="amber"] .mapAssistantWordDot {
-  background: #fbbf24;
-  box-shadow: 0 0 9px rgba(251, 191, 36, 0.85);
-}
-
-.mapAssistantWord[data-tone="danger"] {
-  border-color: rgba(251, 113, 133, 0.36);
-}
-
-.mapAssistantWord[data-tone="danger"] .mapAssistantWordDot {
-  background: #fb7185;
-  box-shadow: 0 0 9px rgba(251, 113, 133, 0.85);
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.8);
 }
 
 .mapAssistantWord:hover,
 .mapAssistantWord:focus-visible {
-  background: rgba(14, 34, 62, 0.76);
-  border-color: rgba(125, 211, 252, 0.68);
-  box-shadow:
-    0 10px 26px rgba(2, 8, 22, 0.48),
-    0 0 16px rgba(56, 189, 248, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  transform: translateY(-1px) scale(1.02);
+  background: rgba(16, 38, 68, 0.68);
+  border-color: rgba(125, 211, 252, 0.62);
+  transform: translateY(-1px);
   outline: none;
 }
 
 .mapAssistantWord.isRunning {
-  background: rgba(14, 116, 144, 0.72);
+  background: rgba(14, 116, 144, 0.66);
   border-color: #67e8f9;
-  box-shadow: 0 0 20px rgba(103, 232, 249, 0.45);
 }
 
 .clusterMenu {
@@ -456,19 +350,26 @@
     bottom: calc(88px + env(safe-area-inset-bottom));
   }
   .mapAssistantLauncher {
-    width: 66px;
-    height: 66px;
+    width: 64px;
+    height: 64px;
   }
   .mapAssistantHud {
-    width: min(332px, calc(100vw - 20px));
-    gap: 8px;
-  }
-  .mapAssistantWord {
-    padding: 6px 10px;
-    font-size: 11.5px;
+    max-width: min(256px, calc(100vw - 20px));
+    gap: 6px;
   }
   .mapAssistantWhisper {
-    padding: 9px 11px;
+    max-width: 256px;
+    border-radius: 16px;
+    padding: 6px 11px;
+    font-size: 12.5px;
+  }
+  .mapAssistantWords {
+    max-width: 244px;
+    gap: 5px;
+  }
+  .mapAssistantWord {
+    padding: 5px 9px;
+    font-size: 11px;
   }
   .isNavigating .mapAssistant {
     bottom: calc(138px + env(safe-area-inset-bottom));
@@ -484,5 +385,8 @@
 @media (prefers-reduced-motion: reduce) {
   .mapAssistantLauncher canvas {
     filter: none;
+  }
+  .mapAssistantWhisper.isSettling {
+    animation: none;
   }
 }

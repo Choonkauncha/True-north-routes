@@ -5,6 +5,7 @@ import {
   ASSISTANT_GREETING,
   ASSISTANT_GREETING_STEPS,
   ASSISTANT_ACTION_WORDS,
+  singleSentenceText,
   matchAssistantIntent,
   createAssistantCommandRunner,
   commandResultText
@@ -12,19 +13,8 @@ import {
 
 let active = null;
 
-function buildActionWords(ctx) {
-  const words = ASSISTANT_ACTION_WORDS.map(item => ({ ...item }));
-  const onMap = typeof location === 'undefined' || ['/', '/index', '/index.html'].includes(location.pathname);
-  if (!onMap) {
-    words.unshift({ id: 'open_map', label: 'Field map', command: 'navigate_app', args: { target: 'map' }, step: 1, tone: 'primary' });
-  }
-  const role = String(ctx?.rep?.role || '').toLowerCase();
-  if (['admin', 'manager', 'owner'].includes(role)) {
-    words.push({ id: 'open_admin', label: 'Open admin', command: 'navigate_app', args: { target: 'admin' }, step: 4, tone: 'glass' });
-  } else {
-    words.push({ id: 'open_setter', label: 'Open setter', command: 'navigate_app', args: { target: 'setter' }, step: 4, tone: 'glass' });
-  }
-  return words;
+function buildActionWords() {
+  return ASSISTANT_ACTION_WORDS.slice(0, 4).map(item => ({ ...item }));
 }
 
 export function mountMapAssistant(ctx = {}) {
@@ -48,24 +38,10 @@ export function mountMapAssistant(ctx = {}) {
   root.dataset.state = 'idle';
   root.setAttribute('aria-label', 'True North voice assistant');
   root.innerHTML =
-    `<section id="tnMapAssistantHud" class="mapAssistantHud" hidden aria-label="Field assistant controls" aria-live="polite">` +
-      `<div class="mapAssistantWhisper" data-whisper>` +
-        `<div class="mapAssistantWhisperTop">` +
-          `<span class="mapAssistantBadge" data-status-pill data-state="idle">` +
-            `<span class="mapAssistantPulseDot" aria-hidden="true"></span>` +
-            `<span data-status role="status">Ready when you are.</span>` +
-          `</span>` +
-          `<div class="mapAssistantWhisperControls">` +
-            `<button type="button" class="mapAssistantMicroBtn" data-pause hidden>Pause mic</button>` +
-            `<button type="button" class="mapAssistantMicroBtn" data-end hidden>End voice</button>` +
-            `<button type="button" class="mapAssistantMicroBtn" data-close aria-label="Minimize assistant" title="Close assistant">×</button>` +
-          `</div>` +
-        `</div>` +
-        `<p data-caption class="mapAssistantCaption">${ASSISTANT_GREETING}</p>` +
-        `<div data-result class="mapAssistantResult" role="status" aria-live="polite" hidden></div>` +
-      `</div>` +
-      `<div class="mapAssistantWords" role="group" aria-label="Assistant action words">${wordButtonsHtml}</div>` +
-    `</section>` +
+    `<div id="tnMapAssistantHud" class="mapAssistantHud" hidden>` +
+      `<p class="mapAssistantWhisper" data-whisper data-whisper-text data-caption data-result role="status" aria-live="polite">${ASSISTANT_GREETING}</p>` +
+      `<div class="mapAssistantWords" role="group" aria-label="Assistant actions">${wordButtonsHtml}</div>` +
+    `</div>` +
     `<button class="mapAssistantLauncher tnCoachOrbStage" type="button" aria-label="Tap to start field assistant" aria-expanded="false" aria-controls="tnMapAssistantHud" data-voice-state="idle">` +
       `<canvas aria-hidden="true"></canvas>` +
       `<span class="mapAssistantOrbFallback" aria-hidden="true">◉</span>` +
@@ -86,16 +62,11 @@ export function mountMapAssistant(ctx = {}) {
 
   const hud = root.querySelector('#tnMapAssistantHud');
   const launch = root.querySelector('.mapAssistantLauncher');
-  const status = root.querySelector('[data-status]');
-  const statusPill = root.querySelector('[data-status-pill]');
-  const caption = root.querySelector('[data-caption]');
-  const resultNode = root.querySelector('[data-result]');
-  const pause = root.querySelector('[data-pause]');
-  const end = root.querySelector('[data-end]');
+  const whisper = root.querySelector('[data-whisper-text]');
   const tapHint = root.querySelector('[data-tap-hint]');
   const wordButtons = [...root.querySelectorAll('.mapAssistantWord')];
 
-  let voiceState = 'idle', paused = false, disposed = false, greetingTimers = [];
+  let voiceState = 'idle', disposed = false, recognition = null, greetingTimers = [];
   const controller = new AbortController();
   const orb = mountCoachOrb(root.querySelector('canvas'));
   const disposeDragging = mountOrbDragging(root, launch, hud);
@@ -104,12 +75,28 @@ export function mountMapAssistant(ctx = {}) {
     while (greetingTimers.length) clearTimeout(greetingTimers.pop());
   }
 
+  function setSentence(rawText, { tone = 'default', stepIndex = null } = {}) {
+    if (disposed || !whisper) return;
+    const sentence = singleSentenceText(rawText);
+    if (!sentence) return;
+    whisper.dataset.result = tone === 'error' ? 'error' : tone === 'result' ? 'success' : 'caption';
+    whisper.classList.toggle('isError', tone === 'error');
+    whisper.classList.toggle('isResult', tone === 'result');
+    if (stepIndex !== null) whisper.dataset.step = String(stepIndex);
+    if (whisper.textContent !== sentence) {
+      whisper.classList.remove('isSettling');
+      void whisper.offsetWidth;
+      whisper.textContent = sentence;
+      whisper.classList.add('isSettling');
+    }
+    disposeDragging.reposition?.();
+  }
+
   function revealWordsUpTo(step) {
     for (const btn of wordButtons) {
-      if (Number(btn.dataset.step || 1) <= step) {
-        btn.dataset.revealed = 'true';
-        btn.classList.add('isRevealed');
-      }
+      const reveal = Number(btn.dataset.step || 2) <= step;
+      btn.dataset.revealed = reveal ? 'true' : 'false';
+      btn.classList.toggle('isRevealed', reveal);
     }
     disposeDragging.reposition?.();
   }
@@ -121,48 +108,65 @@ export function mountMapAssistant(ctx = {}) {
     }
   }
 
-  function voiceStatus() {
-    if (statusPill) statusPill.dataset.state = voiceState;
-    root.dataset.state = voiceState;
-    launch.dataset.voiceState = voiceState;
-    status.textContent = ({
-      idle: identity ? 'Tap an action word or speak.' : 'Sign in to run assistant actions.',
-      connecting: 'Listening · connecting voice…',
-      listening: 'Listening · speak or tap an action.',
-      speaking: 'Speaking · tap any action word.',
-      paused: 'Microphone paused.',
-      working: 'Running command…',
-      error: identity ? 'Tap an action word below.' : 'Sign in to run assistant actions.'
-    })[voiceState] || voiceState;
+  function syncOrbState(state, energy = 0) {
+    if (disposed) return;
+    root.dataset.state = state;
+    launch.dataset.voiceState = state;
+    orb.setState(state);
+    if (energy > 0) orb.setLevels({ input: 0, output: energy });
   }
 
   function startGreetingCadence() {
     clearGreetingTimers();
     hideAllWords();
-    caption.hidden = false;
     for (const step of ASSISTANT_GREETING_STEPS) {
       const applyStep = () => {
-        if (disposed || hud.hidden) return;
-        caption.textContent = step.text;
+        if (disposed || hud.hidden || root.dataset.commandBusy) return;
+        setSentence(step.text, { tone: 'default', stepIndex: step.revealStep });
         revealWordsUpTo(step.revealStep);
         if (step.energy > 0) {
-          if (statusPill) statusPill.dataset.state = 'speaking';
-          if (!root.dataset.commandBusy && voiceState === 'idle') {
-            status.textContent = 'Speaking · introducing actions…';
-          }
-          orb.setState('speaking');
-          orb.setLevels({ input: 0, output: step.energy });
+          syncOrbState('speaking', step.energy);
         } else {
           orb.setLevels({ input: 0, output: 0 });
-          if (!root.dataset.commandBusy) {
-            orb.setState(voiceState === 'idle' ? 'listening' : voiceState);
-            voiceStatus();
-          }
+          syncOrbState(voiceState === 'idle' ? 'listening' : voiceState, 0);
         }
       };
       if (step.atMs === 0) applyStep();
       else greetingTimers.push(setTimeout(applyStep, step.atMs));
     }
+  }
+
+  function startSpeechFallback() {
+    const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SpeechRec || recognition || disposed || hud.hidden) return;
+    try {
+      recognition = new SpeechRec();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.onresult = event => {
+        if (disposed || hud.hidden) return;
+        const latest = event.results?.[event.results.length - 1];
+        const transcript = String(latest?.[0]?.transcript || '').trim();
+        if (!transcript) return;
+        setSentence(transcript, { tone: 'default' });
+        if (latest.isFinal) {
+          const matched = matchAssistantIntent(transcript);
+          if (matched) run(matched).catch(() => {});
+        }
+      };
+      recognition.onerror = () => {};
+      recognition.onend = () => { recognition = null; };
+      recognition.start();
+    } catch {
+      recognition = null;
+    }
+  }
+
+  function stopSpeechFallback() {
+    if (!recognition) return;
+    try { recognition.stop(); } catch {}
+    recognition = null;
   }
 
   async function refreshContext() {
@@ -178,21 +182,23 @@ export function mountMapAssistant(ctx = {}) {
     hud.hidden = !open;
     root.classList.toggle('isActive', open);
     launch.setAttribute('aria-expanded', String(open));
+    launch.setAttribute('aria-label', open ? 'Voice assistant active. Tap orb to stop.' : 'Tap to start field assistant');
     if (tapHint) tapHint.textContent = open ? 'Listening' : 'Tap to start';
     disposeDragging.reposition?.();
     if (open) {
       refreshContext();
       startGreetingCadence();
       if (startVoice && ctx?.sb && identity && ['idle', 'error'].includes(voiceState)) {
-        paused = false;
-        pause.textContent = 'Pause mic';
-        voice.start().catch(() => {});
+        voice.start().catch(() => startSpeechFallback());
+      } else if (startVoice) {
+        startSpeechFallback();
       }
     } else {
       clearGreetingTimers();
+      stopSpeechFallback();
       hideAllWords();
       orb.setLevels({ input: 0, output: 0 });
-      orb.setState('idle');
+      syncOrbState('idle', 0);
     }
   }
 
@@ -218,46 +224,31 @@ export function mountMapAssistant(ctx = {}) {
     },
     execute: (name, args) => ctx.executeMapAction(name, args),
     onStart(call) {
+      clearGreetingTimers();
       revealWordsUpTo(99);
       root.dataset.commandBusy = 'true';
-      orb.setState('working');
-      if (statusPill) statusPill.dataset.state = 'working';
-      status.textContent = call.name === 'clear_route' ? 'Clearing route…' : call.name.startsWith('build_') ? 'Building your route…' : `Running ${call.name.replace(/_/g, ' ')}…`;
+      syncOrbState('working', 0.35);
+      const label = call.name === 'clear_route'
+        ? 'Clearing your route…'
+        : call.name.startsWith('build_')
+          ? 'Building your route…'
+          : `Running ${call.name.replace(/_/g, ' ')}…`;
+      setSentence(label, { tone: 'default' });
       for (const btn of wordButtons) {
         btn.disabled = true;
         btn.classList.toggle('isRunning', btn.dataset.command === call.name);
       }
     },
-    onResult(call, result) {
+    onResult(_call, result) {
       if (disposed) return;
       delete root.dataset.commandBusy;
-      orb.setState(voiceState === 'idle' ? 'listening' : voiceState);
-      voiceStatus();
+      syncOrbState(voiceState === 'idle' ? 'listening' : voiceState, 0);
       for (const btn of wordButtons) {
         btn.disabled = controller.signal.aborted;
         btn.classList.remove('isRunning');
       }
-      resultNode.hidden = false;
-      resultNode.dataset.result = result.error ? 'error' : 'success';
-      resultNode.classList.toggle('isError', Boolean(result.error));
-      resultNode.textContent = commandResultText(result);
-      if (call.name === 'recent_ohio_storms' && Array.isArray(result.reports)) {
-        for (const report of result.reports.slice(0, 6)) {
-          const row = document.createElement('p'), link = document.createElement('a');
-          try {
-            const source = new URL(report.source);
-            if (source.protocol !== 'https:') continue;
-            link.href = source.href;
-          } catch { continue; }
-          link.target = '_blank';
-          link.rel = 'noopener';
-          link.textContent = `${report.county || 'Ohio'} · ${report.kind} · ${new Date(report.capturedAt).toLocaleString()}`;
-          row.append(link);
-          resultNode.append(row);
-        }
-      }
-      disposeDragging.reposition?.();
-      if (result.error) show(true);
+      setSentence(commandResultText(result), { tone: result?.error ? 'error' : 'result' });
+      if (result?.error && hud.hidden) show(true);
       else refreshContext();
     }
   });
@@ -267,29 +258,25 @@ export function mountMapAssistant(ctx = {}) {
     executeMapTool: run,
     onState(value) {
       voiceState = value;
-      if (!root.dataset.commandBusy) {
-        orb.setState(value);
-        voiceStatus();
+      if (!root.dataset.commandBusy && !hud.hidden) {
+        syncOrbState(value === 'idle' ? 'listening' : value, 0);
       }
-      const live = !['idle', 'error'].includes(value);
-      pause.hidden = !live;
-      end.hidden = !live;
-      launch.setAttribute('aria-label', live ? 'Voice assistant active. Tap to end.' : 'Tap to start field assistant');
     },
     onTranscript(row) {
-      if (!row?.text) return;
-      caption.hidden = false;
-      caption.textContent = (row.role === 'user' ? 'You: ' : '') + row.text.slice(-240);
-      disposeDragging.reposition?.();
+      if (!row?.text || hud.hidden) return;
+      clearGreetingTimers();
+      revealWordsUpTo(99);
+      setSentence(row.text, { tone: 'default' });
+      if (row.role === 'user') {
+        const matched = matchAssistantIntent(row.text);
+        if (matched) run(matched).catch(() => {});
+      }
     },
     onAudioLevel: levels => orb.setLevels(levels),
-    onError(error) {
+    onError() {
       if (disposed) return;
       voiceState = 'error';
-      voiceStatus();
-      if (error?.message && !/Sign in|configured|unavailable/i.test(error.message)) {
-        status.textContent = error.message;
-      }
+      if (!hud.hidden) startSpeechFallback();
     }
   });
 
@@ -298,45 +285,17 @@ export function mountMapAssistant(ctx = {}) {
       show(true, { startVoice: true });
     } else {
       voice.stop();
-      paused = false;
-      pause.textContent = 'Pause mic';
       show(false);
     }
-  };
-
-  root.querySelector('[data-close]').onclick = event => {
-    event.stopPropagation();
-    voice.stop();
-    paused = false;
-    pause.textContent = 'Pause mic';
-    show(false);
-  };
-
-  end.onclick = event => {
-    event.stopPropagation();
-    voice.stop();
-    paused = false;
-    pause.textContent = 'Pause mic';
-  };
-
-  pause.onclick = event => {
-    event.stopPropagation();
-    paused = !paused;
-    if (paused) voice.pause();
-    else voice.resume();
-    pause.textContent = paused ? 'Resume mic' : 'Pause mic';
   };
 
   for (const button of wordButtons) {
     button.onclick = event => {
       event.stopPropagation();
+      clearGreetingTimers();
       revealWordsUpTo(99);
       if (!ctx?.sb || !identity) {
-        resultNode.hidden = false;
-        resultNode.dataset.result = 'error';
-        resultNode.classList.add('isError');
-        resultNode.textContent = 'Sign in to run assistant actions.';
-        status.textContent = 'Sign in to access your field assistant.';
+        setSentence('Sign in to run assistant actions.', { tone: 'error' });
         return;
       }
       let args = {};
@@ -346,21 +305,12 @@ export function mountMapAssistant(ctx = {}) {
     };
   }
 
-  if (!ctx?.sb || !identity) {
-    status.textContent = 'Sign in to access your field assistant.';
-  }
-
   const completed = event => {
     if (disposed) return;
-    if (hud.hidden) {
-      show(true, { startVoice: false });
-      revealWordsUpTo(99);
-    }
-    resultNode.hidden = false;
-    resultNode.dataset.result = event.detail?.error ? 'error' : 'success';
-    resultNode.classList.toggle('isError', Boolean(event.detail?.error));
-    resultNode.textContent = commandResultText(event.detail);
-    disposeDragging.reposition?.();
+    if (hud.hidden) show(true, { startVoice: false });
+    clearGreetingTimers();
+    revealWordsUpTo(99);
+    setSentence(commandResultText(event.detail), { tone: event.detail?.error ? 'error' : 'result' });
   };
   document.addEventListener('tn-assistant-command-result', completed);
 
@@ -389,6 +339,7 @@ export function mountMapAssistant(ctx = {}) {
     if (disposed) return;
     disposed = true;
     clearGreetingTimers();
+    stopSpeechFallback();
     controller.abort();
     voice.stop();
     disposeDragging();

@@ -75,7 +75,7 @@ for (const toolCall of [{ name: 'build_route', args: { count: 12 } }, { name: 'c
   assert.equal((await handleVoiceAction(request(toolCall), options)).status, 403);
 }
 
-// 2. Playwright browser verification of revamped Orb HUD, Tap-to-Start, Staggered Action Words, and Expanded Capabilities
+// 2. Playwright browser verification of minimalist single-sentence Orb HUD, Tap-to-Start, 4 Contextual Action Words, and Expanded Capabilities
 assert.deepEqual(clampOrbPosition(-40, 9999, 390, 844, 82), { x: 8, y: 754 });
 
 const root = process.cwd();
@@ -119,7 +119,9 @@ try {
     await page.goto(`${base}/account.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#tnMapAssistant .mapAssistantLauncher canvas');
 
+    // No legacy popup card or extra control button row exists
     assert.equal(await page.locator('.mapAssistantPanel').count(), 0, 'legacy popup module must not exist');
+    assert.equal(await page.locator('#tnMapAssistant [data-pause], #tnMapAssistant [data-end], #tnMapAssistant [data-close]').count(), 0, 'no extra control button chrome');
     assert.equal(await page.locator('#tnMapAssistantHud').isVisible(), false, 'HUD starts hidden until tap-to-start');
     assert.equal(await page.locator('[data-tap-hint]').textContent(), 'Tap to start');
 
@@ -135,20 +137,25 @@ try {
     assert.ok(moved.x < box.x && moved.y < box.y, 'orb can be dragged across the screen');
     assert.equal(await page.locator('#tnMapAssistantHud').isVisible(), false, 'dragging must not open HUD');
 
-    // Tap-to-start opens the futuristic minimal HUD and staggered-reveals translucent action words
+    // Tap-to-start opens the minimalist HUD with Sentence 1 first and 0 action words revealed yet
     await page.click('#tnMapAssistant .mapAssistantLauncher');
     await page.waitForSelector('#tnMapAssistantHud', { state: 'visible' });
-    assert.match(await page.locator('[data-caption]').textContent(), /Hi, I'm your True North assistant/);
+    assert.equal(await page.locator('[data-whisper-text]').textContent(), "Hi, I'm your True North assistant.");
+    assert.equal(await page.locator('.mapAssistantWord[data-revealed="true"]').count(), 0, 'no action words on step 1');
+
+    // Sentence 2 reveals the first 2 contextual action words, then Sentence 3 reveals the next 2 (total 4 compact pills)
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent === 'I can build your route or find priority leads.');
+    assert.equal(await page.locator('.mapAssistantWord[data-revealed="true"]').count(), 2);
 
     await page.waitForFunction(() => {
       const words = [...document.querySelectorAll('#tnMapAssistant .mapAssistantWord')];
-      return words.length >= 10 && words.every(w => w.dataset.revealed === 'true' && w.classList.contains('isRevealed'));
+      return words.length === 4 && words.every(w => w.dataset.revealed === 'true' && w.classList.contains('isRevealed'));
     });
 
     const hudBox = await page.locator('#tnMapAssistantHud').boundingBox();
     assert.ok(hudBox.x >= 0 && hudBox.y >= 0 && hudBox.x + hudBox.width <= viewport.width && hudBox.y + hudBox.height <= viewport.height, 'HUD stays within viewport after drag');
 
-    // Verify translucent glassmorphism on action words
+    // Verify translucent glassmorphism on whisper pill and action words
     const wordStyle = await page.locator('.mapAssistantWord').first().evaluate(el => {
       const cs = getComputedStyle(el);
       return { backdrop: cs.backdropFilter || cs.webkitBackdropFilter };
@@ -159,7 +166,7 @@ try {
     await page.click('#tnMapAssistant .mapAssistantLauncher');
     assert.equal(await page.locator('#tnMapAssistantHud').isVisible(), false);
 
-    // Mount with authenticated map context and verify expanded capabilities via translucent action words
+    // Mount with authenticated map context and verify expanded capabilities via translucent action words & spoken intents
     await page.evaluate(async () => {
       const { mountMapAssistant } = await import('/tn-files/map-assistant.js');
       window.__calls = [];
@@ -182,33 +189,35 @@ try {
     await page.click('#tnMapAssistant .mapAssistantLauncher');
     await page.waitForSelector('#tnMapAssistantHud', { state: 'visible' });
 
+    await page.waitForSelector('[data-command="build_route"].isRevealed');
     await page.click('[data-command="build_route"]');
-    await page.waitForFunction(() => document.querySelector('[data-result]')?.textContent.includes('6 houses'));
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('Built a 6-stop route'));
 
     await page.click('[data-command="find_priority_leads"]');
-    await page.waitForFunction(() => document.querySelector('[data-result]')?.textContent.includes('12 priority leads selected'));
-
-    await page.click('[data-action-word="filter_untouched"]');
-    await page.waitForFunction(() => document.querySelector('[data-result]')?.textContent.includes('Showing 19 new houses'));
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('Selected 12 priority leads'));
 
     await page.click('[data-action-word="log_answered"]');
-    await page.waitForFunction(() => document.querySelector('[data-result]')?.textContent.includes('Logged Answered · 412 Oak St'));
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('Logged Answered at 412 Oak St'));
 
-    await page.click('[data-command="summarize_status"]');
-    await page.waitForFunction(() => document.querySelector('[data-result]')?.textContent.includes('42 houses (28 untouched'));
+    // Voice/spoken commands execute all other expanded capabilities while keeping the single-sentence HUD
+    await page.evaluate(() => window.__assistant.runSpokenText('Show untouched homes'));
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('Showing 19 new houses'));
 
-    await page.click('[data-command="recent_ohio_storms"]');
-    await page.waitForFunction(() => document.querySelector('[data-result]')?.textContent.includes('4 recent Ohio storm reports'));
+    await page.evaluate(() => window.__assistant.runSpokenText('My stats summary'));
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('42 houses (28 untouched'));
 
-    await page.click('[data-command="clear_route"]');
-    await page.waitForFunction(() => document.querySelector('[data-result]')?.textContent.includes('Route cleared'));
+    await page.evaluate(() => window.__assistant.runSpokenText('Check recent Ohio storms'));
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('4 recent Ohio storm reports'));
+
+    await page.evaluate(() => window.__assistant.runSpokenText('Clear route'));
+    await page.waitForFunction(() => document.querySelector('[data-whisper-text]')?.textContent.includes('Route cleared'));
 
     const calls = await page.evaluate(() => window.__calls.map(c => c.name));
-    assert.deepEqual(calls, ['build_route', 'find_priority_leads', 'filter_leads', 'log_door_status', 'summarize_status', 'clear_route']);
+    assert.deepEqual(calls, ['build_route', 'find_priority_leads', 'log_door_status', 'filter_leads', 'summarize_status', 'clear_route']);
     await page.close();
   }
 } finally {
   await browser.close();
   server.close();
 }
-console.log('Map assistant: cluster membership, timed route budget, command validation, Ohio filtering, tap-to-start HUD, translucent action words, and expanded capabilities passed');
+console.log('Map assistant: minimalist single-sentence HUD, 4 contextual action words, tap-to-start, and expanded capabilities passed');
