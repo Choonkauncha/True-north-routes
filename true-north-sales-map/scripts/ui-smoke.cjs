@@ -749,17 +749,44 @@ const server = http.createServer(async (req, res) => {
     await page.waitForFunction(()=>window.__tnRoute?.pinPoint('TEST-0'));
     if(await page.locator('#postSignInContinue').isVisible())await page.locator('#postSignInContinue').click();
     await page.locator('#mapLoader').waitFor({state:'hidden'});
-    await page.waitForFunction(()=>!document.querySelector('#tnMapAssistant [data-start]')?.disabled);
+    await page.waitForSelector('#tnMapAssistant .mapAssistantLauncher');
+    assert.equal(await page.locator('.mapAssistantPanel').count(),0,'no legacy popup module');
+    const shotsDir=process.env.ORB_SHOTS_DIR;
+    if(shotsDir){
+      fs.mkdirSync(shotsDir,{recursive:true});
+      await page.setViewportSize({width:1440,height:900});await page.waitForTimeout(250);
+      await page.screenshot({path:path.join(shotsDir,'orb-idle-desktop.png')});
+      await page.setViewportSize({width:390,height:844});await page.waitForTimeout(250);
+      await page.screenshot({path:path.join(shotsDir,'orb-idle-mobile.png')});
+      await page.setViewportSize({width:1440,height:900});await page.waitForTimeout(200);
+    }
+    if(shotsDir){await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);}
     await page.locator('#tnMapAssistant .mapAssistantLauncher').click();
+    await page.locator('#tnMapAssistantHud').waitFor({state:'visible'});
+    if(shotsDir){
+      await page.waitForTimeout(360);
+      await page.screenshot({path:path.join(shotsDir,'orb-v3-step1-mobile.png')});
+    }
+    await page.waitForFunction(()=>window.testLive?.sent?.some(s=>s.setup));
+    await page.waitForFunction(()=>document.querySelector('[data-whisper-text]')?.dataset.step==='2');
+    if(shotsDir){
+      await page.waitForTimeout(360);
+      await page.screenshot({path:path.join(shotsDir,'orb-v3-step2-mobile.png')});
+      await page.setViewportSize({width:1440,height:900});await page.waitForTimeout(200);
+      await page.screenshot({path:path.join(shotsDir,'orb-v3-desktop.png')});
+    }
     await page.locator('#tnMapAssistant [data-command="build_route"]').click();
     await page.waitForFunction(()=>window.__tnRoute.stops().length>0);
-    await page.locator('#tnMapAssistant [data-result]').filter({hasText:'route built'}).waitFor();
+    await page.locator('#tnMapAssistant [data-result]').filter({hasText:'Built a 20-stop route'}).waitFor();
+    if(shotsDir){
+      await page.setViewportSize({width:390,height:844});await page.waitForTimeout(380);
+      await page.screenshot({path:path.join(shotsDir,'orb-v3-action-mobile.png')});
+      await page.setViewportSize({width:1440,height:900});await page.waitForTimeout(200);
+    }
     const built=await page.evaluate(()=>window.__tnRoute.stops().length);assert.equal(built,20);
-    await page.locator('#tnMapAssistant [data-command="clear_route"]').click();
+    await page.evaluate(()=>testLive.receive({toolCall:{functionCalls:[{id:'voice-clear-0',name:'clear_route',args:{}}]}}));
     await page.waitForFunction(()=>window.__tnRoute.stops().length===0&&window.__tnRoute.selected().length===0);
     await page.locator('#tnMapAssistant [data-result]').filter({hasText:'Route cleared'}).waitFor();
-    await page.locator('#tnMapAssistant [data-start]').click();
-    await page.waitForFunction(()=>document.querySelector('#tnMapAssistant [data-status]').textContent.includes('Listening'));
     assert.ok(await page.evaluate(()=>testLive.sent.find(s=>s.setup).setup.tools[0].functionDeclarations.some(t=>t.name==='clear_route')));
     await page.evaluate(()=>testLive.receive({toolCall:{functionCalls:[{id:'voice-build-1',name:'build_route',args:{count:8}}]}}));
     await page.waitForFunction(()=>testLive.sent.some(s=>s.toolResponse?.functionResponses?.some(r=>r.id==='voice-build-1'&&r.response.executed===true)));
@@ -772,11 +799,11 @@ const server = http.createServer(async (req, res) => {
     await page.evaluate(()=>testLive.receive({toolCall:{functionCalls:[{id:'voice-clear-1',name:'clear_route',args:{}}]}}));
     await page.waitForFunction(()=>testLive.sent.some(s=>s.toolResponse?.functionResponses?.some(r=>r.id==='voice-clear-1'&&r.response.status==='cleared')));
     assert.equal(await page.evaluate(()=>window.__tnRoute.stops().length),0);
-    await page.locator('#tnMapAssistant [data-end]').click();
     await page.screenshot({path:path.join(artifacts,'assistant-mesh-desktop.png'),timeout:45000});
     await page.setViewportSize({width:390,height:844});
     await page.waitForTimeout(300);await page.screenshot({path:path.join(artifacts,'assistant-mesh-mobile.png')});
-    assert.ok(await page.evaluate(()=>{const r=document.querySelector('.mapAssistantPanel').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight;}),'assistant panel fits mobile');
+    assert.ok(await page.evaluate(()=>{const r=document.querySelector('#tnMapAssistantHud').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight;}),'assistant HUD fits mobile');
+    await page.locator('#tnMapAssistant .mapAssistantLauncher').click();
     // Software renderer must remain a real projected mesh when WebGL is unavailable.
     const fallback=await context.newPage();fallback.setDefaultTimeout(20000);
     fallback.on('pageerror',error=>{errors.push(error.message);console.log('FALLBACK ERROR',error.message);});
@@ -786,7 +813,7 @@ const server = http.createServer(async (req, res) => {
     await fallback.bringToFront();
     await fallback.waitForFunction(()=>document.querySelector('#tnMapAssistant [data-orb-renderer="software-3d"]'));
     await fallback.waitForFunction(()=>{const canvas=document.querySelector('#tnMapAssistant canvas');if(!canvas)return false;const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let count=0;for(let i=3;i<data.length;i+=4)if(data[i])count++;return count>200;}).catch(async error=>{console.log('Fallback state',await fallback.evaluate(()=>{const c=document.querySelector('#tnMapAssistant canvas');return {hidden:document.hidden,renderer:c?.parentElement.dataset.orbRenderer,rect:c?.getBoundingClientRect().toJSON(),size:c?[c.width,c.height]:null};}));throw error;});
-    const meshPixels=await fallback.evaluate(()=>{const canvas=document.querySelector('#tnMapAssistant canvas');const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let pixels=0;for(let i=3;i<data.length;i+=4)if(data[i]>0)pixels++;return pixels;});
+    const meshPixels=await fallback.waitForFunction(()=>{const canvas=document.querySelector('#tnMapAssistant canvas');if(!canvas)return false;const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let pixels=0;for(let i=3;i<data.length;i+=4)if(data[i]>0)pixels++;return pixels>200?pixels:false;}).then(h=>h.jsonValue());
     assert.ok(meshPixels>200,'software fallback actually draws mesh pixels');
     const levels=await fallback.evaluate(async()=>{
       const {mountCoachOrb}=await import('/tn-files/coach-orb.js');const stage=document.createElement('div');stage.className='tnCoachOrbStage';stage.style.cssText='width:120px;height:120px;position:fixed;top:20px;left:20px';const canvas=document.createElement('canvas');canvas.style.cssText='width:120px;height:120px';stage.append(canvas);document.body.append(stage);const orb=mountCoachOrb(canvas);orb.setState('listening');orb.setLevels({input:.9,output:0});await new Promise(r=>setTimeout(r,70));const loud=Number(stage.style.getPropertyValue('--orb-energy'));orb.setLevels({input:0,output:0});await new Promise(r=>setTimeout(r,400));const quiet=Number(stage.style.getPropertyValue('--orb-energy'));orb.dispose();stage.remove();return {loud,quiet};

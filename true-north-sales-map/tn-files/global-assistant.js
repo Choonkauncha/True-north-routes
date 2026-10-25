@@ -49,6 +49,20 @@ async function attach(session){
    if(mapContext?.rep?.user_id===currentUser)return mapContext.executeMapAction(name,args);
    const session=await client.auth.getSession();if(session.data?.session?.user?.id!==rep.user_id)throw Error('Account changed.');
    const call=validateMapTool({name,args});
+   if(call.name==='navigate_app'){
+    const routes={map:'/',setter:'/setter.html',forms:'/forms.html',admin:'/admin.html',training:'/training.html',shifts:'/shifts.html',account:'/account.html'};
+    const href=routes[call.args.target]||'/';
+    setTimeout(()=>location.assign(href),200);
+    return {status:'navigating_app',executed:true,target:call.args.target,href};
+   }
+   if(call.name==='book_inspection'&&!call.args.lead){
+    setTimeout(()=>location.assign('/setter.html'),200);
+    return {status:'opening_inspection',executed:true,href:'/setter.html',address:null};
+   }
+   if(call.name==='open_lead_form'&&!call.args.lead){
+    setTimeout(()=>location.assign('/forms.html'),200);
+    return {status:'opening_form',executed:true,href:'/forms.html',address:null};
+   }
    // Never report the queued action as already executed. Reauthorize after the map loads.
    sessionStorage.setItem(PENDING,JSON.stringify({userId:rep.user_id,at:Date.now(),call}));
    setTimeout(()=>location.assign('/'),1200);
