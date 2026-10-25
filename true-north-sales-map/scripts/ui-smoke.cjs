@@ -245,7 +245,7 @@ const server = http.createServer(async (req, res) => {
     return send(res, { date, people: [{
       rep: currentRep(),
       shifts: [{ id: 'SHIFT-1', clock_in_at: `${date}T13:00:00Z`, clock_out_at: `${date}T17:00:00Z`, open: false }],
-      points: [{ latitude: 40.393, longitude: -82.486, captured_at: `${date}T14:00:00Z` }],
+      points: [{ lat: 40.393, lng: -82.486, captured_at: `${date}T14:00:00Z` }],
       miles: 1.25, totalHours: 4, longGap: false,
       consent: { consented_at: isoHours(-24) }
     }] });
@@ -602,8 +602,23 @@ const server = http.createServer(async (req, res) => {
     const tabs=['overview','team','appointments','homeowners','activity','territories','files','training','accounts','features','coach-settings','scheduling'];
     for (const width of [1440,1024,768,390,320]) {
       await page.setViewportSize({width,height:950});
-      for (const tab of tabs) await goSection(tab);
-      console.log('Management sections passed at '+width+'px.');
+      for (const tab of tabs) {
+        await goSection(tab);
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),tab+' fits '+width+'px');
+        for (const input of await page.locator('#tab-'+tab+' .filter :is(input,select)').all()) {
+          assert.ok(await input.evaluate(el=>[...el.labels].some(label=>label.getBoundingClientRect().height>0)),'Visible filter label in '+tab);
+        }
+        await page.waitForFunction(id=>[...document.querySelectorAll('#tab-'+id+' [data-management-cards] tbody td')].every(cell=>cell.colSpan>1||cell.dataset.label),tab);
+        for (const table of await page.locator('#tab-'+tab+' [data-management-cards]').all()) {
+          assert.ok(await table.evaluate(el=>[...el.tBodies[0].rows].every(row=>[...row.cells].every(cell=>cell.colSpan>1||cell.dataset.label))),'Every record value keeps its column label');
+          if(width<=700) assert.equal(await table.evaluate(el=>getComputedStyle(el.tBodies[0]).display),'grid','Mobile records stack without losing columns');
+        }
+        if([320,390].includes(width)) {
+          assert.ok(await page.locator('.managementBrandName').evaluate(el=>{const r=el.getBoundingClientRect(),next=document.querySelector('#managementSectionsToggle').getBoundingClientRect();return el.scrollWidth<=el.clientWidth+1&&r.right<=next.left;}),'Entire company name fits beside Sections');
+        }
+        if([1440,390].includes(width)&&['appointments','training','features','coach-settings','accounts','files'].includes(tab)) await screenshotFromTop('management-'+tab+'-'+width+'.png');
+      }
+      console.log('Management sections, labeled records and filters passed at '+width+'px.');
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Management fits '+width);
       await openManagement();
       await page.locator('#managementSectionSearch').fill('book inspection');
@@ -632,6 +647,39 @@ const server = http.createServer(async (req, res) => {
       }
     }
     await page.setViewportSize({width:1440,height:1000});
+    async function contrast(selector) {
+      return page.locator(selector).first().evaluate(el=>{
+        const rgb=value=>(value.match(/[\d.]+/g)||[]).slice(0,3).map(Number);
+        const lum=c=>c.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);
+        let bg='';for(let node=el;node;node=node.parentElement){const c=getComputedStyle(node).backgroundColor;if(c!=='rgba(0, 0, 0, 0)'&&c!=='transparent'){bg=c;break;}}
+        const a=lum(rgb(getComputedStyle(el).color)),b=lum(rgb(bg||'rgb(8,23,40)'));return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+      });
+    }
+    await goSection('training');await page.locator('#tnTrainAdd').waitFor();
+    assert.ok(await contrast('.tnTrainHead h1')>=4.5,'Training heading contrast');
+    assert.ok(await contrast('.tnTrainFilters button[aria-pressed=true]')>=4.5,'Selected training tab contrast');
+    assert.ok(await contrast('.tnTrainPerson small')>=4.5,'Training metadata contrast');
+    await page.locator('#tnTrainAdd').click();await page.locator('#tnTrainForm').waitFor();
+    assert.ok(await contrast('label[for=tnTitle]')>=4.5,'Training editor label contrast');
+    await page.locator('#tnTrainCancel').click();
+    await goSection('files');
+    for(const width of [1440,390,320]) {
+      await page.setViewportSize({width,height:950});
+      for(const view of ['library','builder']) {
+        await page.locator('#tnFilesRoot .tnSeg [data-view='+view+']').click();
+        await page.locator(view==='library'?'#receiptsSection':'#newForm').waitFor();
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Document '+view+' fits '+width+'px');
+        if(width!==320)await screenshotFromTop('management-documents-'+view+'-'+width+'.png');
+      }
+    }
+    await page.setViewportSize({width:1440,height:1000});
+    await goSection('coach-settings');await page.locator('#coachSystemPrompt').waitFor();
+    assert.ok(await contrast('#coachSystemPrompt')>=4.5,'Coach prompt contrast');
+    await goSection('accounts');await page.locator('.accountSettings summary').waitFor();
+    assert.ok(await contrast('.accountSettings summary')>=4.5,'Account settings contrast');
+    await goSection('appointments');await page.locator('#apptSearch').focus();
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'apptSearch','Filter is keyboard reachable');
+    console.log('Training editor, settings contrast and keyboard focus passed.');
     await goSection('team');await goSection('appointments');
     await page.goBack();await page.locator('#tab-team').waitFor({state:'visible'});
     await page.goForward();await page.locator('#tab-appointments').waitFor({state:'visible'});
@@ -655,6 +703,19 @@ const server = http.createServer(async (req, res) => {
       assert.equal(await page.locator(input).first().isDisabled(),false);
     }
     await goSection('scheduling');await screenshotFromTop('management-groupme-desktop.png');
+    await page.goto(origin+'/shifts.html');await page.locator('.tnPersonBtn').first().waitFor();
+    for(const width of [1440,768,390,320]) {
+      await page.setViewportSize({width,height:950});
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Shifts fits '+width+'px');
+      if(width===1440||width===390) await screenshotFromTop('management-shifts-'+width+'.png');
+    }
+    const dayToggle=page.locator('.tnFoldHead[aria-controls="tn-fold-shift-day"]');
+    if(await dayToggle.getAttribute('aria-expanded')==='false')await dayToggle.click();
+    await page.locator('.tnPersonBtn').first().click();
+    assert.ok(await contrast('#tnShiftSelectedName')>=4.5,'Selected shift name contrast');
+    assert.ok((await page.locator('.tnMilesBig').innerText()).includes('1.3'),'Shift person details remain available');
+    await page.locator('#tnShiftBack').click();
+    console.log('Shifts responsive layout, selection and readable detail passed.');
     for(const nextRole of ['manager','appointment_setter','salesperson']) {
       role=nextRole;
       await page.goto(origin+'/admin.html?fixtureRole='+nextRole+'#accounts');

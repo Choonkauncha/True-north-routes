@@ -56,6 +56,20 @@ try {
   await page.getByRole('button', { name: /Preview Admin/ }).click();
   await page.waitForFunction(() => document.querySelectorAll('.gpsVisit').length === 12);
   assert.equal(gpsRequests.at(-1).searchParams.get('repId'), ADMIN);
+  for (const width of [1400,768,390,320]) {
+    await page.setViewportSize({width,height:950});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'GPS fits '+width+'px');
+    for(const selector of ['.gpsHeading h1','.gpsDetailHead h2','.gpsVisitsHead h3']) {
+      const ratio=await page.locator(selector).evaluate(el=>{
+        const lum=c=>(c.match(/[\d.]+/g)||[]).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+        let bg='';for(let n=el;n;n=n.parentElement){const c=getComputedStyle(n).backgroundColor;if(c!=='rgba(0, 0, 0, 0)'&&c!=='transparent'){bg=c;break;}}
+        const a=lum(getComputedStyle(el).color),b=lum(bg);return(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+      });
+      assert.ok(ratio>=4.5,selector+' has readable contrast at '+width+'px');
+    }
+  }
+  await page.setViewportSize({width:1400,height:1000});
+
   assert.match(await page.locator('.gpsVisit[data-source="gps"]').innerText(), /2m 0s/);
   assert.equal(await page.locator('.gpsVisit img').count(), 0, 'addresses are escaped');
   assert.match(await page.locator('#gpsDetail').innerText(), /1 GPS gap/);
