@@ -880,6 +880,16 @@ const server = http.createServer(async (req, res) => {
       await page.setViewportSize({width,height});
       await page.waitForTimeout(180);
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1), 'Map fits '+width);
+      const logo = page.locator('.topbar .logoMark');
+      assert.equal(await logo.getAttribute('src'),'/brand/logo-full.webp','Map uses the complete logo asset');
+      await page.waitForFunction(()=>{const img=document.querySelector('.topbar .logoMark');return img?.complete && img.naturalWidth>0;});
+      assert.equal(await logo.evaluate(img=>getComputedStyle(img).objectFit),'contain','Full logo keeps its aspect ratio');
+      assert.ok(await page.locator('.topbar .brandName span').isVisible(),'Restorations is visible at '+width);
+      const brandBox=await page.locator('.topbar .brand').boundingBox(), logoBox=await logo.boundingBox(), nameBox=await page.locator('.topbar .brandWords').boundingBox(), menuBox=await page.locator('#tnMore').boundingBox();
+      assert.ok(logoBox && brandBox && logoBox.x>=brandBox.x && logoBox.x+logoBox.width<=brandBox.x+brandBox.width+1,'Logo fits brand area at '+width);
+      assert.ok(nameBox && menuBox && nameBox.x+nameBox.width<=menuBox.x,'Company name stays clear of Menu at '+width);
+      if(width===390 || width===320) await page.screenshot({path:path.join(artifacts,'map-full-logo-'+width+'.png'),animations:'disabled'});
+
       await page.locator('#tnMore').click();
       const box = await page.locator('#tnMoreMenu').boundingBox();
       assert.ok(box && box.x>=0 && box.y>=0 && box.x+box.width<=width+1 && box.y+box.height<=height+1,'Work menu fits '+width);

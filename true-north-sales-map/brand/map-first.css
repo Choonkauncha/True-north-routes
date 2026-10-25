@@ -5,10 +5,10 @@ body.tn-map-workspace .workspaceNav,body.tn-map-workspace .brandRibbon,body.tn-m
 body.tn-map-workspace .topbar{height:64px;min-height:64px;padding:0 20px;background:#10263f;border:0;box-shadow:0 2px 12px #07182c20;gap:12px;overflow:visible;color:#fff;z-index:2000}
 body.tn-map-workspace .topbar .brand{flex:1;min-width:0}
 body.tn-map-workspace .logoFull{display:none!important}
-body.tn-map-workspace .logoMark{display:block;width:38px;height:38px;object-fit:contain}
+body.tn-map-workspace .logoMark{display:block;flex:none;width:64px;height:48px;object-fit:contain;object-position:center}
 body.tn-map-workspace .brandWords{display:block!important}
 body.tn-map-workspace .brandName{font-size:13px;color:#fff;letter-spacing:1.2px}
-body.tn-map-workspace .brandName span{color:#c0d4eb}
+body.tn-map-workspace .brandName span{display:block;color:#c0d4eb;font-size:.82em;line-height:1.5}
 body.tn-map-workspace .brandSub{display:none!important}
 body.tn-map-workspace .topRight{gap:8px;flex:none;align-items:center}
 body.tn-map-workspace #connection{background:#ffffff12;color:#c5d8ee;border-color:#ffffff20;font-size:10px;max-width:120px;overflow:hidden}
@@ -92,8 +92,8 @@ html.isNavigating body.tn-map-workspace #navBar{display:flex!important;position:
 @media(max-width:960px){
  body.tn-map-workspace .topbar{height:56px;min-height:56px;padding:0 12px;gap:6px}
  body.tn-map-workspace .brandName{font-size:11px;letter-spacing:.7px}
- body.tn-map-workspace .brandName span{display:none}
- body.tn-map-workspace .logoMark{width:30px;height:30px}
+ body.tn-map-workspace .brandName span{display:block}
+ body.tn-map-workspace .logoMark{width:56px;height:44px}
  body.tn-map-workspace #routeBtn{display:none!important}
  body.tn-map-workspace .mapShell{grid-template-columns:1fr!important}
  body.tn-map-workspace .mapTopOverlay{top:12px;left:12px;right:12px;grid-template-columns:minmax(0,1fr) auto!important;gap:8px}
@@ -125,7 +125,7 @@ html.isNavigating body.tn-map-workspace #navBar{display:flex!important;position:
  html.isNavigating body.tn-map-workspace .mobileBar{display:none!important}
  body.tn-map-workspace .toast{bottom:calc(148px + env(safe-area-inset-bottom));z-index:2600;transition:none}
 }
-@media(max-width:360px){body.tn-map-workspace .brandName{display:none}body.tn-map-workspace .topbar{padding:0 8px}body.tn-map-workspace .topRight{gap:6px}}
+@media(max-width:360px){body.tn-map-workspace .brandName{font-size:10px;letter-spacing:.3px}body.tn-map-workspace .logoMark{width:48px;height:40px}body.tn-map-workspace .topbar{padding:0 8px}body.tn-map-workspace .topRight{gap:6px}}
 body.tn-map-workspace #tnMoreMenu:not([hidden]){position:fixed!important;top:72px!important;right:12px!important;left:auto!important;bottom:auto!important;max-height:calc(100dvh - 96px)!important;overflow:auto!important;z-index:12000}
 body.tn-map-workspace .fieldAddStops{width:100%;border:1px solid #d9e2ec;border-radius:10px;box-sizing:border-box;background:#f6f9fd}
 body.tn-map-workspace .fieldAddStops>summary{display:flex;align-items:center;justify-content:space-between;list-style:none;padding:12px;min-height:44px;box-sizing:border-box;font-size:14px;color:#263f59;font-weight:700;cursor:pointer}
